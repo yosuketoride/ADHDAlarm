@@ -39,7 +39,6 @@ struct AddEventIntent: AppIntent {
         Summary("\(\.$dateText)に\(\.$eventTitle)をセット")
     }
 
-    @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         // PRO確認: App Group経由で読む（SiriはApp本体と別プロセスのためstandard不可）
         let defaults = UserDefaults(suiteName: Constants.appGroupID) ?? UserDefaults.standard
@@ -88,10 +87,6 @@ struct AddEventIntent: AppIntent {
             calendarIdentifier: selectedCalendarID,
             voiceCharacter: voiceCharacter
         )
-
-        // 確認ステップ: Siriが「〇〇でよろしいですか？」と聞いて確認してから登録する
-        let confirmText = "「\(confirmedDateText)」に「\(resolvedTitle)」のアラームを登録します。よろしいですか？"
-        try await requestConfirmation(result: .result(dialog: IntentDialog(stringLiteral: confirmText)))
 
         // Write-Through
         let voiceGenerator   = VoiceFileGenerator()
