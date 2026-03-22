@@ -13,7 +13,7 @@ struct AddEventIntent: AppIntent {
     static var title: LocalizedStringResource = "予定を追加する"
     static var description = IntentDescription(
         "「Hey Siri、声メモにお願い」と話しかけるだけで予定を登録します。（PRO機能）",
-        categoryName: "声メモアラーム"
+        categoryName: "こえメモ"
     )
 
     /// バックグラウンドで動作（アプリを前面に出さない）

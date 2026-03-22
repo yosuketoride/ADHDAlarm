@@ -31,7 +31,7 @@ struct PermissionsCTAView: View {
                         .font(.title3)
                         .foregroundStyle(.blue)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("「Hey Siri、声メモアラームにお願い」")
+                        Text("「Hey Siri、こえメモにお願い」")
                             .font(.callout.weight(.semibold))
                         Text("このフレーズでSiriが予定の登録を手伝います")
                             .font(.caption)

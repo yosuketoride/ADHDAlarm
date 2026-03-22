@@ -102,7 +102,7 @@ struct RingingView: View {
                let alarm = viewModel.activeAlarm {
                 MessageComposeView(
                     recipients: [phone],
-                    body: "【声メモアラーム】\(alarm.title)のアラームに5分間応答がありません。ご確認をお願いします。",
+                    body: "【こえメモ】\(alarm.title)のアラームに5分間応答がありません。ご確認をお願いします。",
                     onDismiss: { _ in
                         showSOSMessage = false
                         viewModel.shouldSendSOS = false

@@ -11,6 +11,7 @@ struct VoiceInputTab: View {
     @State private var viewModel: InputViewModel?
     @State private var showTextFallback = false
     @State private var showPaywall = false
+    @State private var owlBounce = false
 
     private var hasSpeechPermission: Bool {
         SFSpeechRecognizer.authorizationStatus() == .authorized &&
@@ -28,6 +29,9 @@ struct VoiceInputTab: View {
         .onAppear {
             if viewModel == nil {
                 viewModel = InputViewModel(appState: appState)
+            }
+            withAnimation(.spring(duration: 0.6, bounce: 0.4).delay(0.3)) {
+                owlBounce = true
             }
         }
         .sheet(isPresented: $showPaywall) {
@@ -157,14 +161,46 @@ struct VoiceInputTab: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             } else {
-                VStack(spacing: 12) {
-                    Text("ボタンを押しながら話してください")
-                        .font(.title3.weight(.medium))
-                        .foregroundStyle(.primary)
-                    Text("「明日の15時にカフェ」\n「30分後に薬を飲む」")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                // フクロウ + 吹き出し（初期状態）
+                VStack(spacing: 16) {
+                    ZStack(alignment: .topTrailing) {
+                        Text("🦉")
+                            .font(.system(size: 100))
+                            .scaleEffect(owlBounce ? 1.0 : 0.7)
+                            .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("なんでも")
+                            Text("話しかけてね！")
+                        }
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.blue))
+                        .overlay(alignment: .bottomLeading) {
+                            Image(systemName: "arrowtriangle.down.left.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.blue)
+                                .offset(x: 10, y: 8)
+                        }
+                        .offset(x: 70, y: -16)
+                        .opacity(owlBounce ? 1 : 0)
+                    }
+                    .frame(height: 120)
+                    .padding(.trailing, 80)
+
+                    VStack(spacing: 8) {
+                        Text("ボタンを押して話しかけてね")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.primary)
+                        Text("「明日の15時にカフェ」\n「10分後に薬を飲む」")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                    }
+                    .opacity(owlBounce ? 1 : 0)
                 }
             }
         }

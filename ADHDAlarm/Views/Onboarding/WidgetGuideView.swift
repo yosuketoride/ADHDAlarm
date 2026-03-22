@@ -145,20 +145,20 @@ struct WidgetInstallAnimationView: View {
     private var selectAppContent: some View {
         VStack(spacing: 4) {
             // アプリリスト風
-            ForEach(["声メモアラーム", "他のアプリ", "他のアプリ"], id: \.self) { name in
+            ForEach(["こえメモ", "他のアプリ", "他のアプリ"], id: \.self) { name in
                 HStack(spacing: 6) {
                     RoundedRectangle(cornerRadius: 5)
-                        .fill(name == "声メモアラーム" ? Color.blue : Color.gray.opacity(0.3))
+                        .fill(name == "こえメモ" ? Color.blue : Color.gray.opacity(0.3))
                         .frame(width: 20, height: 20)
                     Text(name)
                         .font(.system(size: 9))
-                        .foregroundStyle(name == "声メモアラーム" ? .primary : .secondary)
+                        .foregroundStyle(name == "こえメモ" ? .primary : .secondary)
                         .lineLimit(1)
                     Spacer()
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
-                .background(name == "声メモアラーム" ? Color.blue.opacity(0.1) : Color.clear)
+                .background(name == "こえメモ" ? Color.blue.opacity(0.1) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
             }
         }
@@ -196,7 +196,7 @@ extension WidgetInstallPhase {
         switch self {
         case .longPress:  return "ホーム画面を長押し"
         case .plusButton: return "左上の「＋」をタップ"
-        case .selectApp:  return "「声メモアラーム」を選ぶ"
+        case .selectApp:  return "「こえメモ」を選ぶ"
         case .addWidget:  return "サイズを選んで追加！"
         }
     }

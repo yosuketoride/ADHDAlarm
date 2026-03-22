@@ -102,7 +102,7 @@ enum AutomationStep: String, CaseIterable, Identifiable {
         case .chooseTrigger:
             return "「毎日」を選び、時刻を「午前1:00」に設定するのがおすすめです。"
         case .addAction:
-            return "「アクションを追加」→「アプリ」→「声メモアラーム」→「カレンダーとアラームを同期する」を選んでください。"
+            return "「アクションを追加」→「アプリ」→「こえメモ」→「カレンダーとアラームを同期する」を選んでください。"
         case .done:
             return "これで、寝ている間に自動でお掃除してくれます！設定は最初の1回だけです。"
         }
