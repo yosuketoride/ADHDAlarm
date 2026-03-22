@@ -1,0 +1,63 @@
+import Foundation
+import StoreKit
+import Observation
+
+/// ペイウォール画面の状態管理
+@Observable
+final class PaywallViewModel {
+
+    var successMessage: String?
+    var errorMessage: String?
+
+    private let storeKit: StoreKitService
+    private let appState: AppState
+
+    init(storeKit: StoreKitService, appState: AppState) {
+        self.storeKit = storeKit
+        self.appState = appState
+    }
+
+    var products: [Product] { storeKit.products }
+    var isPurchasing: Bool   { storeKit.isPurchasing }
+
+    // MARK: - 商品ロード
+
+    /// 未ロードの場合のみ商品一覧を取得する
+    func loadIfNeeded() async {
+        guard products.isEmpty else { return }
+        await storeKit.loadProducts()
+    }
+
+    // MARK: - 購入
+
+    func purchase(_ product: Product) async {
+        errorMessage = nil
+        do {
+            let success = try await storeKit.purchase(product)
+            if success {
+                appState.subscriptionTier = .pro
+                successMessage = "PROプランへのアップグレードが完了しました！"
+            }
+        } catch {
+            errorMessage = "購入に失敗しました。しばらくしてからお試しください。"
+        }
+    }
+
+    // MARK: - 購入復元
+
+    func restorePurchases() async {
+        errorMessage = nil
+        do {
+            try await storeKit.restorePurchases()
+            let isPro = await storeKit.checkEntitlement()
+            if isPro {
+                appState.subscriptionTier = .pro
+                successMessage = "購入を復元しました！"
+            } else {
+                errorMessage = "復元できる購入履歴が見つかりませんでした。"
+            }
+        } catch {
+            errorMessage = "購入の復元に失敗しました。"
+        }
+    }
+}

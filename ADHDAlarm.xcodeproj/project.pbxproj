@@ -6,14 +6,89 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		33F5C7E62F694C7100720FF0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33F5C7E52F694C7100720FF0 /* WidgetKit.framework */; };
+		33F5C7E82F694C7100720FF0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33F5C7E72F694C7100720FF0 /* SwiftUI.framework */; };
+		33F5C7F72F694C7200720FF0 /* ADHDAlarmWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 33F5C7E32F694C7100720FF0 /* ADHDAlarmWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		33F5C7F52F694C7200720FF0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 33D3B9CE2F68210000B5A49F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 33F5C7E22F694C7100720FF0;
+			remoteInfo = ADHDAlarmWidgetExtension;
+		};
+		AABB01072F68210000B5A49F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 33D3B9CE2F68210000B5A49F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 33D3B9D52F68210000B5A49F;
+			remoteInfo = ADHDAlarm;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		33F5C7FC2F694C7200720FF0 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				33F5C7F72F694C7200720FF0 /* ADHDAlarmWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		33D3B9D62F68210000B5A49F /* ADHDAlarm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ADHDAlarm.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		33F5C7E32F694C7100720FF0 /* ADHDAlarmWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ADHDAlarmWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		33F5C7E52F694C7100720FF0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		33F5C7E72F694C7100720FF0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		33F5C8032F694E7F00720FF0 /* ADHDAlarmWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ADHDAlarmWidgetExtension.entitlements; sourceTree = "<group>"; };
+		AABB01012F68210000B5A49F /* ADHDAlarmTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ADHDAlarmTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		33F5C7762F68C76900720FF0 /* Exceptions for "ADHDAlarm" folder in "ADHDAlarm" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 33D3B9D52F68210000B5A49F /* ADHDAlarm */;
+		};
+		33F5C7FB2F694C7200720FF0 /* Exceptions for "ADHDAlarmWidget" folder in "ADHDAlarmWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 33F5C7E22F694C7100720FF0 /* ADHDAlarmWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		33D3B9D82F68210000B5A49F /* ADHDAlarm */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				33F5C7762F68C76900720FF0 /* Exceptions for "ADHDAlarm" folder in "ADHDAlarm" target */,
+			);
 			path = ADHDAlarm;
+			sourceTree = "<group>";
+		};
+		33F5C7E92F694C7100720FF0 /* ADHDAlarmWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				33F5C7FB2F694C7200720FF0 /* Exceptions for "ADHDAlarmWidget" folder in "ADHDAlarmWidgetExtension" target */,
+			);
+			path = ADHDAlarmWidget;
+			sourceTree = "<group>";
+		};
+		AABB01022F68210000B5A49F /* ADHDAlarmTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ADHDAlarmTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -26,13 +101,33 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		33F5C7E02F694C7100720FF0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				33F5C7E82F694C7100720FF0 /* SwiftUI.framework in Frameworks */,
+				33F5C7E62F694C7100720FF0 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABB01042F68210000B5A49F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		33D3B9CD2F68210000B5A49F = {
 			isa = PBXGroup;
 			children = (
+				33F5C8032F694E7F00720FF0 /* ADHDAlarmWidgetExtension.entitlements */,
 				33D3B9D82F68210000B5A49F /* ADHDAlarm */,
+				33F5C7E92F694C7100720FF0 /* ADHDAlarmWidget */,
+				AABB01022F68210000B5A49F /* ADHDAlarmTests */,
+				33F5C7E42F694C7100720FF0 /* Frameworks */,
 				33D3B9D72F68210000B5A49F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,8 +136,19 @@
 			isa = PBXGroup;
 			children = (
 				33D3B9D62F68210000B5A49F /* ADHDAlarm.app */,
+				33F5C7E32F694C7100720FF0 /* ADHDAlarmWidgetExtension.appex */,
+				AABB01012F68210000B5A49F /* ADHDAlarmTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		33F5C7E42F694C7100720FF0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				33F5C7E52F694C7100720FF0 /* WidgetKit.framework */,
+				33F5C7E72F694C7100720FF0 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -55,10 +161,12 @@
 				33D3B9D22F68210000B5A49F /* Sources */,
 				33D3B9D32F68210000B5A49F /* Frameworks */,
 				33D3B9D42F68210000B5A49F /* Resources */,
+				33F5C7FC2F694C7200720FF0 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				33F5C7F62F694C7200720FF0 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				33D3B9D82F68210000B5A49F /* ADHDAlarm */,
@@ -69,6 +177,51 @@
 			productName = ADHDAlarm;
 			productReference = 33D3B9D62F68210000B5A49F /* ADHDAlarm.app */;
 			productType = "com.apple.product-type.application";
+		};
+		33F5C7E22F694C7100720FF0 /* ADHDAlarmWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 33F5C7F82F694C7200720FF0 /* Build configuration list for PBXNativeTarget "ADHDAlarmWidgetExtension" */;
+			buildPhases = (
+				33F5C7DF2F694C7100720FF0 /* Sources */,
+				33F5C7E02F694C7100720FF0 /* Frameworks */,
+				33F5C7E12F694C7100720FF0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				33F5C7E92F694C7100720FF0 /* ADHDAlarmWidget */,
+			);
+			name = ADHDAlarmWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = ADHDAlarmWidgetExtension;
+			productReference = 33F5C7E32F694C7100720FF0 /* ADHDAlarmWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		AABB01062F68210000B5A49F /* ADHDAlarmTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AABB010B2F68210000B5A49F /* Build configuration list for PBXNativeTarget "ADHDAlarmTests" */;
+			buildPhases = (
+				AABB01032F68210000B5A49F /* Sources */,
+				AABB01042F68210000B5A49F /* Frameworks */,
+				AABB01052F68210000B5A49F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AABB01082F68210000B5A49F /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AABB01022F68210000B5A49F /* ADHDAlarmTests */,
+			);
+			name = ADHDAlarmTests;
+			packageProductDependencies = (
+			);
+			productName = ADHDAlarmTests;
+			productReference = AABB01012F68210000B5A49F /* ADHDAlarmTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -82,6 +235,18 @@
 				TargetAttributes = {
 					33D3B9D52F68210000B5A49F = {
 						CreatedOnToolsVersion = 26.3;
+						SystemCapabilities = {
+							com.apple.AlarmKit = {
+								enabled = 1;
+							};
+						};
+					};
+					33F5C7E22F694C7100720FF0 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					AABB01062F68210000B5A49F = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 33D3B9D52F68210000B5A49F;
 					};
 				};
 			};
@@ -100,12 +265,28 @@
 			projectRoot = "";
 			targets = (
 				33D3B9D52F68210000B5A49F /* ADHDAlarm */,
+				33F5C7E22F694C7100720FF0 /* ADHDAlarmWidgetExtension */,
+				AABB01062F68210000B5A49F /* ADHDAlarmTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		33D3B9D42F68210000B5A49F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		33F5C7E12F694C7100720FF0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABB01052F68210000B5A49F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +303,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		33F5C7DF2F694C7100720FF0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABB01032F68210000B5A49F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		33F5C7F62F694C7200720FF0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 33F5C7E22F694C7100720FF0 /* ADHDAlarmWidgetExtension */;
+			targetProxy = 33F5C7F52F694C7200720FF0 /* PBXContainerItemProxy */;
+		};
+		AABB01082F68210000B5A49F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 33D3B9D52F68210000B5A49F /* ADHDAlarm */;
+			targetProxy = AABB01072F68210000B5A49F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		33D3B9DF2F68210200B5A49F /* Debug */ = {
@@ -251,16 +459,31 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ADHDAlarm/ADHDAlarm.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PTT6AX3CK2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ADHDAlarm/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "声メモアラーム";
+				INFOPLIST_KEY_NSAlarmConfigurationUsageDescription = "アラームの高度な設定を行うために使用します。";
+				INFOPLIST_KEY_NSAlarmKitUsageDescription = "マナーモードを貫通するネイティブのアラームを設定するために使用します。";
+				INFOPLIST_KEY_NSAlarmUsageDescription = "アラームをスケジュールするために使用します。";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "予定を読み込み、アラームと自動で連動させるために使用します。";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "今日のご予定を確認して、アラームをセットするために使用します。";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "声で予定を入力するために、マイクを使用します。";
+				INFOPLIST_KEY_NSSiriUsageDescription = "声で予定を追加したり、アラームを管理するための使用します。";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "「明日の15時にカフェ」のように声で予定を追加するために使用します。";
+				INFOPLIST_KEY_NSSupportsAlarmKit = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.3.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -269,12 +492,16 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.yosuke.ADHDAlarm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -283,16 +510,31 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ADHDAlarm/ADHDAlarm.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PTT6AX3CK2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ADHDAlarm/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "声メモアラーム";
+				INFOPLIST_KEY_NSAlarmConfigurationUsageDescription = "アラームの高度な設定を行うために使用します。";
+				INFOPLIST_KEY_NSAlarmKitUsageDescription = "マナーモードを貫通するネイティブのアラームを設定するために使用します。";
+				INFOPLIST_KEY_NSAlarmUsageDescription = "アラームをスケジュールするために使用します。";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "予定を読み込み、アラームと自動で連動させるために使用します。";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "今日のご予定を確認して、アラームをセットするために使用します。";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "声で予定を入力するために、マイクを使用します。";
+				INFOPLIST_KEY_NSSiriUsageDescription = "声で予定を追加したり、アラームを管理するための使用します。";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "「明日の15時にカフェ」のように声で予定を追加するために使用します。";
+				INFOPLIST_KEY_NSSupportsAlarmKit = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.3.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -301,12 +543,124 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.yosuke.ADHDAlarm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		33F5C7F92F694C7200720FF0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = ADHDAlarmWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PTT6AX3CK2;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ADHDAlarmWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ADHDAlarmWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yosuke.ADHDAlarm.ADHDAlarmWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		33F5C7FA2F694C7200720FF0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = ADHDAlarmWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PTT6AX3CK2;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ADHDAlarmWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ADHDAlarmWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yosuke.ADHDAlarm.ADHDAlarmWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		AABB01092F68210000B5A49F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PTT6AX3CK2;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yosuke.ADHDAlarm.ADHDAlarmTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ADHDAlarm.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ADHDAlarm";
+			};
+			name = Debug;
+		};
+		AABB010A2F68210000B5A49F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PTT6AX3CK2;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yosuke.ADHDAlarm.ADHDAlarmTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ADHDAlarm.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ADHDAlarm";
 			};
 			name = Release;
 		};
@@ -327,6 +681,24 @@
 			buildConfigurations = (
 				33D3B9E22F68210200B5A49F /* Debug */,
 				33D3B9E32F68210200B5A49F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		33F5C7F82F694C7200720FF0 /* Build configuration list for PBXNativeTarget "ADHDAlarmWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				33F5C7F92F694C7200720FF0 /* Debug */,
+				33F5C7FA2F694C7200720FF0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AABB010B2F68210000B5A49F /* Build configuration list for PBXNativeTarget "ADHDAlarmTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABB01092F68210000B5A49F /* Debug */,
+				AABB010A2F68210000B5A49F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
