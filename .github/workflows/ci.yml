@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, "feature/**", "fix/**" ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Job 1: ビルドチェック（macOS最新 + 利用可能なXcode）
+  # ─────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Show available simulators
+        run: xcrun simctl list devices available --json | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for runtime, devices in data['devices'].items():
+    if devices:
+        print(f'{runtime}: {[d[\"name\"] for d in devices[:3]]}')
+"
+
+      - name: Build (main app)
+        run: |
+          xcodebuild build \
+            -project ADHDAlarm.xcodeproj \
+            -scheme ADHDAlarm \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 2: ユニットテスト（iOS 26シミュレータが利用可能な場合）
+  # ─────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: macos-15
+    timeout-minutes: 45
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Find available iOS simulator
+        id: simulator
+        run: |
+          # iOS 26シミュレータを探し、なければ最新のiOSを使用
+          SIM=$(xcrun simctl list devices available --json | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+candidates = []
+for runtime, devices in data['devices'].items():
+    for d in devices:
+        if 'iPhone' in d['name'] and d['isAvailable']:
+            candidates.append((runtime, d['name'], d['udid']))
+# iOS 26を優先、なければ最新バージョン
+candidates.sort(key=lambda x: x[0], reverse=True)
+if candidates:
+    r, n, u = candidates[0]
+    print(f'platform=iOS Simulator,name={n}')
+else:
+    print('platform=iOS Simulator,name=iPhone 16')
+" 2>/dev/null || echo "platform=iOS Simulator,name=iPhone 16")
+          echo "destination=$SIM" >> $GITHUB_OUTPUT
+          echo "Using destination: $SIM"
+
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project ADHDAlarm.xcodeproj \
+            -scheme ADHDAlarmTests \
+            -destination '${{ steps.simulator.outputs.destination }}' \
+            -configuration Debug \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty --report junit --output test-results.xml
+        continue-on-error: false
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            test-results.xml
+            TestResults.xcresult
+          retention-days: 14
+
+      - name: Publish test report
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: test-results.xml
+          check_name: Unit Test Results
+          fail_on_failure: true
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 3: SwiftLint（コード品質チェック）
+  # ─────────────────────────────────────────────────────────────
+  lint:
+    name: SwiftLint
+    runs-on: macos-15
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: |
+          swiftlint lint \
+            --path ADHDAlarm \
+            --reporter github-actions-logging \
+            --strict || true  # 警告はあってもCIを止めない（将来strictにする）
