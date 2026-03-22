@@ -265,7 +265,7 @@ struct SettingsView: View {
                     // バージョン表示（ビルド確認用）
                     let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
                     let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-                    Text("こえメモ v\(version) (\(build))")
+                    Text("声メモアラーム v\(version) (\(build))")
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 4)
                 }
