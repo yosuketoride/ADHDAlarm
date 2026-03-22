@@ -116,7 +116,7 @@ struct SettingsView: View {
                 // Hey Siri（PRO限定）
                 Section {
                     if viewModel.isPro {
-                        Label("「Hey Siri、声メモアラームにお願い」と話すだけで予定を登録できます。", systemImage: "checkmark.circle.fill")
+                        Label("「Hey Siri、こえメモにお願い」と話すだけで予定を登録できます。", systemImage: "checkmark.circle.fill")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     } else {

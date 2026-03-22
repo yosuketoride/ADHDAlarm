@@ -45,7 +45,7 @@ struct PaywallView: View {
                 .font(.system(size: 56))
                 .foregroundStyle(.blue)
 
-            Text("声メモアラーム PRO")
+            Text("こえメモ PRO")
                 .font(.title.weight(.bold))
 
             Text("マナーモード貫通アラームの\nすべての機能が使えます。")

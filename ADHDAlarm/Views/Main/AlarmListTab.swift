@@ -56,7 +56,7 @@ struct AlarmListTab: View {
                 }
             }
             .listStyle(.plain)
-            .navigationTitle("声メモアラーム")
+            .navigationTitle("こえメモ")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 #if DEBUG

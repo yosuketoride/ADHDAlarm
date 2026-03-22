@@ -1,7 +1,7 @@
 import AppIntents
 
 /// App Shortcuts の登録
-/// 「Hey Siri、声メモアラームにお願い」等でこのアプリが起動する
+/// 「Hey Siri、こえメモにお願い」等でこのアプリが起動する
 /// ※ INAlternativeAppNames は iOS 26 beta では動作しないため、アプリ名のみ対応
 struct VoiceMemoAlarmShortcuts: AppShortcutsProvider {
 
