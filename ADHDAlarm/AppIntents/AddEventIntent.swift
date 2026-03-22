@@ -39,6 +39,7 @@ struct AddEventIntent: AppIntent {
         Summary("\(\.$dateText)に\(\.$eventTitle)をセット")
     }
 
+    @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         // PRO確認: App Group経由で読む（SiriはApp本体と別プロセスのためstandard不可）
         let defaults = UserDefaults(suiteName: Constants.appGroupID) ?? UserDefaults.standard
