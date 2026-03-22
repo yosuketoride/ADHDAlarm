@@ -12,20 +12,33 @@ final class AppState {
 
     // MARK: - サブスクリプション
     var subscriptionTier: SubscriptionTier {
-        didSet { UserDefaults.standard.set(subscriptionTier.rawValue, forKey: Constants.Keys.subscriptionTier) }
+        didSet {
+            UserDefaults.standard.set(subscriptionTier.rawValue, forKey: Constants.Keys.subscriptionTier)
+            // Siriのプロセス（App Extension）からも読めるようApp Groupにも書く
+            UserDefaults(suiteName: Constants.appGroupID)?.set(subscriptionTier.rawValue, forKey: Constants.Keys.subscriptionTier)
+        }
     }
 
     // MARK: - 設定
     var voiceCharacter: VoiceCharacter {
-        didSet { UserDefaults.standard.set(voiceCharacter.rawValue, forKey: Constants.Keys.voiceCharacter) }
+        didSet {
+            UserDefaults.standard.set(voiceCharacter.rawValue, forKey: Constants.Keys.voiceCharacter)
+            UserDefaults(suiteName: Constants.appGroupID)?.set(voiceCharacter.rawValue, forKey: Constants.Keys.voiceCharacter)
+        }
     }
 
     var preNotificationMinutes: Int {
-        didSet { UserDefaults.standard.set(preNotificationMinutes, forKey: Constants.Keys.preNotificationMinutes) }
+        didSet {
+            UserDefaults.standard.set(preNotificationMinutes, forKey: Constants.Keys.preNotificationMinutes)
+            UserDefaults(suiteName: Constants.appGroupID)?.set(preNotificationMinutes, forKey: Constants.Keys.preNotificationMinutes)
+        }
     }
 
     var selectedCalendarID: String? {
-        didSet { UserDefaults.standard.set(selectedCalendarID, forKey: Constants.Keys.selectedCalendarID) }
+        didSet {
+            UserDefaults.standard.set(selectedCalendarID, forKey: Constants.Keys.selectedCalendarID)
+            UserDefaults(suiteName: Constants.appGroupID)?.set(selectedCalendarID, forKey: Constants.Keys.selectedCalendarID)
+        }
     }
 
     // MARK: - 表示モード

@@ -41,8 +41,8 @@ struct AddEventIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        // PRO確認: UserDefaultsから階層を読む
-        let defaults = UserDefaults.standard
+        // PRO確認: App Group経由で読む（SiriはApp本体と別プロセスのためstandard不可）
+        let defaults = UserDefaults(suiteName: Constants.appGroupID) ?? UserDefaults.standard
         let tierRaw  = defaults.string(forKey: Constants.Keys.subscriptionTier) ?? ""
         let tier     = SubscriptionTier(rawValue: tierRaw) ?? .free
         guard tier == .pro else {
