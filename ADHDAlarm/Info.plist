@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.yosuke.ADHDAlarm</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>adhdalarm</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSSiriUsageDescription</key>
+	<string>声で予定を追加したり、アラームを管理するために使用します。</string>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>マナーモードを貫通するネイティブのアラームを設定するために使用します。</string>
+	<key>NSSupportsAlarmKit</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+</dict>
+</plist>
