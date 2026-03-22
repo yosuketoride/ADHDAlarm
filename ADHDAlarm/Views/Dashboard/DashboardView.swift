@@ -35,7 +35,7 @@ struct DashboardView: View {
                 }
                 .padding(.vertical, 16)
             }
-            .navigationTitle("こえメモ")
+            .navigationTitle("声メモアラーム")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
