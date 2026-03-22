@@ -37,14 +37,23 @@ struct RingingView: View {
                 Spacer()
 
                 if showDismissMessage {
-                    // 停止後メッセージ（2秒間表示してから閉じる）
-                    Text("\(viewModel.activeAlarm?.title ?? "ご予定")、そろそろ出発しましょう！")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                        .transition(.opacity)
-                        .padding(.bottom, 56)
+                    // 停止後メッセージ（中央・フクロウ付き）
+                    VStack(spacing: 24) {
+                        Spacer()
+                        Text("🦉")
+                            .font(.system(size: 80))
+                        Text("おつかれさまです！")
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                        Text("「\(viewModel.activeAlarm?.title ?? "ご予定")」\nそろそろ出発しましょう！")
+                            .font(.title3.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .multilineTextAlignment(.center)
+                        Spacer()
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.opacity)
                 } else {
                     // 停止ボタン（大きく・余白たっぷり・高齢者対応）
                     Button {
@@ -117,15 +126,9 @@ struct RingingView: View {
             let secondsToEvent = max(0, alarm.fireDate.timeIntervalSince(now))
             let minutesToEvent = Int(ceil(secondsToEvent / 60.0))
 
-            // アラーム時刻を常に上部に表示
-            let timeString = alarm.fireDate.formatted(date: .omitted, time: .shortened)
-
             if preMin == 0 {
                 // ジャスト（予定時刻ぴったり）で発火したアラーム
                 VStack(spacing: 12) {
-                    Text(timeString)
-                        .font(.system(.title3, design: .rounded).weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.5))
                     Text(alarm.title)
                         .font(.system(size: 56, weight: .black, design: .rounded))
                         .foregroundStyle(.white)
@@ -139,9 +142,6 @@ struct RingingView: View {
             } else if minutesToEvent == 0 {
                 // カウントダウンが0になった（予定時刻を過ぎた）
                 VStack(spacing: 12) {
-                    Text(timeString)
-                        .font(.system(.title3, design: .rounded).weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.5))
                     Text("時間です！")
                         .font(.system(size: 56, weight: .black, design: .rounded))
                         .foregroundStyle(.white)
@@ -154,11 +154,6 @@ struct RingingView: View {
             } else {
                 // 事前通知アラーム: カウントダウン数字を超大きく表示
                 VStack(spacing: 4) {
-                    Text(timeString)
-                        .font(.system(.title3, design: .rounded).weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.5))
-                        .padding(.bottom, 8)
-
                     Text("あと")
                         .font(.system(.title3, design: .rounded))
                         .foregroundStyle(.white.opacity(0.6))

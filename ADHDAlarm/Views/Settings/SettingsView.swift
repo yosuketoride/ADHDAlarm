@@ -29,7 +29,7 @@ struct SettingsView: View {
                     Text("プラン")
                 }
 
-                // 音声キャラクター
+                // アラームの鳴り方（音声キャラクター・お知らせ方法・音の出力先をまとめて管理）
                 Section {
                     VoiceCharacterPicker(
                         selection: Binding(
@@ -50,20 +50,30 @@ struct SettingsView: View {
                         }
                     }
 
-                    // マイクの使い方（入力方法）を音声セクション内に配置
-                    Picker("マイクの使い方", selection: Binding(
-                        get: { viewModel.micInputMode },
-                        set: { viewModel.micInputMode = $0 }
+                    // お知らせ方法（アラーム音のみ or アラーム音+音声）
+                    Picker("お知らせ方法", selection: Binding(
+                        get: { viewModel.notificationType },
+                        set: { viewModel.notificationType = $0 }
                     )) {
-                        ForEach(MicInputMode.allCases, id: \.self) { mode in
+                        ForEach(NotificationType.allCases, id: \.self) { type in
+                            Text(type.displayName).tag(type)
+                        }
+                    }
+
+                    // 音の出力先
+                    Picker("音の出力先", selection: Binding(
+                        get: { viewModel.audioOutputMode },
+                        set: { viewModel.audioOutputMode = $0 }
+                    )) {
+                        ForEach(AudioOutputMode.allCases, id: \.self) { mode in
                             Text(mode.displayName).tag(mode)
                         }
                     }
                 } header: {
-                    Text("音声")
+                    Text("アラームの鳴り方")
                 }
 
-                // 事前通知タイミング（グローバルデフォルト。PRO時は複数選択可）
+                // お知らせのタイミング（グローバルデフォルト。PRO時は複数選択可）
                 Section {
                     PreNotificationPicker(
                         selection: $preNotificationSet,
@@ -75,9 +85,23 @@ struct SettingsView: View {
                         viewModel.preNotificationMinutes = newSet.min() ?? 15
                     }
                 } header: {
-                    Text("デフォルトの通知タイミング")
+                    Text("お知らせのタイミング")
                 } footer: {
                     Text("予定を追加するときに個別に変更することもできます。")
+                }
+
+                // 入力（マイクの使い方）
+                Section {
+                    Picker("マイクの使い方", selection: Binding(
+                        get: { viewModel.micInputMode },
+                        set: { viewModel.micInputMode = $0 }
+                    )) {
+                        ForEach(MicInputMode.allCases, id: \.self) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                } header: {
+                    Text("入力")
                 }
 
                 // カレンダー選択（PRO限定）
@@ -89,23 +113,10 @@ struct SettingsView: View {
                     }
                 }
 
-                // 自動化（全ユーザー無料）
-                Section {
-                    NavigationLink {
-                        AutomationGuideView()
-                    } label: {
-                        Label("自動化の設定ガイド", systemImage: "wand.and.stars")
-                    }
-                } header: {
-                    Text("自動化")
-                } footer: {
-                    Text("「ショートカット」アプリに連携すると、寝ている間に自動でお掃除してくれます。")
-                }
-
                 // Hey Siri（PRO限定）
                 Section {
                     if viewModel.isPro {
-                        Label("「Hey Siri、声メモにお願い」と話すだけで予定を登録できます。", systemImage: "checkmark.circle.fill")
+                        Label("「Hey Siri、声メモアラームにお願い」と話すだけで予定を登録できます。", systemImage: "checkmark.circle.fill")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     } else {
@@ -127,31 +138,6 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("Hey Siri（PRO）")
-                }
-
-                // アラーム動作
-                Section {
-                    // 通知の種類
-                    Picker("通知の種類", selection: Binding(
-                        get: { viewModel.notificationType },
-                        set: { viewModel.notificationType = $0 }
-                    )) {
-                        ForEach(NotificationType.allCases, id: \.self) { type in
-                            Text(type.displayName).tag(type)
-                        }
-                    }
-
-                    // 音声出力先
-                    Picker("音声出力先", selection: Binding(
-                        get: { viewModel.audioOutputMode },
-                        set: { viewModel.audioOutputMode = $0 }
-                    )) {
-                        ForEach(AudioOutputMode.allCases, id: \.self) { mode in
-                            Text(mode.displayName).tag(mode)
-                        }
-                    }
-                } header: {
-                    Text("アラーム動作")
                 }
 
                 // 見守り: SOSエスカレーション（PRO限定）
@@ -189,6 +175,19 @@ struct SettingsView: View {
                     if viewModel.isPro {
                         Text("アラームが5分間止められなかった場合、登録した番号にiMessageを自動送信します。")
                     }
+                }
+
+                // 自動化（全ユーザー無料）
+                Section {
+                    NavigationLink {
+                        AutomationGuideView()
+                    } label: {
+                        Label("自動化の設定ガイド", systemImage: "wand.and.stars")
+                    }
+                } header: {
+                    Text("自動化")
+                } footer: {
+                    Text("「ショートカット」アプリに連携すると、寝ている間に自動でお掃除してくれます。")
                 }
 
                 // 表示 — 見やすくする（PRO限定）

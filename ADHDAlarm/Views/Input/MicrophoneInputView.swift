@@ -30,7 +30,7 @@ struct MicrophoneInputView: View {
         ZStack {
             Color.themeBackground.ignoresSafeArea()
 
-            if isIdle && hasSpeechPermission {
+            if isIdle {
                 // ── 初期状態: フクロウが主役のフルデザイン ──
                 idleView
             } else {
