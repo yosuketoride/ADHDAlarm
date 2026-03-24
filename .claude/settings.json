@@ -13,7 +13,6 @@
       "Bash(open *)"
     ],
     "deny": [
-      "Bash(git push *)",
       "Bash(rm -rf /*)"
     ]
   }
