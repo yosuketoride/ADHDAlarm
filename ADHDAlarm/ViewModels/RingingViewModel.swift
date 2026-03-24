@@ -16,7 +16,7 @@ final class RingingViewModel: NSObject {
     private var speechSynthesizer: AVSpeechSynthesizer?
     private var repeatTimer: Timer?
     /// 応答なしで SOS を送るタイマー
-    private var escalationTimer: Timer?
+    var escalationTimer: Timer?
     private let scheduler: AlarmScheduling
     private let voiceGenerator: VoiceSynthesizing
     private var notificationType: NotificationType = .alarmAndVoice
