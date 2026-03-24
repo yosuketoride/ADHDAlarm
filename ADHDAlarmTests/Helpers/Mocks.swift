@@ -76,7 +76,7 @@ final class MockVoiceGenerator: VoiceSynthesizing {
     var shouldThrow = false
     var returnURL: URL = URL(fileURLWithPath: "/tmp/mock.caf")
 
-    func generateAudio(text: String, character: VoiceCharacter, alarmID: UUID) async throws -> URL {
+    func generateAudio(text: String, character: VoiceCharacter, alarmID: UUID, eventTitle: String) async throws -> URL {
         if shouldThrow { throw MockError.intentional }
         generatedAlarmIDs.append(alarmID)
         return returnURL
@@ -146,3 +146,51 @@ extension AlarmEvent {
         return AlarmEvent(title: title, fireDate: date)
     }
 }
+
+// MARK: - MockSOSService
+
+final class MockSOSService: SOSNotifying {
+    var generatedPairingId: String = "mock-id-1234"
+    var generatedCode: String = "1234"
+    var shouldThrowGenerate = false
+    
+    var streamValues: [String] = []
+    
+    var unpairedId: String? = nil
+    var shouldThrowUnpair = false
+    
+    var sentSOSPairingId: String? = nil
+    var sentSOSAlarmTitle: String? = nil
+    var sentSOSMinutes: Int? = nil
+    var shouldThrowSendSOS = false
+    
+    func generatePairingCode() async throws -> (pairingId: String, code: String) {
+        if shouldThrowGenerate { throw MockError.intentional }
+        return (pairingId: generatedPairingId, code: generatedCode)
+    }
+    
+    func listenToPairingStatus(id: String) -> AsyncStream<String> {
+        return AsyncStream { continuation in
+            Task {
+                for value in streamValues {
+                    continuation.yield(value)
+                    try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+                }
+                continuation.finish()
+            }
+        }
+    }
+    
+    func unpair(id: String) async throws {
+        if shouldThrowUnpair { throw MockError.intentional }
+        unpairedId = id
+    }
+    
+    func sendSOS(pairingId: String, alarmTitle: String, minutes: Int) async throws {
+        if shouldThrowSendSOS { throw MockError.intentional }
+        sentSOSPairingId = pairingId
+        sentSOSAlarmTitle = alarmTitle
+        sentSOSMinutes = minutes
+    }
+}
+
