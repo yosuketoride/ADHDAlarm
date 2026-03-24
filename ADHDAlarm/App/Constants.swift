@@ -27,7 +27,7 @@ enum Constants {
 
     // MARK: - App Group
     /// WidgetKitとデータを共有するためのApp Group ID
-    static let appGroupID = "group.com.yosuke.ADHDAlarm"
+    static let appGroupID = "group.com.yosuke.WasurenboAlarm"
 
     // MARK: - 音声ファイル
     /// .cafファイルを格納するLibrary/Sounds内のサブディレクトリ名
@@ -52,9 +52,9 @@ enum Constants {
 
     // MARK: - StoreKit
     enum ProductID {
-        static let proMonthly  = "com.yosuke.ADHDAlarm.pro.monthly"
-        static let proYearly   = "com.yosuke.ADHDAlarm.pro.yearly"
-        static let proLifetime = "com.yosuke.ADHDAlarm.pro.lifetime"
+        static let proMonthly  = "com.yosuke.WasurenboAlarm.pro.monthly"
+        static let proYearly   = "com.yosuke.WasurenboAlarm.pro.yearly"
+        static let proLifetime = "com.yosuke.WasurenboAlarm.pro.lifetime"
     }
 
 }

@@ -3,7 +3,7 @@ import Foundation
 /// App GroupのJSONからAlarmEventを読み込むWidget専用ヘルパー
 enum WidgetDataProvider {
 
-    private static let appGroupID = "group.com.yosuke.ADHDAlarm"
+    private static let appGroupID = "group.com.yosuke.WasurenboAlarm"
     private static let fileName   = "alarm_events.json"
 
     /// App Groupコンテナからアラーム一覧を取得する
