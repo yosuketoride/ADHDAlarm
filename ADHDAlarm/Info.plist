@@ -13,6 +13,12 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>声で予定やアラームを追加するために、マイクを使用します。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>話した内容を文字に変換して、予定を自動で登録するために使用します。</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>アラームの予定をカレンダーに保存・管理するために使用します。</string>
 	<key>NSSiriUsageDescription</key>
 	<string>声で予定を追加したり、アラームを管理するために使用します。</string>
 	<key>NSAlarmKitUsageDescription</key>
