@@ -32,8 +32,8 @@ enum VoiceCategory: String, CaseIterable, Codable {
         }
     }
 
-    /// このカテゴリに判定するキーワード一覧
-    var keywords: [String] {
+    /// このカテゴリに判定するキーワード一覧（nonisolated: match(for:)から呼ぶため）
+    nonisolated var keywords: [String] {
         switch self {
         case .medicine:
             return ["薬", "お薬", "くすり", "服薬", "飲み薬", "点眼", "インスリン"]
@@ -51,31 +51,68 @@ enum VoiceCategory: String, CaseIterable, Codable {
         }
     }
 
-    /// 録音例文（ガイド用）
+    /// 録音例文（シートのメインガイド用 — 最も使いやすい1文）
     var exampleScript: String {
         switch self {
         case .medicine:
-            return "「おばあちゃん、お薬の時間だよ！忘れずにね。」"
+            return "「おじいちゃん、朝のお薬の時間だよ！今日も元気でね。」"
         case .outing:
-            return "「もうすぐ出かける時間だよ！準備はできてる？」"
+            return "「出発の時間だよ！スマホ、お財布、鍵は持った？いってらっしゃい！」"
         case .work:
-            return "「会議の時間だよ！遅れないようにね。」"
+            return "「もうすぐ会議の時間だよ！準備はOK？今日も応援してるよ！」"
         case .meal:
-            return "「ご飯の時間だよ！一緒に食べようね。」"
+            return "「ご飯の時間だよ！一息ついて、しっかり食べてね。」"
         case .hospital:
-            return "「病院の時間だよ！忘れ物ないか確認してね。」"
+            return "「今日は病院の日だよ！診察券と保険証、忘れずにカバンに入れてね。」"
         case .other:
-            return "「大切な予定の時間だよ！忘れないでね。」"
+            return "「予定の時間だよ！無理せず、自分のペースでやっていこうね！」"
         }
     }
 
-    /// Library/Sounds/ 以下のファイル名
-    var fileName: String { "custom_voice_\(rawValue).caf" }
+    /// 録音ヒント集（録音ボタン下に表示する参考フレーズ）
+    var scriptHints: [String] {
+        switch self {
+        case .medicine:
+            return [
+                "「おじいちゃん、朝のお薬の時間だよ！今日も元気でね。」（お孫さんより）",
+                "「お薬の時間です！飲んだらチェックしてね。」（ご家族より）"
+            ]
+        case .outing:
+            return [
+                "「出発の時間だよ！スマホ、お財布、鍵は持った？いってらっしゃい！」",
+                "「お出かけの時間です。ガスの元栓は閉めたかな？気をつけてね。」"
+            ]
+        case .work:
+            return [
+                "「もうすぐ会議の時間だよ！準備はOK？今日も応援してるよ！」",
+                "「お仕事の時間です。今の作業に区切りをつけて、次へ向かいましょう。」"
+            ]
+        case .meal:
+            return [
+                "「ご飯の時間だよ！一息ついて、しっかり食べてね。」",
+                "「食事の時間です。休むことも大切な仕事ですよ。」"
+            ]
+        case .hospital:
+            return [
+                "「今日は病院の日だよ！診察券と保険証、忘れずにカバンに入れてね。」",
+                "「病院の時間です。早めに出発しておくと安心ですよ。」"
+            ]
+        case .other:
+            return [
+                "「予定の時間だよ！無理せず、自分のペースでやっていこうね！」",
+                "「大切な予定の時間です。今日もお疲れさま。」"
+            ]
+        }
+    }
+
+    /// Library/Sounds/ 以下のファイル名（nonisolated: VoiceFileGeneratorのnonisolatedコンテキストから呼ぶため）
+    nonisolated var fileName: String { "custom_voice_\(rawValue).caf" }
 
     // MARK: - カテゴリ自動判定
 
     /// 予定タイトルからカテゴリを判定する（キーワードマッチ）
-    static func match(for title: String) -> VoiceCategory {
+    /// nonisolated: VoiceFileGeneratorのnonisolatedコンテキストから呼ぶため
+    nonisolated static func match(for title: String) -> VoiceCategory {
         for category in VoiceCategory.allCases where category != .other {
             for keyword in category.keywords {
                 if title.contains(keyword) { return category }

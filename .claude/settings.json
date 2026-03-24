@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(xcodebuild *)",
+      "Bash(swift *)",
+      "Bash(xcrun *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(python3 *)",
+      "Bash(open *)"
+    ],
+    "deny": [
+      "Bash(git push *)",
+      "Bash(rm -rf /*)"
+    ]
+  }
+}

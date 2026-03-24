@@ -25,6 +25,10 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
     /// 音声キャラクター
     var voiceCharacter: VoiceCharacter
     let createdAt: Date
+    /// 繰り返しルール（nilなら単発予定）
+    var recurrenceRule: RecurrenceRule?
+    /// 繰り返し予定のグループID（同じ繰り返しグループのアラームが共有するID）
+    var recurrenceGroupID: UUID?
 
     init(
         id: UUID = UUID(),
@@ -38,7 +42,9 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         voiceFileName: String? = nil,
         calendarIdentifier: String? = nil,
         voiceCharacter: VoiceCharacter = .femaleConcierge,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        recurrenceRule: RecurrenceRule? = nil,
+        recurrenceGroupID: UUID? = nil
     ) {
         self.id = id
         self.title = title
@@ -52,5 +58,36 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         self.calendarIdentifier = calendarIdentifier
         self.voiceCharacter = voiceCharacter
         self.createdAt = createdAt
+        self.recurrenceRule = recurrenceRule
+        self.recurrenceGroupID = recurrenceGroupID
+    }
+
+    // MARK: - Codable（後方互換）
+    // 新しいフィールド（alarmKitIdentifiers等）が欠けていても古いJSONを読める
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, fireDate, preNotificationMinutes
+        case eventKitIdentifier, alarmKitIdentifier
+        case alarmKitIdentifiers, alarmKitMinutesMap
+        case voiceFileName, calendarIdentifier, voiceCharacter
+        case createdAt, recurrenceRule, recurrenceGroupID
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id                     = try c.decode(UUID.self,   forKey: .id)
+        title                  = try c.decode(String.self, forKey: .title)
+        fireDate               = try c.decode(Date.self,   forKey: .fireDate)
+        preNotificationMinutes = try c.decodeIfPresent(Int.self,          forKey: .preNotificationMinutes) ?? 15
+        eventKitIdentifier     = try c.decodeIfPresent(String.self,       forKey: .eventKitIdentifier)
+        alarmKitIdentifier     = try c.decodeIfPresent(UUID.self,         forKey: .alarmKitIdentifier)
+        alarmKitIdentifiers    = try c.decodeIfPresent([UUID].self,       forKey: .alarmKitIdentifiers)    ?? []
+        alarmKitMinutesMap     = try c.decodeIfPresent([String: Int].self, forKey: .alarmKitMinutesMap)   ?? [:]
+        voiceFileName          = try c.decodeIfPresent(String.self,       forKey: .voiceFileName)
+        calendarIdentifier     = try c.decodeIfPresent(String.self,       forKey: .calendarIdentifier)
+        voiceCharacter         = try c.decodeIfPresent(VoiceCharacter.self, forKey: .voiceCharacter)      ?? .femaleConcierge
+        createdAt              = try c.decodeIfPresent(Date.self,         forKey: .createdAt)              ?? Date()
+        recurrenceRule         = try c.decodeIfPresent(RecurrenceRule.self, forKey: .recurrenceRule)
+        recurrenceGroupID      = try c.decodeIfPresent(UUID.self,         forKey: .recurrenceGroupID)
     }
 }

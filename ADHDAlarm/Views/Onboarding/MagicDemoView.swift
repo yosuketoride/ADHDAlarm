@@ -61,11 +61,6 @@ struct MagicDemoView: View {
                         .buttonStyle(.large(background: .blue))
                         .padding(.horizontal, 32)
                         .disabled(isCounting)
-
-                        // スキップ導線
-                        Button("あとで試す") {}
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
                     }
                     .frame(height: 120)
                 }

@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import AudioToolbox
 import WidgetKit
 
 /// レスキューセンター（お助けセンター）
@@ -31,18 +32,32 @@ struct RescueCenterView: View {
                     icon: "speaker.slash.fill",
                     iconColor: .orange,
                     title: "アラームが鳴らない・音が小さい",
-                    description: "今すぐ大きな音で確認できます。音量が小さい場合は音量ボタンで上げてください。"
+                    description: "今すぐ音量を確認できます。"
                 ) {
                     Button {
                         viewModel.testVolume()
                     } label: {
                         Label(
-                            viewModel.isTesting ? "テスト中…" : "爆音テストを鳴らす",
+                            viewModel.isTesting ? "テスト中…" : "音量テストを鳴らす",
                             systemImage: viewModel.isTesting ? "speaker.wave.3.fill" : "speaker.wave.3"
                         )
                     }
                     .buttonStyle(.large(background: .orange))
                     .disabled(viewModel.isTesting)
+
+                    // 音が小さかった場合の案内
+                    if !viewModel.isTesting {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "info.circle")
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
+                                .padding(.top, 1)
+                            Text("音が小さかったら、iPhoneの「設定」→「サウンドと触覚」→「着信音と通知音」のスライダーを上げてください。アラームはマナーモードがオンでも鳴ります。")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                 }
 
                 rescueCard(
@@ -201,7 +216,6 @@ private final class RescueCenterViewModel: NSObject {
 
     // 音量テスト
     var isTesting = false
-    private var testPlayer: AVAudioPlayer?
     private var speechSynthesizer: AVSpeechSynthesizer?
 
     // 強制同期
@@ -217,17 +231,30 @@ private final class RescueCenterViewModel: NSObject {
 
     func testVolume() {
         isTesting = true
-        let synth = AVSpeechSynthesizer()
-        synth.delegate = self
-        let utterance = AVSpeechUtterance(string: "テストです！この音量でアラームが鳴ります。聞こえていますか？")
-        utterance.voice = AVSpeechSynthesisVoice(language: "ja-JP")
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
-        try? AVAudioSession.sharedInstance().setCategory(.playback, options: [])
-        try? AVAudioSession.sharedInstance().setActive(true)
-        // スピーカーから出力
-        try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
-        synth.speak(utterance)
-        speechSynthesizer = synth
+        // ビープ先行（着信音量）
+        for i in 0..<3 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.25) {
+                AudioServicesPlayAlertSound(1005)
+            }
+        }
+        // 1秒後にTTSで音声テスト
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self else { return }
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.playback, options: [])
+                try AVAudioSession.sharedInstance().setActive(true)
+            } catch {
+                print("【音量テスト】セッション確保失敗: \(error.localizedDescription)")
+            }
+            let synthesizer = AVSpeechSynthesizer()
+            synthesizer.delegate = self
+            let utterance = AVSpeechUtterance(string: "テストです！この音量でアラームが鳴ります。聞こえていますか？")
+            utterance.voice = AVSpeechSynthesisVoice(language: "ja-JP")
+            utterance.rate = 0.48
+            utterance.pitchMultiplier = 1.1
+            synthesizer.speak(utterance)
+            self.speechSynthesizer = synthesizer
+        }
     }
 
     // MARK: - 強制同期
@@ -286,8 +313,9 @@ private final class RescueCenterViewModel: NSObject {
 
 extension RescueCenterViewModel: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        isTesting = false
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         speechSynthesizer = nil
-        try? AVAudioSession.sharedInstance().setActive(false)
+        isTesting = false
     }
 }
+

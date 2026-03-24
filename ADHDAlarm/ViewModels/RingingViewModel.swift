@@ -4,35 +4,44 @@ import AudioToolbox
 import Observation
 
 /// アラーム鳴動中の状態管理
-/// AlarmKit経由で全画面が起動した際、またはアプリ内テストアラーム時に使用する
 @Observable
 final class RingingViewModel: NSObject {
     var activeAlarm: AlarmEvent?
-    /// エスカレーション発動: 5分間応答なし → SOS iMessageを送る
-    var shouldSendSOS = false
+    /// SOSのステータス
+    var sosStatus: SOSStatus = .idle
+    /// スパム防止（1セッションで1回のみ）
+    private var hasSentSOS = false
 
     private var audioPlayer: AVAudioPlayer?
     private var speechSynthesizer: AVSpeechSynthesizer?
     private var repeatTimer: Timer?
-    /// 5分間応答なしで SOS を送るタイマー
+    /// 応答なしで SOS を送るタイマー
     private var escalationTimer: Timer?
     private let scheduler: AlarmScheduling
     private let voiceGenerator: VoiceSynthesizing
     private var notificationType: NotificationType = .alarmAndVoice
     private var audioOutputMode: AudioOutputMode = .automatic
-    /// SOS送信先の電話番号（PRO: 設定画面で家族の番号を登録）
+    /// SOS送信先の電話番号（PRO: 設定画面で家族の番号を登録）- フォールバック用
     var sosContactPhone: String?
+    /// Supabase LINE連携用のペアリングID
+    var sosPairingId: String?
+    /// SOSエスカレーションまでの時間（分）
+    private var sosEscalationMinutes: Int = 5
+    
+    private let sosService: SOSNotifying
 
     init(
         scheduler: AlarmScheduling = AlarmKitScheduler(),
         voiceGenerator: VoiceSynthesizing = VoiceFileGenerator(),
         notificationType: NotificationType = .alarmAndVoice,
-        audioOutputMode: AudioOutputMode = .automatic
+        audioOutputMode: AudioOutputMode = .automatic,
+        sosService: SOSNotifying = SupabaseSOSService()
     ) {
         self.scheduler = scheduler
         self.voiceGenerator = voiceGenerator
         self.notificationType = notificationType
         self.audioOutputMode = audioOutputMode
+        self.sosService = sosService
     }
 
     // MARK: - 設定反映
@@ -40,59 +49,69 @@ final class RingingViewModel: NSObject {
     func configure(
         notificationType: NotificationType,
         audioOutputMode: AudioOutputMode,
-        sosContactPhone: String? = nil
+        sosContactPhone: String? = nil,
+        sosPairingId: String? = nil,
+        sosEscalationMinutes: Int = 5
     ) {
         self.notificationType = notificationType
         self.audioOutputMode = audioOutputMode
         self.sosContactPhone = sosContactPhone
+        self.sosPairingId = sosPairingId
+        self.sosEscalationMinutes = sosEscalationMinutes
     }
 
     // MARK: - 音声再生
 
     /// アラーム画面が表示されたとき音声を再生する
-    /// alarmAndVoice: ビープ音 → ナレーション（.cafまたはTTS）を繰り返す
-    /// alarmOnly: アプリ側は何も再生しない（AlarmKitのシステム音のみ）
-    /// PRO: 5分間応答なしの場合、家族へ SOS iMessage を自動送信する
     func startAudioPlayback() {
-        // PRO機能: SOSタイマーを開始（5分 = 300秒後に発動）
-        if sosContactPhone != nil {
-            escalationTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: false) { [weak self] _ in
-                self?.shouldSendSOS = true
+        // PRO機能: SOSタイマーを開始 (ペアリング済みのLINE、または電話番号がある場合)
+        print("DEBUG: startAudioPlayback - sosPairingId: \(sosPairingId ?? "nil"), sosContactPhone: \(sosContactPhone ?? "nil")")
+        if sosPairingId != nil || sosContactPhone != nil {
+            let interval = Double(sosEscalationMinutes * 60)
+            print("DEBUG: SOS timer scheduled for \(interval) seconds from now")
+            escalationTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
+                print("DEBUG: SOS Escalation Timer FIRED!")
+                Task {
+                    await self?.sendSOSAutomatically()
+                }
             }
         }
         guard let alarm = activeAlarm else { return }
-
-        // alarmOnly の場合はアプリ側で何も再生しない（AlarmKitのシステム通知音のみ）
         guard notificationType == .alarmAndVoice else { return }
 
-        // ビープ音 → ナレーション の順で再生する
-        // AVAudioSession は .caf再生時のみ設定し、AVSpeechSynthesizer は自身で管理させる
+        // AVAudioSessionを1回だけ確保（マナーモード貫通 + サイドボタン音量で再生）
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, options: [])
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("【音声セッション】確保失敗: \(error.localizedDescription)")
+        }
+
         // AlarmKitのシステム音と競合しないよう1.5秒待ってからスタート
         Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(for: .seconds(1.5))
-            guard self.activeAlarm != nil else { return }  // 停止済みなら再生しない
+            guard self.activeAlarm != nil else { return }
             self.playBeepThenNarration(alarm: alarm)
         }
     }
 
-    /// ビープ音を鳴らし、0.8秒後にナレーションを再生する
+    /// ビープ音を鳴らし、1.2秒後にナレーションを再生する
     private func playBeepThenNarration(alarm: AlarmEvent) {
-        // 「ピピピピ」相当のアラート音を4回鳴らす
-        // AudioServicesPlayAlertSound: 着信音量で鳴る（メディア音量に依存しない）
+        // 「ピピピピ」相当のアラート音を4回
         for i in 0..<4 {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.25) {
                 AudioServicesPlayAlertSound(1005)
             }
         }
-        // ビープ音4発（約1秒）の後にナレーション再生
+        // ビープ後にナレーション再生
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
             guard let self, self.activeAlarm != nil else { return }
             self.playNarration(alarm: alarm)
         }
     }
 
-    /// ナレーションを再生する（.cafまたはTTSフォールバック）
+    /// ナレーションを再生する（.cafファイルまたはTTSフォールバック）
     private func playNarration(alarm: AlarmEvent) {
         if let fileName = alarm.voiceFileName,
            let url = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?
@@ -100,20 +119,13 @@ final class RingingViewModel: NSObject {
                .appendingPathComponent(fileName),
            FileManager.default.fileExists(atPath: url.path),
            let player = try? AVAudioPlayer(contentsOf: url) {
-            // .caf再生時のみ AVAudioSession を設定する（TTSは自身で管理するため不要）
-            do {
-                try AVAudioSession.sharedInstance().setCategory(.playback, options: [.duckOthers])
-                try AVAudioSession.sharedInstance().setActive(true)
-            } catch {
-                print("【音声セッション】確保失敗: \(error.localizedDescription)")
-            }
-            self.audioPlayer = player
-            self.audioPlayer?.numberOfLoops = 0  // 1回再生 → delegate で繰り返す
-            self.audioPlayer?.delegate = self
-            self.audioPlayer?.play()
+            audioPlayer = player
+            audioPlayer?.numberOfLoops = 0
+            audioPlayer?.delegate = self
+            audioPlayer?.play()
         } else {
-            // .cafなし → TTSで読み上げ（AVSpeechSynthesizerが自身でセッション管理）
-            self.speakAlarmTitle(alarm.title, preNotificationMinutes: alarm.preNotificationMinutes)
+            // .cafなし → TTSで読み上げ
+            speakAlarmTitle(alarm.title, preNotificationMinutes: alarm.preNotificationMinutes)
         }
     }
 
@@ -125,7 +137,7 @@ final class RingingViewModel: NSObject {
         if audioPlayer != nil {
             audioPlayer?.stop()
             audioPlayer = nil
-            try? AVAudioSession.sharedInstance().setActive(false)
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
         speechSynthesizer?.stopSpeaking(at: .immediate)
         speechSynthesizer = nil
@@ -134,7 +146,6 @@ final class RingingViewModel: NSObject {
     private func speakAlarmTitle(_ title: String, preNotificationMinutes: Int = 0) {
         let synthesizer = AVSpeechSynthesizer()
         synthesizer.delegate = self
-        // preNotificationMinutes に応じたテキストを生成（VoiceFileGeneratorの仕様に合わせる）
         let minutesText = preNotificationMinutes == 0
             ? "になりました"
             : "まであと\(preNotificationMinutes)分です"
@@ -144,12 +155,11 @@ final class RingingViewModel: NSObject {
         utterance.rate  = 0.48
         utterance.pitchMultiplier = 1.1
         synthesizer.speak(utterance)
-        speechSynthesizer = synthesizer  // 参照を保持しないと即解放される
+        speechSynthesizer = synthesizer
     }
 
     // MARK: - 停止
 
-    /// 停止: アラームを完全に終了する
     func dismiss() {
         guard let alarm = activeAlarm,
               let alarmKitID = alarm.alarmKitIdentifier else {
@@ -157,12 +167,48 @@ final class RingingViewModel: NSObject {
             activeAlarm = nil
             return
         }
-
         stopAudioPlayback()
-
         Task {
             try? await scheduler.cancel(alarmKitID: alarmKitID)
             activeAlarm = nil
+        }
+    }
+    
+    // MARK: - SOS送信（LINE）
+    
+    @MainActor
+    private func sendSOSAutomatically() async {
+        print("DEBUG: sendSOSAutomatically invoked")
+        guard !hasSentSOS else { 
+            print("DEBUG: SOS already sent or pending. Skipping.")
+            return 
+        }
+        guard let alarm = activeAlarm else { 
+            print("DEBUG: No active alarm. Skipping SOS.")
+            return 
+        }
+        
+        hasSentSOS = true
+        
+        // 優先度1: LINE連携（Supabase）
+        if let pairingId = sosPairingId {
+            print("DEBUG: Triggering LINE SOS via Supabase. pairingId: \(pairingId)")
+            sosStatus = .sending
+            do {
+                try await sosService.sendSOS(pairingId: pairingId, alarmTitle: alarm.title, minutes: sosEscalationMinutes)
+                print("DEBUG: LINE SOS sent successfully!")
+                sosStatus = .sent
+            } catch {
+                print("DEBUG: LINE SOS FAILED: \(error)")
+                sosStatus = .failed(error.localizedDescription)
+            }
+        } 
+        // 優先度2: SMSフォールバック (旧実装を再利用する場合は別途ビューから処理する)
+        else if sosContactPhone != nil {
+            print("DEBUG: LINE pairing not found. Falling back to SMS/Phone.")
+            sosStatus = .failed("LINE未連携のためSMS等へのフォールバック")
+        } else {
+            print("DEBUG: No SOS destination (LINE or Phone) configured.")
         }
     }
 }

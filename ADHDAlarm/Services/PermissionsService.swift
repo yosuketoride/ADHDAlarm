@@ -21,6 +21,16 @@ final class PermissionsService {
         isCalendarAuthorized && isAlarmKitAuthorized && isSpeechAuthorized && isMicrophoneAuthorized
     }
 
+    /// 少なくとも1つの権限が明示的に拒否されているか（設定アプリへの誘導が必要）
+    var hasDeniedPermissions: Bool {
+        let calStatus    = EKEventStore.authorizationStatus(for: .event)
+        let speechStatus = SFSpeechRecognizer.authorizationStatus()
+        let micStatus    = AVAudioApplication.shared.recordPermission
+        return calStatus    == .denied || calStatus    == .restricted
+            || speechStatus == .denied || speechStatus == .restricted
+            || micStatus    == .denied
+    }
+
     private let eventStore = EKEventStore()
 
     // MARK: - 初期化（起動時に現在の状態を反映）

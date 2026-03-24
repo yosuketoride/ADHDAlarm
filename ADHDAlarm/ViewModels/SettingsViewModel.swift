@@ -22,9 +22,9 @@ final class SettingsViewModel {
         set { appState.voiceCharacter = newValue }
     }
 
-    var preNotificationMinutes: Int {
-        get { appState.preNotificationMinutes }
-        set { appState.preNotificationMinutes = newValue }
+    var preNotificationMinutesList: Set<Int> {
+        get { appState.preNotificationMinutesList }
+        set { appState.preNotificationMinutesList = newValue }
     }
 
     var selectedCalendarID: String? {
@@ -55,6 +55,11 @@ final class SettingsViewModel {
     var sosContactPhone: String {
         get { appState.sosContactPhone ?? "" }
         set { appState.sosContactPhone = newValue.isEmpty ? nil : newValue }
+    }
+
+    var sosEscalationMinutes: Int {
+        get { appState.sosEscalationMinutes }
+        set { appState.sosEscalationMinutes = newValue }
     }
 
     var isPro: Bool { appState.subscriptionTier == .pro }

@@ -104,7 +104,7 @@ final class VoiceFileGenerator: VoiceSynthesizing {
         let utterance = AVSpeechUtterance(string: text)
 
         // 音声キャラに合わせてボイスを選択
-        utterance.voice = selectVoice(for: character)
+        utterance.voice = VoiceFileGenerator.voice(for: character)
         utterance.rate  = AVSpeechUtteranceDefaultSpeechRate * 0.85  // ゆっくり・自然に
         utterance.preUtteranceDelay = 0.3                            // 冒頭に間を置いて自然に
         utterance.pitchMultiplier = character == .maleButler ? 0.85 : 1.05  // 女性: 少し柔らかく
@@ -163,8 +163,8 @@ final class VoiceFileGenerator: VoiceSynthesizing {
         }
     }
 
-    /// キャラクターに対応するAVSpeechSynthesisVoiceを選択する
-    private nonisolated func selectVoice(for character: VoiceCharacter) -> AVSpeechSynthesisVoice? {
+    /// キャラクターに対応するAVSpeechSynthesisVoiceを選択する（VoiceCharacterPickerの試聴でも使用）
+    nonisolated static func voice(for character: VoiceCharacter) -> AVSpeechSynthesisVoice? {
         // 利用可能な日本語音声から最適なものを選ぶ
         // iOS 26では音声の種類が増えている可能性があるため、フォールバックあり
         let jaVoices = AVSpeechSynthesisVoice.speechVoices().filter {

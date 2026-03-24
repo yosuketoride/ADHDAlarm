@@ -16,39 +16,90 @@ final class NLParserService: NLParsing {
         let workText = text.trimmingCharacters(in: .whitespaces)
         guard !workText.isEmpty else { return nil }
 
-        // 1. 日時を抽出する
-        guard let (fireDate, consumedRanges) = extractDateTime(from: workText) else {
+        // 1. 繰り返しルールを抽出する（繰り返し語句を消費してタイトルから除去）
+        var (recurrenceRule, recurrenceConsumed) = extractRecurrence(from: workText)
+        var textAfterRecurrence = workText
+        if let range = recurrenceConsumed {
+            textAfterRecurrence.removeSubrange(range)
+            textAfterRecurrence = textAfterRecurrence.trimmingCharacters(in: .whitespaces)
+        }
+
+        // 2. 日時を抽出する
+        guard let (fireDate, consumedRanges, hasExplicitDate) = extractDateTime(from: textAfterRecurrence) else {
+            // 繰り返し予定で時刻だけ指定の場合も失敗扱い（日時必須）
             return nil
         }
 
-        // 2. 日時に使った部分を除去してタイトルを取り出す
-        var title = workText
+        // 3. 日時に使った部分を除去してタイトルを取り出す
+        var title = textAfterRecurrence
         for range in consumedRanges.sorted(by: { $0.lowerBound > $1.lowerBound }) {
             title.removeSubrange(range)
         }
         title = stripFillers(title)
         guard !title.isEmpty else { return nil }
 
-        return ParsedInput(title: title, fireDate: fireDate)
+        return ParsedInput(title: title, fireDate: fireDate, recurrenceRule: recurrenceRule, hasExplicitDate: hasExplicitDate)
+    }
+
+    // MARK: - 繰り返しパターン抽出
+
+    /// テキストから繰り返しルールを検出する
+    /// - Returns: (RecurrenceRule?, 消費した範囲)
+    private func extractRecurrence(from text: String) -> (RecurrenceRule?, Range<String.Index>?) {
+        // 「毎月X日」
+        if let match = text.range(of: #"毎月(\d{1,2})日"#, options: .regularExpression) {
+            let s = String(text[match])
+            if let m = s.firstMatch(of: /毎月(\d{1,2})日/), let day = Int(m.output.1) {
+                return (.monthly(day: day), match)
+            }
+        }
+
+        // 「毎週X曜」（複数曜日対応: 「毎週月曜と水曜」「毎週月・水」）
+        let weekdayMap: [(String, Int)] = [
+            ("月曜", 2), ("火曜", 3), ("水曜", 4), ("木曜", 5), ("金曜", 6), ("土曜", 7), ("日曜", 1)
+        ]
+        if text.contains("毎週") {
+            var weekdays: [Int] = []
+            for (name, num) in weekdayMap {
+                if text.contains(name) { weekdays.append(num) }
+            }
+            if !weekdays.isEmpty {
+                // 「毎週〜曜」を消費する範囲（毎週から最後の曜日語句まで）
+                if let range = text.range(of: "毎週") {
+                    return (.weekly(weekdays: weekdays.sorted()), range)
+                }
+            }
+        }
+
+        // 「毎日」「毎朝」「毎晩」「毎夜」
+        let dailyKeywords = ["毎日", "毎朝", "毎晩", "毎夜", "毎夕"]
+        for keyword in dailyKeywords {
+            if let range = text.range(of: keyword) {
+                return (.daily, range)
+            }
+        }
+
+        return (nil, nil)
     }
 
     // MARK: - 日時抽出
 
-    private func extractDateTime(from text: String) -> (Date, [Range<String.Index>])? {
+    /// - Returns: (日時, 消費範囲リスト, 日付を明示的に検出したか)
+    private func extractDateTime(from text: String) -> (Date, [Range<String.Index>], Bool)? {
         let calendar = Calendar.current
         let now = Date()
         var consumed: [Range<String.Index>] = []
 
-        // ① 「X分後」「X時間後」（相対時刻）
+        // ① 「X分後」「X時間後」（相対時刻）→ 日付明示扱い
         if let (minutes, range) = matchRelativeMinutes(text) {
             let date = now.addingTimeInterval(TimeInterval(minutes * 60))
-            return (date, [range])
+            return (date, [range], true)
         }
 
-        // ② 「X時間後」
+        // ② 「X時間後」→ 日付明示扱い
         if let (hours, range) = matchRelativeHours(text) {
             let date = now.addingTimeInterval(TimeInterval(hours * 3600))
-            return (date, [range])
+            return (date, [range], true)
         }
 
         // ③ 日付部分と時刻部分を個別に抽出して組み合わせる
@@ -95,7 +146,8 @@ final class NLParserService: NLParsing {
 
         if let dr = dateConsumed { consumed.append(dr) }
         if let tr = timeConsumed { consumed.append(tr) }
-        return (baseDate, consumed)
+        // 日付を明示的に指定した（dateConsumedがnilでない）場合のみtrue
+        return (baseDate, consumed, dateConsumed != nil)
     }
 
     // MARK: - 個別パターンマッチ
@@ -177,8 +229,8 @@ final class NLParserService: NLParsing {
 
     /// 「15時」「8時30分」「午後3時」→ (hour, minute) を返す
     private func matchTime(_ text: String) -> (Int, Int, Range<String.Index>)? {
-        // 「午後X時」
-        if let match = text.range(of: #"午後(\d{1,2})時(\d{1,2})分?"#, options: .regularExpression) {
+        // 「午後X時」「午後X時Y分」（分なしも正しく15時扱いにするため分パート全体をオプショナルに）
+        if let match = text.range(of: #"午後(\d{1,2})時(\d{1,2}分)?"#, options: .regularExpression) {
             let s = String(text[match])
             if let m = s.firstMatch(of: /午後(\d{1,2})時(\d{1,2})?分?/),
                let h = Int(m.output.1) {
@@ -187,8 +239,8 @@ final class NLParserService: NLParsing {
                 return (hour, min, match)
             }
         }
-        // 「午前X時」
-        if let match = text.range(of: #"午前(\d{1,2})時(\d{1,2})分?"#, options: .regularExpression) {
+        // 「午前X時」「午前X時Y分」
+        if let match = text.range(of: #"午前(\d{1,2})時(\d{1,2}分)?"#, options: .regularExpression) {
             let s = String(text[match])
             if let m = s.firstMatch(of: /午前(\d{1,2})時(\d{1,2})?分?/),
                let h = Int(m.output.1) {

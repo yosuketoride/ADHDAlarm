@@ -5,8 +5,9 @@ import SwiftUI
 struct OnboardingContainerView: View {
     @Environment(AppState.self)  private var appState
     @Environment(AppRouter.self) private var router
-    @Environment(PermissionsService.self) private var permissions
     @State private var currentPage = 0
+    /// オンボーディング完了直後に1回だけ表示するPaywall
+    @State private var showOnboardingPaywall = false
 
     private let totalPages = 4
 
@@ -25,7 +26,7 @@ struct OnboardingContainerView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .ignoresSafeArea()
 
-            // ナビゲーションフッター（ページインジケータ＋ボタン）
+            // ナビゲーションフッター（ページインジケータ＋最終ページのみボタン）
             VStack(spacing: 20) {
                 // ページインジケータ
                 HStack(spacing: 8) {
@@ -37,42 +38,47 @@ struct OnboardingContainerView: View {
                     }
                 }
 
-                // 次へ / 完了ボタン
-                Button {
-                    advancePage()
-                } label: {
-                    Text(nextButtonLabel)
+                // 最終ページのみ「はじめる！」ボタンを表示（それまではスワイプで進む）
+                if currentPage == totalPages - 1 {
+                    Button {
+                        advancePage()
+                    } label: {
+                        Text("はじめる！")
+                    }
+                    .buttonStyle(.large(background: .green))
+                    .padding(.horizontal, 32)
                 }
-                .buttonStyle(.large(background: nextButtonColor))
-                .padding(.horizontal, 32)
             }
             .padding(.vertical, 16)
             .padding(.bottom, 34)
-            .background(.ultraThinMaterial)
+            // 最終ページのみ背景マテリアルを表示（それ以前はドットだけ浮かせる）
+            .background(currentPage == totalPages - 1 ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(.clear))
         }
-    }
-
-    private var nextButtonLabel: String {
-        switch currentPage {
-        case 0: return "体験してみる →"
-        case 1: return "連携設定へ →"
-        case 2: return permissions.isAllAuthorized ? "ウィジェットを設置する →" : "あとで設定する"
-        case 3: return "はじめる！"
-        default: return "次へ →"
+        // オンボーディング完了後のPaywall（1回だけ・全画面）
+        .fullScreenCover(isPresented: $showOnboardingPaywall, onDismiss: {
+            router.completeOnboarding()
+        }) {
+            PaywallView(
+                viewModel: PaywallViewModel(
+                    storeKit: StoreKitService(),
+                    appState: appState
+                )
+            )
         }
-    }
-
-    private var nextButtonColor: Color {
-        currentPage == totalPages - 1 ? .green : .blue
     }
 
     private func advancePage() {
         if currentPage < totalPages - 1 {
             withAnimation { currentPage += 1 }
         } else {
-            // オンボーディング完了
+            // オンボーディング完了: isOnboardingCompleteを先にセット（アプリをキルされても再表示しない）
             appState.isOnboardingComplete = true
-            router.completeOnboarding()
+            if appState.subscriptionTier == .pro {
+                // すでにPRO（他デバイスで購入済み等）はPaywallをスキップ
+                router.completeOnboarding()
+            } else {
+                showOnboardingPaywall = true
+            }
         }
     }
 }

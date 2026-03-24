@@ -26,6 +26,7 @@ final class StoreKitService {
         do {
             products = try await Product.products(for: [
                 Constants.ProductID.proMonthly,
+                Constants.ProductID.proYearly,
                 Constants.ProductID.proLifetime
             ])
             .sorted { $0.price < $1.price }
@@ -74,6 +75,7 @@ final class StoreKitService {
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result else { continue }
             if (transaction.productID == Constants.ProductID.proMonthly ||
+                transaction.productID == Constants.ProductID.proYearly ||
                 transaction.productID == Constants.ProductID.proLifetime),
                transaction.revocationDate == nil {
                 return true

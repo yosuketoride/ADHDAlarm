@@ -16,16 +16,21 @@ struct HookView: View {
                     // フクロウ + マイクのアイコン
                     ZStack {
                         Circle()
-                            .fill(Color.white.opacity(0.08))
-                            .frame(width: 140, height: 140)
-                        VStack(spacing: 0) {
-                            Text("🦉")
-                                .font(.system(size: 72))
-                            Image(systemName: "mic.fill")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundStyle(.blue)
-                                .offset(x: 28, y: -24)
-                        }
+                            .fill(Color.white.opacity(0.10))
+                            .frame(width: 160, height: 160)
+                        // フクロウは枠より少し小さくして余白を確保
+                        Image("OwlIcon")
+                            .resizable().scaledToFit()
+                            .frame(width: 130, height: 130)
+                        // マイクを右下にオーバーレイ（アプリのメイン入力手段を示す）
+                        Image(systemName: "mic.fill")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(10)
+                            .background(Color.blue)
+                            .clipShape(Circle())
+                            .shadow(color: .blue.opacity(0.4), radius: 6, y: 3)
+                            .offset(x: 50, y: 50)
                     }
                     .opacity(appeared ? 1 : 0)
                     .scaleEffect(appeared ? 1 : 0.7)
@@ -37,7 +42,7 @@ struct HookView: View {
                             .foregroundStyle(.white)
                             .multilineTextAlignment(.center)
 
-                        Text("スマホに触らなくても、Siriに話しかけるだけで\n予定の登録からアラームのセットまで完了します。")
+                        Text("アプリのマイクボタンに話しかけるだけ。\n予定の登録からアラームのセットまで全部おまかせ。")
                             .font(.callout)
                             .foregroundStyle(.white.opacity(0.7))
                             .multilineTextAlignment(.center)
@@ -47,24 +52,16 @@ struct HookView: View {
                     .offset(y: appeared ? 0 : 16)
                     .padding(.horizontal, 24)
 
-                    // Siri呼び方カード（どちらのフレーズでもOK）
+                    // Siri呼び方カード（ボーナス機能として紹介）
                     siriCard(
                         color: .blue,
                         icon: "🎙️",
-                        label: "こう呼びかけるだけ",
+                        label: "さらにSiriでも使えます（スマホに触らずに！）",
                         phrase: "「Hey Siri、こえメモにお願い」\n「Hey Siri、こえメモで予定を追加」"
                     )
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared ? 0 : 20)
                     .padding(.horizontal, 20)
-
-                    // 補足
-                    Text("Siriに話しかけるだけで、カレンダーへの登録と\nアラームのセットが同時に完了します！")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.5))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                        .opacity(appeared ? 1 : 0)
 
                     Spacer(minLength: 16)
                 }

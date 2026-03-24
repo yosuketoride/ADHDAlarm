@@ -4,6 +4,7 @@ import SwiftUI
 /// テスト体験でテンションが上がった直後に一気に権限を取得する
 struct PermissionsCTAView: View {
     @Environment(PermissionsService.self) private var permissions
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isRequesting = false
 
     var body: some View {
@@ -11,8 +12,9 @@ struct PermissionsCTAView: View {
             VStack(spacing: 32) {
                 // 見出し
                 VStack(spacing: 12) {
-                    Text("🦉")
-                        .font(.system(size: 60))
+                    Image("OwlIcon")
+                        .resizable().scaledToFit()
+                        .frame(width: 60, height: 60)
 
                     Text("Siriとマイクを\n許可して始めましょう")
                         .font(.title2.weight(.bold))
@@ -67,27 +69,49 @@ struct PermissionsCTAView: View {
                 }
                 .padding(.horizontal, 20)
 
-                // 一括許可ボタン
+                // ボタンエリア
                 if !permissions.isAllAuthorized {
-                    Button {
-                        isRequesting = true
-                        Task {
-                            await permissions.requestAll()
-                            isRequesting = false
-                        }
-                    } label: {
-                        if isRequesting {
-                            HStack(spacing: 12) {
-                                ProgressView().tint(.white)
-                                Text("確認中…")
+                    VStack(spacing: 12) {
+                        if permissions.hasDeniedPermissions {
+                            // 拒否済み権限がある → 設定アプリへ誘導
+                            VStack(spacing: 8) {
+                                Text("一部の機能がオフになっています。\niPhoneの「設定」アプリから許可してくださいね。")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+
+                                Button {
+                                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                                        UIApplication.shared.open(url)
+                                    }
+                                } label: {
+                                    Label("設定アプリで許可する", systemImage: "gear")
+                                }
+                                .buttonStyle(.large(background: .orange))
                             }
                         } else {
-                            Label("Siriとマイクを許可して始める", systemImage: "checkmark.shield.fill")
+                            // 未リクエスト → 通常の一括許可ボタン
+                            Button {
+                                isRequesting = true
+                                Task {
+                                    await permissions.requestAll()
+                                    isRequesting = false
+                                }
+                            } label: {
+                                if isRequesting {
+                                    HStack(spacing: 12) {
+                                        ProgressView().tint(.white)
+                                        Text("確認中…")
+                                    }
+                                } else {
+                                    Label("Siriとマイクを許可して始める", systemImage: "checkmark.shield.fill")
+                                }
+                            }
+                            .buttonStyle(.large(background: .blue))
+                            .disabled(isRequesting)
                         }
                     }
-                    .buttonStyle(.large(background: .blue))
                     .padding(.horizontal, 24)
-                    .disabled(isRequesting)
                 } else {
                     // 全許可済み
                     HStack(spacing: 8) {
@@ -104,6 +128,12 @@ struct PermissionsCTAView: View {
             }
         }
         .contentMargins(.bottom, 160, for: .scrollContent)
+        // 設定アプリから戻ったとき権限状態を更新する
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                permissions.refreshStatuses()
+            }
+        }
     }
 
     private func permissionRow(

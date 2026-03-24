@@ -33,13 +33,14 @@ final class AlarmKitScheduler: AlarmScheduling {
         let actualFireDate = alarm.fireDate.addingTimeInterval(-Double(alarm.preNotificationMinutes * 60))
         let schedule = Alarm.Schedule.fixed(actualFireDate)
 
-        // AlarmKitにはシステムデフォルトの「ピピピピ」音を使わせる
-        // 音声ナレーション（.caf）はアプリ側の RingingViewModel が排他的に担当する
-        // ※ .named(fileName) を渡すとAlarmKitがOS側でナレーションを再生してしまい、
-        //   アラームのみモードでも音声が流れるバグの原因となるため使用しない
+        // 音声ファイルがある場合はAlarmKitに渡す（バックグラウンド・ロック画面でも声が鳴る）
+        // .named(fileName) は Library/Sounds/ 直下のファイルを参照する
+        // アラームのみモードの場合、呼び出し側が alarm.voiceFileName = nil にしてから渡すこと
+        let sound: ActivityKit.AlertConfiguration.AlertSound = alarm.voiceFileName.map { .named($0) } ?? .default
         let config = AlarmManager.AlarmConfiguration<AlarmMetadataInfo>.alarm(
             schedule: schedule,
-            attributes: attrs
+            attributes: attrs,
+            sound: sound
         )
 
         _ = try await alarmManager.schedule(id: alarmID, configuration: config)

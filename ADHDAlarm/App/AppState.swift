@@ -27,11 +27,18 @@ final class AppState {
         }
     }
 
-    var preNotificationMinutes: Int {
+    /// デフォルトの事前通知タイミング（複数選択対応）
+    var preNotificationMinutesList: Set<Int> {
         didSet {
-            UserDefaults.standard.set(preNotificationMinutes, forKey: Constants.Keys.preNotificationMinutes)
-            UserDefaults(suiteName: Constants.appGroupID)?.set(preNotificationMinutes, forKey: Constants.Keys.preNotificationMinutes)
+            let arr = Array(preNotificationMinutesList)
+            UserDefaults.standard.set(arr, forKey: Constants.Keys.preNotificationMinutesList)
+            UserDefaults(suiteName: Constants.appGroupID)?.set(arr, forKey: Constants.Keys.preNotificationMinutesList)
         }
+    }
+
+    /// 後方互換プロパティ: 単一値が必要な箇所では最大値を使用
+    var preNotificationMinutes: Int {
+        preNotificationMinutesList.max() ?? 15
     }
 
     var selectedCalendarID: String? {
@@ -66,15 +73,27 @@ final class AppState {
     var sosContactPhone: String? {
         didSet { UserDefaults.standard.set(sosContactPhone, forKey: Constants.Keys.sosContactPhone) }
     }
+    /// Supabase LINEペアリング用のID (UUID文字列表現)
+    var sosPairingId: String? {
+        didSet { UserDefaults.standard.set(sosPairingId, forKey: Constants.Keys.sosPairingId) }
+    }
+    /// アラーム停止されなかった場合にSOSを送るまでの時間（分）
+    var sosEscalationMinutes: Int {
+        didSet { UserDefaults.standard.set(sosEscalationMinutes, forKey: Constants.Keys.sosEscalationMinutes) }
+    }
 
     init() {
         let defaults = UserDefaults.standard
         self.isOnboardingComplete = defaults.bool(forKey: Constants.Keys.onboardingComplete)
         self.subscriptionTier = SubscriptionTier(rawValue: defaults.string(forKey: Constants.Keys.subscriptionTier) ?? "") ?? .free
         self.voiceCharacter = VoiceCharacter(rawValue: defaults.string(forKey: Constants.Keys.voiceCharacter) ?? "") ?? .femaleConcierge
-        self.preNotificationMinutes = defaults.integer(forKey: Constants.Keys.preNotificationMinutes) == 0
-            ? 15
-            : defaults.integer(forKey: Constants.Keys.preNotificationMinutes)
+        // 新形式（Set<Int>）を優先し、なければ旧形式（Int）から移行
+        if let arr = defaults.array(forKey: Constants.Keys.preNotificationMinutesList) as? [Int], !arr.isEmpty {
+            self.preNotificationMinutesList = Set(arr)
+        } else {
+            let legacy = defaults.integer(forKey: Constants.Keys.preNotificationMinutes)
+            self.preNotificationMinutesList = [legacy == 0 ? 15 : legacy]
+        }
         self.selectedCalendarID = defaults.string(forKey: Constants.Keys.selectedCalendarID)
         self.isAccessibilityModeEnabled = defaults.bool(forKey: Constants.Keys.accessibilityModeEnabled)
         self.notificationType = NotificationType(
@@ -87,5 +106,8 @@ final class AppState {
             rawValue: defaults.string(forKey: Constants.Keys.micInputMode) ?? ""
         ) ?? .tapToggle
         self.sosContactPhone = defaults.string(forKey: Constants.Keys.sosContactPhone)
+        self.sosPairingId = defaults.string(forKey: Constants.Keys.sosPairingId)
+        let storedEscalation = defaults.integer(forKey: Constants.Keys.sosEscalationMinutes)
+        self.sosEscalationMinutes = storedEscalation == 0 ? 5 : storedEscalation
     }
 }

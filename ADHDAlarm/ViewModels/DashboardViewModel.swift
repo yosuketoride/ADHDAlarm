@@ -8,7 +8,10 @@ final class DashboardViewModel {
 
     // MARK: - 状態
 
+    /// 今日の予定（今日0:00〜23:59）
     var events: [AlarmEvent] = []
+    /// 明日以降の予定（時系列ソート済み）
+    var upcomingEvents: [AlarmEvent] = []
     var isWidgetInstalled = false
     var isLoading = false
 
@@ -18,6 +21,16 @@ final class DashboardViewModel {
 
     var nextAlarm: AlarmEvent? {
         events.filter { $0.fireDate > Date() }.min(by: { $0.fireDate < $1.fireDate })
+    }
+
+    /// 最も近い将来の予定（今日 → 明日以降の順で検索）
+    /// カウントダウンカードに表示するために使う
+    var nearestFutureAlarm: AlarmEvent? {
+        let now = Date()
+        if let todayNext = events.filter({ $0.fireDate > now }).min(by: { $0.fireDate < $1.fireDate }) {
+            return todayNext
+        }
+        return upcomingEvents.first
     }
 
     var greeting: String {
@@ -52,17 +65,35 @@ final class DashboardViewModel {
 
     // MARK: - データ取得
 
-    /// アプリ作成の予定をロードする
+    /// アプリ作成の予定をロードする（今日 + 今後の予定）
     func loadEvents() async {
         isLoading = true
         // ローカルストアから即時表示（EventKitの非同期待ち不要）
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: Date())
         let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
-        events = eventStore.loadAll()
+        let allEvents = eventStore.loadAll()
+        events = allEvents
             .filter { $0.fireDate >= startOfToday && $0.fireDate < startOfTomorrow }
             .sorted { $0.fireDate < $1.fireDate }
+        // 繰り返し予定は同じグループIDがあれば1件にまとめて代表を表示する
+        upcomingEvents = deduplicatedUpcoming(from: allEvents, startingFrom: startOfTomorrow)
         isLoading = false
+    }
+
+    /// 明日以降の予定を取得する。繰り返し同グループは最初の1件のみ残す
+    private func deduplicatedUpcoming(from allEvents: [AlarmEvent], startingFrom: Date) -> [AlarmEvent] {
+        var seenGroupIDs = Set<UUID>()
+        var result: [AlarmEvent] = []
+        for event in allEvents.filter({ $0.fireDate >= startingFrom }).sorted(by: { $0.fireDate < $1.fireDate }) {
+            if let groupID = event.recurrenceGroupID {
+                // 繰り返しグループの最初の1件だけ残す
+                if seenGroupIDs.contains(groupID) { continue }
+                seenGroupIDs.insert(groupID)
+            }
+            result.append(event)
+        }
+        return result
     }
 
     /// ウィジェットの設置状態を確認する
