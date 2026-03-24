@@ -44,9 +44,8 @@ final class RingingViewModelTests: XCTestCase {
         viewModel.configure(
             notificationType: .alarmAndVoice,
             audioOutputMode: .automatic,
-            sosContactPhone: nil,
             sosPairingId: "test-pairing-id",
-            sosEscalationMinutes: 1 // 1 minutes
+            sosEscalationMinutes: 1
         )
         
         // Act: startAudioPlayback fires the SOS timer
@@ -64,11 +63,10 @@ final class RingingViewModelTests: XCTestCase {
         let alarm = AlarmEvent.makeTest(title: "Normal Alarm")
         viewModel.activeAlarm = alarm
         
-        // No pairing ID or Phone
+        // ペアリングIDなし
         viewModel.configure(
             notificationType: .alarmAndVoice,
             audioOutputMode: .automatic,
-            sosContactPhone: nil,
             sosPairingId: nil,
             sosEscalationMinutes: 5
         )
@@ -77,6 +75,6 @@ final class RingingViewModelTests: XCTestCase {
         viewModel.startAudioPlayback()
         
         // Assert
-        XCTAssertNil(viewModel.escalationTimer, "SOS timer should NOT be scheduled when no pairing ID or phone is configured")
+        XCTAssertNil(viewModel.escalationTimer, "SOS timer should NOT be scheduled when no pairing ID is configured")
     }
 }

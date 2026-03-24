@@ -109,32 +109,13 @@ struct AdvancedSettingsView: View {
                         Divider()
                     }
                     
-                    HStack {
-                        Image(systemName: "phone.fill").foregroundStyle(.secondary).frame(width: 28)
-                        TextField(
-                            "予備の連絡先（SMS用・電話番号）",
-                            text: Binding(
-                                get: { viewModel.sosContactPhone },
-                                set: { viewModel.sosContactPhone = $0 }
-                            )
-                        )
-                        .keyboardType(.phonePad)
-                        .toolbar {
-                            ToolbarItemGroup(placement: .keyboard) {
-                                Spacer()
-                                Button("完了") {
-                                    UIApplication.shared.sendAction(
-                                        #selector(UIResponder.resignFirstResponder),
-                                        to: nil, from: nil, for: nil
-                                    )
-                                }
-                            }
-                        }
-                    }
                     Picker("お知らせするまでの時間", selection: Binding(
                         get: { viewModel.sosEscalationMinutes },
                         set: { viewModel.sosEscalationMinutes = $0 }
                     )) {
+                        #if DEBUG
+                        Text("10秒（テスト用）").tag(0)
+                        #endif
                         ForEach([1, 3, 5, 10, 15, 20], id: \.self) { min in
                             Text("\(min)分").tag(min)
                         }
@@ -156,7 +137,7 @@ struct AdvancedSettingsView: View {
                 Text("見守り（PRO）")
             } footer: {
                 if viewModel.isPro {
-                    Text("アラームが\(viewModel.sosEscalationMinutes)分間止められなかった場合、LINEに自動でお知らせが届きます。予備の番号が登録されている場合、電話番号宛へのメッセージ送信画面も開きます。")
+                    Text("アラームが\(viewModel.sosEscalationMinutes == 0 ? "10秒（テスト）" : "\(viewModel.sosEscalationMinutes)分")間止められなかった場合、連携済みのLINEに自動でお知らせが届きます。")
                 }
             }
 

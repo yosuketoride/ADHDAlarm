@@ -22,7 +22,26 @@ struct SOSPairingView: View {
                     Spacer()
                 }
                 .padding(.vertical, 4)
-                
+
+                // テスト送信ボタン（連携が正しく動いているか確認）
+                Button {
+                    viewModel.sendTestMessage()
+                } label: {
+                    switch viewModel.testSendStatus {
+                    case .idle:
+                        Label("テストメッセージを送る", systemImage: "paperplane")
+                    case .sending:
+                        Label("送信中…", systemImage: "clock")
+                    case .sent:
+                        Label("送信しました！LINEを確認してください", systemImage: "checkmark.circle.fill")
+                    case .failed(let msg):
+                        Label(msg, systemImage: "exclamationmark.triangle")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .tint(viewModel.testSendStatus == .sent ? .green : viewModel.testSendStatus == .idle ? .blue : .orange)
+                .disabled(viewModel.testSendStatus == .sending)
+
                 Button(role: .destructive) {
                     viewModel.unpair()
                 } label: {
@@ -36,7 +55,6 @@ struct SOSPairingView: View {
                 } label: {
                     HStack {
                         Image(systemName: "message.fill")
-                            .foregroundStyle(.green)
                             .font(.title2)
                         Text("家族のLINEを登録する")
                             .font(.headline)

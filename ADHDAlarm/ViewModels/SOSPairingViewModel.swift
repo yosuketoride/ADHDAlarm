@@ -9,12 +9,20 @@ enum SOSPairingState: Equatable {
     case error(String)
 }
 
+enum SOSTestSendStatus: Equatable {
+    case idle
+    case sending
+    case sent
+    case failed(String)
+}
+
 @Observable
 @MainActor
 final class SOSPairingViewModel {
     var state: SOSPairingState = .idle
     var pairingCode: String?
     var timeRemaining: Int = 600
+    var testSendStatus: SOSTestSendStatus = .idle
     
     private let sosService: SOSNotifying
     private var countdownTimer: Timer?
@@ -113,6 +121,24 @@ final class SOSPairingViewModel {
         }
     }
     
+    // MARK: - テスト送信
+
+    /// 連携が正しく動いているか確認するためのテストメッセージを送る
+    func sendTestMessage() {
+        guard let id = appState.sosPairingId else { return }
+        testSendStatus = .sending
+        Task {
+            do {
+                try await sosService.sendSOS(pairingId: id, alarmTitle: "LINE連携テスト", minutes: 0)
+                self.testSendStatus = .sent
+                try? await Task.sleep(for: .seconds(4))
+                self.testSendStatus = .idle
+            } catch {
+                self.testSendStatus = .failed("送信に失敗しました")
+            }
+        }
+    }
+
     var timeRemainingFormatted: String {
         let minutes = timeRemaining / 60
         let seconds = timeRemaining % 60
