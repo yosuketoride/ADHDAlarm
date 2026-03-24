@@ -69,10 +69,6 @@ final class AppState {
     }
 
     // MARK: - 見守り（PRO）
-    /// エスカレーション通知の送信先電話番号（家族など）
-    var sosContactPhone: String? {
-        didSet { UserDefaults.standard.set(sosContactPhone, forKey: Constants.Keys.sosContactPhone) }
-    }
     /// Supabase LINEペアリング用のID (UUID文字列表現)
     var sosPairingId: String? {
         didSet { UserDefaults.standard.set(sosPairingId, forKey: Constants.Keys.sosPairingId) }
@@ -105,9 +101,9 @@ final class AppState {
         self.micInputMode = MicInputMode(
             rawValue: defaults.string(forKey: Constants.Keys.micInputMode) ?? ""
         ) ?? .tapToggle
-        self.sosContactPhone = defaults.string(forKey: Constants.Keys.sosContactPhone)
         self.sosPairingId = defaults.string(forKey: Constants.Keys.sosPairingId)
         let storedEscalation = defaults.integer(forKey: Constants.Keys.sosEscalationMinutes)
-        self.sosEscalationMinutes = storedEscalation == 0 ? 5 : storedEscalation
+        // 0 = デバッグビルド専用の10秒テストモード。未設定（UserDefaultsが返すデフォルト0）と区別するためキーの存在確認が必要
+        self.sosEscalationMinutes = defaults.object(forKey: Constants.Keys.sosEscalationMinutes) == nil ? 5 : storedEscalation
     }
 }

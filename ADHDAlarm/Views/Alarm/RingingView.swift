@@ -1,5 +1,4 @@
 import SwiftUI
-import MessageUI
 import StoreKit
 
 /// 全画面アラーム鳴動画面
@@ -17,7 +16,6 @@ struct RingingView: View {
 
     @State private var pendingAlarm: AlarmEvent
     @State private var showDismissMessage = false
-    @State private var showSOSMessage = false
     // アニメーション状態
     @State private var appeared = false
     @State private var bubbleBounce = false
@@ -27,6 +25,7 @@ struct RingingView: View {
     @State private var showSuccessBanner = false
     @State private var showErrorBanner = false
     @State private var errorMessage = ""
+
 
     var body: some View {
         ZStack {
@@ -85,7 +84,6 @@ struct RingingView: View {
             viewModel.configure(
                 notificationType: appState.notificationType,
                 audioOutputMode: appState.audioOutputMode,
-                sosContactPhone: appState.sosContactPhone,
                 sosPairingId: appState.sosPairingId,
                 sosEscalationMinutes: appState.sosEscalationMinutes
             )
@@ -107,31 +105,13 @@ struct RingingView: View {
                 showSuccessBanner = true
                 hideBannersAfterDelay()
             case .failed(let msg):
-                if viewModel.sosContactPhone != nil && MFMessageComposeViewController.canSendText() {
-                    showSOSMessage = true // フォールバック
-                } else {
-                    errorMessage = msg
-                    showErrorBanner = true
-                    hideBannersAfterDelay()
-                }
+                errorMessage = msg
+                showErrorBanner = true
+                hideBannersAfterDelay()
             default: break
             }
         }
-        .sheet(isPresented: $showSOSMessage) {
-            if let phone = viewModel.sosContactPhone,
-               let alarm = viewModel.activeAlarm {
-                MessageComposeView(
-                    recipients: [phone],
-                    body: "【声メモアラーム】\(alarm.title)のアラームに\(appState.sosEscalationMinutes)分間応答がありません。ご確認をお願いします。",
-                    onDismiss: { _ in
-                        showSOSMessage = false
-                        viewModel.sosStatus = .idle
-                    }
-                )
-                .ignoresSafeArea()
-            }
-        }
-        .interactiveDismissDisabled(!showSOSMessage)
+        .interactiveDismissDisabled()
         .statusBarHidden(true)
         .animation(.spring(duration: 0.4), value: showDismissMessage)
     }

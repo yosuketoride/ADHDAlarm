@@ -14,7 +14,6 @@ enum Constants {
         static let notificationType      = "notification_type"
         static let audioOutputMode       = "audio_output_mode"
         static let micInputMode          = "mic_input_mode"
-        static let sosContactPhone        = "sos_contact_phone"
         static let sosEscalationMinutes  = "sos_escalation_minutes"
         static let sosPairingId          = "sos_pairing_id"
     }

@@ -21,8 +21,6 @@ final class RingingViewModel: NSObject {
     private let voiceGenerator: VoiceSynthesizing
     private var notificationType: NotificationType = .alarmAndVoice
     private var audioOutputMode: AudioOutputMode = .automatic
-    /// SOS送信先の電話番号（PRO: 設定画面で家族の番号を登録）- フォールバック用
-    var sosContactPhone: String?
     /// Supabase LINE連携用のペアリングID
     var sosPairingId: String?
     /// SOSエスカレーションまでの時間（分）
@@ -49,13 +47,11 @@ final class RingingViewModel: NSObject {
     func configure(
         notificationType: NotificationType,
         audioOutputMode: AudioOutputMode,
-        sosContactPhone: String? = nil,
         sosPairingId: String? = nil,
         sosEscalationMinutes: Int = 5
     ) {
         self.notificationType = notificationType
         self.audioOutputMode = audioOutputMode
-        self.sosContactPhone = sosContactPhone
         self.sosPairingId = sosPairingId
         self.sosEscalationMinutes = sosEscalationMinutes
     }
@@ -65,9 +61,14 @@ final class RingingViewModel: NSObject {
     /// アラーム画面が表示されたとき音声を再生する
     func startAudioPlayback() {
         // PRO機能: SOSタイマーを開始 (ペアリング済みのLINE、または電話番号がある場合)
-        print("DEBUG: startAudioPlayback - sosPairingId: \(sosPairingId ?? "nil"), sosContactPhone: \(sosContactPhone ?? "nil")")
-        if sosPairingId != nil || sosContactPhone != nil {
+        print("DEBUG: startAudioPlayback - sosPairingId: \(sosPairingId ?? "nil")")
+        if sosPairingId != nil {
+            // sosEscalationMinutes == 0 はデバッグビルド専用の「10秒テストモード」
+            #if DEBUG
+            let interval = sosEscalationMinutes == 0 ? 10.0 : Double(sosEscalationMinutes * 60)
+            #else
             let interval = Double(sosEscalationMinutes * 60)
+            #endif
             print("DEBUG: SOS timer scheduled for \(interval) seconds from now")
             escalationTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
                 print("DEBUG: SOS Escalation Timer FIRED!")
@@ -190,25 +191,20 @@ final class RingingViewModel: NSObject {
         
         hasSentSOS = true
         
-        // 優先度1: LINE連携（Supabase）
-        if let pairingId = sosPairingId {
-            print("DEBUG: Triggering LINE SOS via Supabase. pairingId: \(pairingId)")
-            sosStatus = .sending
-            do {
-                try await sosService.sendSOS(pairingId: pairingId, alarmTitle: alarm.title, minutes: sosEscalationMinutes)
-                print("DEBUG: LINE SOS sent successfully!")
-                sosStatus = .sent
-            } catch {
-                print("DEBUG: LINE SOS FAILED: \(error)")
-                sosStatus = .failed(error.localizedDescription)
-            }
-        } 
-        // 優先度2: SMSフォールバック (旧実装を再利用する場合は別途ビューから処理する)
-        else if sosContactPhone != nil {
-            print("DEBUG: LINE pairing not found. Falling back to SMS/Phone.")
-            sosStatus = .failed("LINE未連携のためSMS等へのフォールバック")
-        } else {
-            print("DEBUG: No SOS destination (LINE or Phone) configured.")
+        // LINE連携（Supabase）でSOS送信
+        guard let pairingId = sosPairingId else {
+            print("DEBUG: No SOS destination (LINE pairing) configured.")
+            return
+        }
+        print("DEBUG: Triggering LINE SOS via Supabase. pairingId: \(pairingId)")
+        sosStatus = .sending
+        do {
+            try await sosService.sendSOS(pairingId: pairingId, alarmTitle: alarm.title, minutes: sosEscalationMinutes)
+            print("DEBUG: LINE SOS sent successfully!")
+            sosStatus = .sent
+        } catch {
+            print("DEBUG: LINE SOS FAILED: \(error)")
+            sosStatus = .failed(error.localizedDescription)
         }
     }
 }

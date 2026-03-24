@@ -52,11 +52,6 @@ final class SettingsViewModel {
         set { appState.micInputMode = newValue }
     }
 
-    var sosContactPhone: String {
-        get { appState.sosContactPhone ?? "" }
-        set { appState.sosContactPhone = newValue.isEmpty ? nil : newValue }
-    }
-
     var sosEscalationMinutes: Int {
         get { appState.sosEscalationMinutes }
         set { appState.sosEscalationMinutes = newValue }
