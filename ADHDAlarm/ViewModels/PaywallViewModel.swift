@@ -8,6 +8,7 @@ final class PaywallViewModel {
 
     var successMessage: String?
     var errorMessage: String?
+    var isLoading = false
 
     private let storeKit: StoreKitService
     private let appState: AppState
@@ -24,8 +25,13 @@ final class PaywallViewModel {
 
     /// 未ロードの場合のみ商品一覧を取得する
     func loadIfNeeded() async {
-        guard products.isEmpty else { return }
+        guard products.isEmpty && !isLoading else { return }
+        isLoading = true
         await storeKit.loadProducts()
+        isLoading = false
+        if products.isEmpty {
+            errorMessage = "価格情報を取得できませんでした。インターネット接続を確認してください。"
+        }
     }
 
     // MARK: - 購入

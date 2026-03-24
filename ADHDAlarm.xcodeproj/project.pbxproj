@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		33A5B06D2F717EFB00EC26B4 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 33A5B06C2F717EFB00EC26B4 /* Auth */; };
+		33A5B06F2F717EFB00EC26B4 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 33A5B06E2F717EFB00EC26B4 /* Functions */; };
+		33A5B0712F717EFB00EC26B4 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 33A5B0702F717EFB00EC26B4 /* PostgREST */; };
+		33A5B0732F7180BC00EC26B4 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 33A5B0722F7180BC00EC26B4 /* Supabase */; };
 		33F5C7E62F694C7100720FF0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33F5C7E52F694C7100720FF0 /* WidgetKit.framework */; };
 		33F5C7E82F694C7100720FF0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33F5C7E72F694C7100720FF0 /* SwiftUI.framework */; };
 		33F5C7F72F694C7200720FF0 /* ADHDAlarmWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 33F5C7E32F694C7100720FF0 /* ADHDAlarmWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -98,6 +102,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				33A5B0732F7180BC00EC26B4 /* Supabase in Frameworks */,
+				33A5B0712F717EFB00EC26B4 /* PostgREST in Frameworks */,
+				33A5B06F2F717EFB00EC26B4 /* Functions in Frameworks */,
+				33A5B06D2F717EFB00EC26B4 /* Auth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -173,6 +181,10 @@
 			);
 			name = ADHDAlarm;
 			packageProductDependencies = (
+				33A5B06C2F717EFB00EC26B4 /* Auth */,
+				33A5B06E2F717EFB00EC26B4 /* Functions */,
+				33A5B0702F717EFB00EC26B4 /* PostgREST */,
+				33A5B0722F7180BC00EC26B4 /* Supabase */,
 			);
 			productName = ADHDAlarm;
 			productReference = 33D3B9D62F68210000B5A49F /* ADHDAlarm.app */;
@@ -259,6 +271,9 @@
 			);
 			mainGroup = 33D3B9CD2F68210000B5A49F;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				33A5B06B2F717EFB00EC26B4 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 33D3B9D72F68210000B5A49F /* Products */;
 			projectDirPath = "";
@@ -704,6 +719,40 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		33A5B06B2F717EFB00EC26B4 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		33A5B06C2F717EFB00EC26B4 /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 33A5B06B2F717EFB00EC26B4 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		33A5B06E2F717EFB00EC26B4 /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 33A5B06B2F717EFB00EC26B4 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		33A5B0702F717EFB00EC26B4 /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 33A5B06B2F717EFB00EC26B4 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		33A5B0722F7180BC00EC26B4 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 33A5B06B2F717EFB00EC26B4 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 33D3B9CE2F68210000B5A49F /* Project object */;
 }

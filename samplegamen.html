@@ -1,0 +1,102 @@
+import React from 'react';
+import { CheckCircle, Volume2, Wifi, Battery, Signal } from 'lucide-react';
+
+export default function App() {
+return (
+<div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
+
+    {/* iPhoneモックアップの枠 */}
+    <div
+        className="relative w-full max-w-[393px] h-[852px] bg-gradient-to-br from-rose-100 via-orange-50 to-amber-100 rounded-[3rem] shadow-2xl overflow-hidden border-[14px] border-gray-900">
+
+        {/* iOSステータスバー（装飾用） */}
+        <div className="absolute top-0 w-full h-14 flex justify-between items-center px-6 pt-4 z-20">
+            <span className="text-sm font-semibold text-gray-800">14:59</span>
+            <div className="w-32 h-7 bg-black rounded-full absolute left-1/2 transform -translate-x-1/2 top-2"></div>
+            {/* Dynamic Island風 */}
+            <div className="flex space-x-2 text-gray-800">
+                <Signal size={16} />
+                <Wifi size={16} />
+                <Battery size={16} />
+            </div>
+        </div>
+
+        {/* メインコンテンツ */}
+        <div className="relative flex flex-col h-full justify-between px-6 pb-12 pt-28 z-10">
+
+            <div className="flex flex-col items-center mt-4">
+
+                {/* 吹き出し（喋っている感の演出） */}
+                <div
+                    className="relative bg-white px-8 py-5 rounded-[2rem] shadow-lg mb-6 animate-[bounce_3s_ease-in-out_infinite]">
+                    <div className="flex items-center justify-center space-x-3">
+                        <Volume2 className="text-amber-500 animate-pulse" size={32} />
+                        <h1 className="text-4xl font-black text-gray-800 tracking-widest">時間です！</h1>
+                    </div>
+                    {/* 吹き出しのしっぽ */}
+                    <div
+                        className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-white rotate-45 rounded-sm">
+                    </div>
+                </div>
+
+                {/* ふくろうキャラクターと波紋エフェクト */}
+                <div className="relative flex justify-center items-center w-40 h-40 mb-8">
+                    {/* 波紋アニメーション */}
+                    <div className="absolute w-full h-full bg-white/40 rounded-full animate-ping opacity-75"></div>
+                    <div className="absolute w-32 h-32 bg-white/60 rounded-full animate-pulse"></div>
+
+                    {/* ふくろう本体 */}
+                    <div
+                        className="relative w-28 h-28 bg-white backdrop-blur-sm rounded-full flex items-center justify-center shadow-md border-4 border-white/50 z-10">
+                        <span className="text-7xl drop-shadow-sm" role="img" aria-label="owl">🦉</span>
+                    </div>
+                </div>
+
+                {/* 予定の詳細パネル */}
+                <div
+                    className="w-full bg-white/60 backdrop-blur-md px-6 py-6 rounded-3xl shadow-sm text-center space-y-3 border border-white/50">
+
+                    {/* なぜ今鳴っているか（タイミング）の明示 */}
+                    <div className="inline-flex items-center space-x-2 bg-amber-100/80 px-4 py-2 rounded-full">
+                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                        <p className="text-sm font-bold text-amber-800">
+                            あと15分で予定です
+                        </p>
+                    </div>
+
+                    {/* 予定のタイトル */}
+                    <p className="text-2xl font-extrabold text-gray-800 leading-tight">
+                        15時から<br />友達とカフェ
+                    </p>
+                </div>
+
+            </div>
+
+            {/* とめるボタン */}
+            <button
+                className="w-full bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 active:scale-95 transition-all duration-200 py-5 rounded-[2rem] shadow-[0_10px_25px_rgba(16,185,129,0.4)] flex items-center justify-center space-x-3 group border-b-4 border-emerald-600">
+                <CheckCircle className="text-white group-hover:scale-110 transition-transform" size={32}
+                    strokeWidth={2.5} />
+                <span className="text-2xl font-black text-white tracking-widest">とめる</span>
+            </button>
+
+        </div>
+
+        {/* 背景の装飾（光のぼかし） */}
+        <div
+            className="absolute top-20 left-10 w-32 h-32 bg-yellow-200 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob">
+        </div>
+        <div
+            className="absolute top-40 right-10 w-32 h-32 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000">
+        </div>
+
+    </div>
+
+    {/* Tailwind Custom Configuration for Animations */}
+    <style dangerouslySetInnerHTML={{__html: ` @keyframes blob { 0% { transform: translate(0px, 0px) scale(1); } 33% {
+        transform: translate(30px, -50px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.9); } 100% {
+        transform: translate(0px, 0px) scale(1); } } .animate-blob { animation: blob 7s infinite; }
+        .animation-delay-2000 { animation-delay: 2s; } `}} />
+</div>
+);
+}

@@ -1,186 +1,443 @@
 import SwiftUI
 import MessageUI
+import StoreKit
 
 /// 全画面アラーム鳴動画面
 /// AlarmKit経由で起動、またはオンボーディングのテストアラームとして使用
 struct RingingView: View {
     @State private var viewModel: RingingViewModel
     @Environment(AppState.self) private var appState
-    /// アラームを止めた後に画面を閉じるコールバック
     var onDismissed: () -> Void = {}
 
     init(alarm: AlarmEvent, onDismissed: @escaping () -> Void = {}) {
         _viewModel = State(initialValue: RingingViewModel())
         self.onDismissed = onDismissed
-        // initでは直接セットできないため、onAppearで設定する
         _pendingAlarm = State(initialValue: alarm)
     }
 
     @State private var pendingAlarm: AlarmEvent
-    @State private var isVisible = false
     @State private var showDismissMessage = false
     @State private var showSOSMessage = false
+    // アニメーション状態
+    @State private var appeared = false
+    @State private var bubbleBounce = false
+    @State private var ripplePulse = false
+    
+    // SOSバナー用状態
+    @State private var showSuccessBanner = false
+    @State private var showErrorBanner = false
+    @State private var errorMessage = ""
 
     var body: some View {
         ZStack {
-            // 背景: 深い黒（集中させる）
-            Color.black.ignoresSafeArea()
+            // 暖かいグラデーション背景
+            LinearGradient(
+                colors: [
+                    Color(red: 0.98, green: 0.90, blue: 0.88),
+                    Color(red: 1.0,  green: 0.95, blue: 0.87),
+                    Color(red: 1.0,  green: 0.98, blue: 0.92)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                Spacer()
+            // 装飾: 光のぼかし
+            Circle()
+                .fill(Color.yellow.opacity(0.35))
+                .frame(width: 220, height: 220)
+                .blur(radius: 60)
+                .offset(x: -100, y: -320)
+                .ignoresSafeArea()
+            Circle()
+                .fill(Color(red: 1.0, green: 0.7, blue: 0.7).opacity(0.35))
+                .frame(width: 200, height: 200)
+                .blur(radius: 60)
+                .offset(x: 130, y: -160)
+                .ignoresSafeArea()
 
-                // カウントダウン（中央・最大サイズ・タイトルは内部に表示するため上部の重複テキストは不要）
-                TimelineView(.periodic(from: .now, by: 1.0)) { context in
-                    countdownView(at: context.date)
-                }
-
-                Spacer()
-
-                if showDismissMessage {
-                    // 停止後メッセージ（中央・フクロウ付き）
-                    VStack(spacing: 24) {
-                        Spacer()
-                        Text("🦉")
-                            .font(.system(size: 80))
-                        Text("おつかれさまです！")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                        Text("「\(viewModel.activeAlarm?.title ?? "ご予定")」\nそろそろ出発しましょう！")
-                            .font(.title3.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.85))
-                            .multilineTextAlignment(.center)
-                        Spacer()
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if showDismissMessage {
+                dismissView
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            } else {
+                mainContent
                     .transition(.opacity)
-                } else {
-                    // 停止ボタン（大きく・余白たっぷり・高齢者対応）
-                    Button {
-                        viewModel.dismiss()
-                        showDismissMessage = true
-                        Task {
-                            try? await Task.sleep(for: .seconds(2))
-                            onDismissed()
-                        }
-                    } label: {
-                        Label("とめる", systemImage: "checkmark.circle.fill")
-                    }
-                    .buttonStyle(.large(background: .green))
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 56)
-                }
             }
+            
+            // SOS状態バナー
+            VStack {
+                if showSuccessBanner {
+                    sosBanner(isSuccess: true, message: "家族にLINE通知を送りました")
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                if showErrorBanner {
+                    sosBanner(isSuccess: false, message: errorMessage)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                Spacer()
+            }
+            .padding(.top, 40)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showSuccessBanner)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showErrorBanner)
         }
         .onAppear {
             viewModel.activeAlarm = pendingAlarm
             viewModel.configure(
                 notificationType: appState.notificationType,
                 audioOutputMode: appState.audioOutputMode,
-                sosContactPhone: appState.subscriptionTier == .pro ? appState.sosContactPhone : nil
+                sosContactPhone: appState.sosContactPhone,
+                sosPairingId: appState.sosPairingId,
+                sosEscalationMinutes: appState.sosEscalationMinutes
             )
             viewModel.startAudioPlayback()
-            withAnimation(.easeIn(duration: 0.4)) {
-                isVisible = true
+            withAnimation(.spring(duration: 0.5, bounce: 0.3)) { appeared = true }
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true).delay(0.3)) {
+                bubbleBounce = true
+            }
+            withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false).delay(0.5)) {
+                ripplePulse = true
             }
         }
         .onChange(of: viewModel.activeAlarm) { _, newValue in
-            // アラームがnilになった（AlarmKit側で停止された）場合のみ閉じる
-            if newValue == nil && !showDismissMessage {
-                onDismissed()
-            }
+            if newValue == nil && !showDismissMessage { onDismissed() }
         }
-        // エスカレーション: 5分無応答でSOS iMessage を起動する
-        .onChange(of: viewModel.shouldSendSOS) { _, shouldSend in
-            guard shouldSend,
-                  MFMessageComposeViewController.canSendText(),
-                  viewModel.sosContactPhone != nil else { return }
-            showSOSMessage = true
+        .onChange(of: viewModel.sosStatus) { _, status in
+            switch status {
+            case .sent:
+                showSuccessBanner = true
+                hideBannersAfterDelay()
+            case .failed(let msg):
+                if viewModel.sosContactPhone != nil && MFMessageComposeViewController.canSendText() {
+                    showSOSMessage = true // フォールバック
+                } else {
+                    errorMessage = msg
+                    showErrorBanner = true
+                    hideBannersAfterDelay()
+                }
+            default: break
+            }
         }
         .sheet(isPresented: $showSOSMessage) {
             if let phone = viewModel.sosContactPhone,
                let alarm = viewModel.activeAlarm {
                 MessageComposeView(
                     recipients: [phone],
-                    body: "【声メモアラーム】\(alarm.title)のアラームに5分間応答がありません。ご確認をお願いします。",
+                    body: "【声メモアラーム】\(alarm.title)のアラームに\(appState.sosEscalationMinutes)分間応答がありません。ご確認をお願いします。",
                     onDismiss: { _ in
                         showSOSMessage = false
-                        viewModel.shouldSendSOS = false
+                        viewModel.sosStatus = .idle
                     }
                 )
                 .ignoresSafeArea()
             }
         }
-        // バックボタン・スワイプ離脱を防ぐ（アラームは必ず操作で止める）
         .interactiveDismissDisabled(!showSOSMessage)
         .statusBarHidden(true)
+        .animation(.spring(duration: 0.4), value: showDismissMessage)
     }
 
-    // MARK: - カウントダウン表示
+    // MARK: - メイン画面
+
+    private var mainContent: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            // 吹き出し + フクロウ（上部）
+            VStack(spacing: 0) {
+                speechBubble
+                    .offset(y: bubbleBounce ? -6 : 0)
+                    .padding(.bottom, 16)
+                owlWithRipple
+            }
+            .scaleEffect(appeared ? 1.0 : 0.8)
+            .opacity(appeared ? 1.0 : 0)
+
+            Spacer()
+
+            // 予定詳細カード（中央）
+            TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                eventCard(at: context.date)
+            }
+            .padding(.horizontal, 24)
+            .scaleEffect(appeared ? 1.0 : 0.9)
+            .opacity(appeared ? 1.0 : 0)
+
+            Spacer()
+
+            // 停止ボタン（下部）
+            stopButton
+                .padding(.horizontal, 32)
+                .padding(.bottom, 56)
+                .opacity(appeared ? 1.0 : 0)
+                .offset(y: appeared ? 0 : 20)
+        }
+    }
+
+    // MARK: - 吹き出し
+
+    private var speechBubble: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Color.white)
+                    .shadow(color: .black.opacity(0.12), radius: 14, y: 5)
+
+                HStack(spacing: 12) {
+                    Image(systemName: "speaker.wave.3.fill")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(Color(red: 0.95, green: 0.60, blue: 0.15))
+                    Text("時間です！")
+                        .font(.system(size: 38, weight: .black, design: .rounded))
+                        .foregroundStyle(.primary)
+                }
+                .padding(.horizontal, 28)
+                .padding(.vertical, 20)
+            }
+
+            // 吹き出しのしっぽ
+            Triangle()
+                .fill(Color.white)
+                .frame(width: 28, height: 14)
+                .shadow(color: .black.opacity(0.06), radius: 3, y: 3)
+        }
+        .padding(.horizontal, 32)
+    }
+
+    // MARK: - フクロウ + 波紋
+
+    private var owlWithRipple: some View {
+        ZStack {
+            // 波紋（外側）ping
+            Circle()
+                .fill(Color.white.opacity(0.35))
+                .frame(width: 160, height: 160)
+                .scaleEffect(ripplePulse ? 1.5 : 1.0)
+                .opacity(ripplePulse ? 0.0 : 0.7)
+            // 波紋（内側）pulse
+            Circle()
+                .fill(Color.white.opacity(0.55))
+                .frame(width: 130, height: 130)
+                .scaleEffect(bubbleBounce ? 1.08 : 0.96)
+            // フクロウ背景円
+            Circle()
+                .fill(Color.white)
+                .frame(width: 112, height: 112)
+                .shadow(color: .black.opacity(0.10), radius: 14, y: 5)
+            // フクロウ本体
+            Image("OwlIcon")
+                .resizable().scaledToFit()
+                .frame(width: 88, height: 88)
+        }
+        .frame(width: 160, height: 160)
+    }
+
+    // MARK: - 予定詳細カード
 
     @ViewBuilder
-    private func countdownView(at now: Date) -> some View {
+    private func eventCard(at now: Date) -> some View {
         if let alarm = viewModel.activeAlarm {
-            let preMin = alarm.preNotificationMinutes
-            // 事前通知アラームの残り時間 = 予定時刻 - 現在時刻（マイナスなら0）
             let secondsToEvent = max(0, alarm.fireDate.timeIntervalSince(now))
             let minutesToEvent = Int(ceil(secondsToEvent / 60.0))
 
-            if preMin == 0 {
-                // ジャスト（予定時刻ぴったり）で発火したアラーム
-                VStack(spacing: 12) {
-                    Text(alarm.title)
-                        .font(.system(size: 56, weight: .black, design: .rounded))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .minimumScaleFactor(0.5)
-                        .padding(.horizontal, 24)
-                    Text("の時間です！")
-                        .font(.system(.title2, design: .rounded).weight(.bold))
-                        .foregroundStyle(.white.opacity(0.85))
+            VStack(spacing: 14) {
+                // タイミングバッジ
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(Color(red: 0.95, green: 0.60, blue: 0.15))
+                        .frame(width: 8, height: 8)
+                        .opacity(bubbleBounce ? 1.0 : 0.4)
+                    if alarm.preNotificationMinutes == 0 {
+                        Text("ちょうど今の時間です")
+                    } else if minutesToEvent == 0 {
+                        Text("予定の時間を過ぎました")
+                    } else {
+                        Text("あと\(minutesToEvent)分で予定です")
+                    }
                 }
-            } else if minutesToEvent == 0 {
-                // カウントダウンが0になった（予定時刻を過ぎた）
-                VStack(spacing: 12) {
-                    Text("時間です！")
-                        .font(.system(size: 56, weight: .black, design: .rounded))
-                        .foregroundStyle(.white)
-                    Text(alarm.title)
-                        .font(.system(.title2, design: .rounded).weight(.bold))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                }
-            } else {
-                // 事前通知アラーム: カウントダウン数字を超大きく表示
-                VStack(spacing: 4) {
-                    Text("あと")
-                        .font(.system(.title3, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.6))
+                .font(.callout.weight(.bold))
+                .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.0))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color(red: 1.0, green: 0.93, blue: 0.72))
+                .clipShape(Capsule())
 
-                    Text("\(minutesToEvent)")
-                        .font(.system(size: 140, weight: .black, design: .rounded))
-                        .foregroundStyle(.white)
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
-                        .animation(.easeInOut(duration: 0.3), value: minutesToEvent)
+                // 予定タイトル
+                Text(alarm.title)
+                    .font(.system(.title2, design: .rounded).weight(.black))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.7)
+                    .padding(.horizontal, 8)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.7), lineWidth: 1.5)
+            }
+            .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
+        }
+    }
 
-                    Text("分で")
-                        .font(.system(.title3, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.6))
-                        .padding(.bottom, 4)
+    // MARK: - 停止ボタン
 
-                    Text("\(alarm.title)")
-                        .font(.system(.title2, design: .rounded).weight(.bold))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                    Text("です")
-                        .font(.system(.title3, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.6))
-                }
+    private var stopButton: some View {
+        Button {
+            let sosWasFired = viewModel.sosStatus != .idle
+            viewModel.dismiss()
+            withAnimation(.spring(duration: 0.4)) {
+                showDismissMessage = true
+            }
+            ReviewManager.shared.recordCompletionAndRequestIfNeeded(isSOSFired: sosWasFired)
+            Task {
+                try? await Task.sleep(for: .seconds(2.5))
+                onDismissed()
+            }
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 30, weight: .bold))
+                Text("とめる")
+                    .font(.system(size: 26, weight: .black, design: .rounded))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 76)
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.22, green: 0.78, blue: 0.42),
+                        Color(red: 0.12, green: 0.65, blue: 0.30)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+            .shadow(color: Color(red: 0.12, green: 0.65, blue: 0.30).opacity(0.5), radius: 14, y: 7)
+            .overlay {
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.5), Color.clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
             }
         }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - 停止後の画面（おつかれさまです）
+
+    private var dismissView: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 28) {
+                // フクロウ + 吹き出し
+                ZStack(alignment: .topTrailing) {
+                    Image("OwlIcon")
+                        .resizable().scaledToFit()
+                        .frame(width: 120, height: 120)
+
+                    // オレンジ吹き出し
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("おつかれさまです！")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color(red: 0.95, green: 0.60, blue: 0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
+                    .overlay(alignment: .bottomLeading) {
+                        Image(systemName: "triangle.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(Color(red: 0.95, green: 0.60, blue: 0.15))
+                            .rotationEffect(.degrees(30))
+                            .offset(x: 8, y: 7)
+                    }
+                    .offset(x: 80, y: -12)
+                }
+                .frame(height: 120)
+                .padding(.trailing, 80)
+
+                // メッセージカード
+                VStack(spacing: 10) {
+                    Text("よくできました！")
+                        .font(.system(size: 32, weight: .black, design: .rounded))
+                        .foregroundStyle(.primary)
+
+                    Text("「\(pendingAlarm.title)」\nそろそろ準備を始めましょう！")
+                        .font(.title3.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 28)
+                .frame(maxWidth: .infinity)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.7), lineWidth: 1.5)
+                }
+                .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
+                .padding(.horizontal, 24)
+            }
+
+            Spacer()
+        }
+    }
+    
+    // MARK: - Helper UIs
+    
+    private func hideBannersAfterDelay() {
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            withAnimation {
+                showSuccessBanner = false
+                showErrorBanner = false
+            }
+        }
+    }
+    
+    private func sosBanner(isSuccess: Bool, message: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundColor(isSuccess ? .green : .orange)
+                .font(.title3)
+            Text(message)
+                .font(.callout.bold())
+                .foregroundColor(.primary)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(.thickMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
+        .padding(.horizontal, 24)
+    }
+}
+
+// MARK: - 吹き出しのしっぽ
+
+private struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.closeSubpath()
+        return path
     }
 }
 

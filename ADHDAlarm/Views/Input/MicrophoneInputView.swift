@@ -64,14 +64,15 @@ struct MicrophoneInputView: View {
 
             // フクロウ + 吹き出しエリア
             VStack(spacing: 16) {
-                ZStack(alignment: .topTrailing) {
+                ZStack(alignment: .center) {
                     // フクロウ本体
-                    Text("🦉")
-                        .font(.system(size: 100))
+                    Image("OwlIcon")
+                        .resizable().scaledToFit()
+                        .frame(width: 150, height: 150)
                         .scaleEffect(owlBounce ? 1.0 : 0.7)
                         .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
 
-                    // 吹き出し（右上）
+                    // 吹き出し（右上に固定オフセット）
                     VStack(alignment: .leading, spacing: 2) {
                         Text("なんでも")
                         Text("話しかけてね！")
@@ -85,16 +86,16 @@ struct MicrophoneInputView: View {
                             .fill(Color.blue)
                     )
                     .overlay(alignment: .bottomLeading) {
-                        Image(systemName: "arrowtriangle.down.left.fill")
+                        Image(systemName: "triangle.fill")
                             .font(.system(size: 10))
                             .foregroundStyle(.blue)
+                            .rotationEffect(.degrees(30))
                             .offset(x: 10, y: 8)
                     }
-                    .offset(x: 70, y: -16)
+                    .offset(x: 90, y: -60)
                     .opacity(owlBounce ? 1 : 0)
                 }
-                .frame(height: 120)
-                .padding(.trailing, 80)
+                .frame(height: 150)
 
                 // ガイドテキスト
                 VStack(spacing: 8) {
@@ -147,6 +148,19 @@ struct MicrophoneInputView: View {
                     selectedMinutes: Binding(
                         get: { viewModel.selectedPreNotificationMinutesList },
                         set: { viewModel.selectedPreNotificationMinutesList = $0 }
+                    ),
+                    selectedRecurrence: Binding(
+                        get: { viewModel.selectedRecurrence },
+                        set: { viewModel.selectedRecurrence = $0 }
+                    ),
+                    availableCalendars: viewModel.availableCalendars,
+                    selectedCalendarID: Binding(
+                        get: { viewModel.selectedCalendarID },
+                        set: { viewModel.selectedCalendarID = $0 }
+                    ),
+                    selectedFireDate: Binding(
+                        get: { viewModel.selectedFireDate },
+                        set: { viewModel.selectedFireDate = $0 }
                     ),
                     isPro: false,
                     onConfirm: {
@@ -216,7 +230,7 @@ struct MicrophoneInputView: View {
                     .padding(.horizontal, 32)
             } else if let error = viewModel.errorMessage {
                 VStack(spacing: 12) {
-                    Text("🦉").font(.system(size: 48))
+                    Image("OwlIcon").resizable().scaledToFit().frame(width: 72, height: 72)
                     Text(error)
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(.red)

@@ -1,4 +1,5 @@
 import Foundation
+import EventKit
 
 /// EventKit ⇔ AlarmKit の差分同期エンジン
 ///
@@ -34,9 +35,18 @@ final class SyncEngine {
     /// EventKitとAlarmKitの差分を洗い出し、ローカルマッピングと照合して修正する
     /// アプリのフォアグラウンド復帰時に必ず呼ぶ
     func performFullSync() async {
+        // カレンダー権限がない場合はスキップ
+        // 権限なしでfetchAppEventsが空を返すと、全ローカルイベントが誤削除される
+        let authStatus = EKEventStore.authorizationStatus(for: .event)
+        guard authStatus == .fullAccess || authStatus == .authorized else { return }
+
         // 1. 現在の状態を収集する
         let ekEvents      = (try? await calendarProvider.fetchAppEvents()) ?? []
         let localMappings = eventStore.loadAll()
+
+        // EventKitが空なのにローカルにイベントがある場合はスキップ
+        // （EventKitキャッシュ未更新 or 一時的な読み取り失敗の可能性があり、誤削除を防ぐ）
+        if ekEvents.isEmpty && !localMappings.isEmpty { return }
 
         // 2. 差分を計算する
         let diffs = computeDiffs(ekEvents: ekEvents, localMappings: localMappings)

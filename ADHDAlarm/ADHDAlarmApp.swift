@@ -115,8 +115,8 @@ struct RootView: View {
                     .transition(.opacity)
             }
         }
-        // 高齢者モード: PRO限定で文字サイズを大きくする
-        .dynamicTypeSize(appState.isAccessibilityModeEnabled ? .accessibility1 : .large)
+        // iPhoneの「テキストサイズ」設定に自動追従。上限はaccessibility1でレイアウト崩壊を防ぐ
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         // AlarmKit発火時にフルスクリーンでRingingViewを表示
         .fullScreenCover(item: Binding(
             get: { router.ringingAlarm },

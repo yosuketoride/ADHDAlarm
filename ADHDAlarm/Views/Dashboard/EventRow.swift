@@ -3,14 +3,22 @@ import SwiftUI
 /// 予定1件の行表示（変更・削除ボタン付き）
 struct EventRow: View {
     let alarm: AlarmEvent
+    var showDate: Bool = false
     let onDelete: () -> Void
 
     @State private var showDeleteConfirm = false
 
     var body: some View {
         HStack(spacing: 16) {
-            // 時刻（大きく表示）
+            // 時刻（大きく表示）。showDate=trueの場合は日付も上に添える
             VStack(alignment: .center, spacing: 2) {
+                if showDate {
+                    Text(alarm.fireDate.japaneseDateString)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
                 Text(alarm.fireDate.japaneseTimeString)
                     .font(.title3.weight(.bold))
                     .monospacedDigit()
@@ -26,7 +34,21 @@ struct EventRow: View {
                     .lineLimit(2)
                     .strikethrough(isPast, color: .secondary)
 
-                if isPast {
+                // アラーム通知タイミング（小さく・ベル付き）
+                if !isPast {
+                    let values = Array(alarm.alarmKitMinutesMap.values)
+                    let minutes = values.isEmpty ? [alarm.preNotificationMinutes] : values.sorted(by: >)
+                    let timingLabel = minutes.map { $0 == 0 ? "ちょうど" : "\($0)分前" }.joined(separator: "・")
+                    Label(timingLabel, systemImage: "bell.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let rule = alarm.recurrenceRule {
+                    Label(rule.shortDisplayName, systemImage: "repeat")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if isPast {
                     Text("お疲れ様でした！")
                         .font(.caption)
                         .foregroundStyle(.secondary)

@@ -93,7 +93,7 @@ struct NextAlarmWidgetView: View {
         .containerBackground(.fill.tertiary, for: .widget)
     }
 
-    // Medium: 時刻 + 残り時間 + タイトル + 他の件数
+    // Medium: 時刻 + 残り時間 + タイトル + 他の件数 + マイクボタン
     private func mediumView(alarm: WidgetAlarmEvent) -> some View {
         HStack(spacing: 16) {
             // 左: 時刻
@@ -114,7 +114,7 @@ struct NextAlarmWidgetView: View {
 
             Divider()
 
-            // 右: 予定情報
+            // 右: 予定情報 + マイク追加ボタン
             VStack(alignment: .leading, spacing: 6) {
                 Text(alarm.fireDate.widgetDateLabel)
                     .font(.caption)
@@ -132,6 +132,15 @@ struct NextAlarmWidgetView: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
+
+                Spacer(minLength: 0)
+
+                // 予定を追加するマイクボタン
+                Link(destination: URL(string: "adhdalarm://voice-input")!) {
+                    Label("予定を追加", systemImage: "mic.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.blue)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -142,7 +151,7 @@ struct NextAlarmWidgetView: View {
     // Large: 今日の予定一覧
     private var largeView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // ヘッダー
+            // ヘッダー（マイク追加ボタン付き）
             HStack {
                 Image(systemName: "list.bullet.clipboard.fill")
                     .foregroundStyle(.blue)
@@ -152,6 +161,11 @@ struct NextAlarmWidgetView: View {
                 Text(Date().widgetDateLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Link(destination: URL(string: "adhdalarm://voice-input")!) {
+                    Image(systemName: "mic.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.blue)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)

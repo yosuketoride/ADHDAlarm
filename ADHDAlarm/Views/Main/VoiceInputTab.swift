@@ -12,19 +12,45 @@ struct VoiceInputTab: View {
     @State private var showTextFallback = false
     @State private var showPaywall = false
     @State private var owlBounce = false
+    @State private var isBreathing = false
+    @State private var isPulsing = false
 
     private var hasSpeechPermission: Bool {
         SFSpeechRecognizer.authorizationStatus() == .authorized &&
         AVAudioApplication.shared.recordPermission == .granted
     }
 
-    var body: some View {
-        ZStack {
-            Color.themeBackground.ignoresSafeArea()
+    /// 時間帯別フクロウ吹き出しメッセージ
+    private var owlGreeting: (line1: String, line2: String) {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<11:  return ("おはようございます！", "今日の予定を教えてね")
+        case 11..<17: return ("こんにちは！", "午後も自分のペースでね")
+        default:      return ("おつかれさま！", "明日の予定はあるかな？")
+        }
+    }
 
-            if let vm = viewModel {
-                inputContent(vm: vm)
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                // 温もりのある淡いグラデーション背景
+                LinearGradient(
+                    colors: [
+                        Color(UIColor.systemBackground),
+                        Color.blue.opacity(0.04),
+                        Color.orange.opacity(0.02)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                if let vm = viewModel {
+                    inputContent(vm: vm)
+                }
             }
+            .navigationTitle("予定を追加")
+            .navigationBarTitleDisplayMode(.large)
         }
         .onAppear {
             if viewModel == nil {
@@ -33,6 +59,14 @@ struct VoiceInputTab: View {
             withAnimation(.spring(duration: 0.6, bounce: 0.4).delay(0.3)) {
                 owlBounce = true
             }
+            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true).delay(0.5)) {
+                isBreathing = true
+            }
+            withAnimation(.easeOut(duration: 2.0).repeatForever(autoreverses: false).delay(1.0)) {
+                isPulsing = true
+            }
+            // PRO版かつ複数カレンダーがある場合は選択肢をロード
+            Task { await viewModel?.loadCalendarsIfNeeded() }
         }
         .sheet(isPresented: $showPaywall) {
             PaywallView(
@@ -47,14 +81,6 @@ struct VoiceInputTab: View {
     @ViewBuilder
     private func inputContent(vm: InputViewModel) -> some View {
         VStack(spacing: 0) {
-            // タイトル
-            Text("予定を追加")
-                .font(.title2.weight(.bold))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
-                .padding(.bottom, 8)
-
             Spacer()
 
             // 文字起こし / 解析中 / エラー / ガイドテキスト
@@ -71,6 +97,19 @@ struct VoiceInputTab: View {
                     selectedMinutes: Binding(
                         get: { vm.selectedPreNotificationMinutesList },
                         set: { vm.selectedPreNotificationMinutesList = $0 }
+                    ),
+                    selectedRecurrence: Binding(
+                        get: { vm.selectedRecurrence },
+                        set: { vm.selectedRecurrence = $0 }
+                    ),
+                    availableCalendars: vm.availableCalendars,
+                    selectedCalendarID: Binding(
+                        get: { vm.selectedCalendarID },
+                        set: { vm.selectedCalendarID = $0 }
+                    ),
+                    selectedFireDate: Binding(
+                        get: { vm.selectedFireDate },
+                        set: { vm.selectedFireDate = $0 }
                     ),
                     isPro: appState.subscriptionTier == .pro,
                     onUpgradeTapped: { showPaywall = true },
@@ -148,57 +187,71 @@ struct VoiceInputTab: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+            } else if let error = vm.errorMessage, vm.parsedInput == nil {
+                // エラー優先表示（解析失敗時に文字起こしテキストに隠れないよう条件順を入れ替え）
+                VStack(spacing: 12) {
+                    if !vm.transcribedText.isEmpty {
+                        Text(vm.transcribedText)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    Text(error)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 32)
             } else if !vm.transcribedText.isEmpty {
                 Text(vm.transcribedText)
                     .font(.title3.weight(.medium))
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
-            } else if let error = vm.errorMessage, vm.parsedInput == nil {
-                Text(error)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
             } else {
-                // フクロウ + 吹き出し（初期状態）
-                VStack(spacing: 16) {
-                    ZStack(alignment: .topTrailing) {
-                        Text("🦉")
-                            .font(.system(size: 100))
+                // フクロウ + 時間帯別吹き出し（初期状態）
+                VStack(spacing: 20) {
+                    ZStack(alignment: .center) {
+                        // フクロウ（呼吸アニメーション）
+                        Image("OwlIcon")
+                            .resizable().scaledToFit()
+                            .frame(width: 160, height: 160)
                             .scaleEffect(owlBounce ? 1.0 : 0.7)
+                            .offset(y: isBreathing ? -4 : 4)
                             .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
 
+                        // 時間帯別吹き出し（フクロウ右上に固定オフセット）
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("なんでも")
-                            Text("話しかけてね！")
+                            Text(owlGreeting.line1)
+                                .font(.system(size: 13, weight: .bold))
+                            Text(owlGreeting.line2)
+                                .font(.system(size: 12, weight: .medium))
                         }
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.blue))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(.background)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
                         .overlay(alignment: .bottomLeading) {
-                            Image(systemName: "arrowtriangle.down.left.fill")
+                            Image(systemName: "triangle.fill")
                                 .font(.system(size: 10))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(.background)
+                                .rotationEffect(.degrees(30))
                                 .offset(x: 10, y: 8)
                         }
-                        .offset(x: 70, y: -16)
+                        .offset(x: 100, y: -70)
                         .opacity(owlBounce ? 1 : 0)
                     }
-                    .frame(height: 120)
-                    .padding(.trailing, 80)
+                    .frame(height: 160)
 
-                    VStack(spacing: 8) {
-                        Text("ボタンを押して話しかけてね")
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.primary)
-                        Text("「明日の15時にカフェ」\n「10分後に薬を飲む」")
-                            .font(.callout)
+                    // 例文カード
+                    VStack(spacing: 10) {
+                        Text("例えば、こんな風に話しかけてね")
+                            .font(.caption.weight(.medium))
                             .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(4)
+                        ExampleCard(icon: "📅", text: "「明日の15時にカフェ」")
+                        ExampleCard(icon: "💊", text: "「10分後に薬を飲む」")
                     }
                     .opacity(owlBounce ? 1 : 0)
                 }
@@ -234,6 +287,16 @@ struct VoiceInputTab: View {
                 }
             } else {
                 ZStack {
+                    // Pulseエフェクト（録音していない時だけ表示）
+                    if !vm.isListening {
+                        Circle()
+                            .fill(Color.blue.opacity(0.15))
+                            .frame(width: 100, height: 100)
+                            .scaleEffect(isPulsing ? 1.5 : 1.0)
+                            .opacity(isPulsing ? 0.0 : 1.0)
+                    }
+
+                    // 録音中の波紋アニメーション
                     if vm.isListening {
                         Circle()
                             .stroke(Color.red.opacity(0.3), lineWidth: 2)
@@ -290,5 +353,27 @@ struct VoiceInputTab: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - 例文カード
+
+private struct ExampleCard: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(icon)
+                .font(.title3)
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(UIColor.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }

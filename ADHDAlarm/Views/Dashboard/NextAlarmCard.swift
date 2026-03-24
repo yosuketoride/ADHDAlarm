@@ -35,12 +35,7 @@ struct NextAlarmCard: View {
     private var countdownBody: some View {
         let remaining = alarm.fireDate.timeIntervalSince(Date())
 
-        if remaining <= 0 {
-            // 時間を過ぎた
-            Text("お時間です！")
-                .font(.system(size: 40, weight: .black, design: .rounded))
-                .foregroundStyle(.red)
-        } else if remaining < 60 {
+        if remaining < 60 {
             // 残り1分未満: 秒カウントダウン + 強調メッセージ
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 urgentCountdown

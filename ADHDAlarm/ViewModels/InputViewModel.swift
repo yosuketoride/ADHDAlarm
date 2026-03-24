@@ -24,6 +24,14 @@ final class InputViewModel {
     var isParsing = false
     /// このイベント単位の事前通知分数セット（確認画面でユーザーが選択。PRO時は複数選択可）
     var selectedPreNotificationMinutesList: Set<Int> = [15]
+    /// 確認画面でユーザーが選択した繰り返しルール（nilなら単発）
+    var selectedRecurrence: RecurrenceRule?
+    /// PRO版かつ複数カレンダーがある場合に表示する選択肢
+    var availableCalendars: [CalendarInfo] = []
+    /// 予定単位で選択したカレンダーID（nilならグローバル設定を使用）
+    var selectedCalendarID: String?
+    /// 確認画面でユーザーが今日/明日を切り替えた日時（nilならparsedInput.fireDateを使用）
+    var selectedFireDate: Date?
 
     // MARK: - 依存サービス
 
@@ -93,20 +101,26 @@ final class InputViewModel {
     func parse(text: String) {
         parsedInput = nlParser.parse(text: text)
         if parsedInput == nil {
-            errorMessage = "日時が読み取れませんでした。「明日の15時にカフェ」のように話してみてください。"
+            errorMessage = "うまく聞き取れませんでした。\n「明日の15時にカフェ」のように、\n日時と予定を一緒に話してみてね。"
         } else {
             errorMessage = nil
-            // グローバル設定＋ジャスト（0分）をデフォルト選択としてセット
-            selectedPreNotificationMinutesList = [0, appState.preNotificationMinutes]
+            selectedFireDate = nil
+            // 設定で選択済みの事前通知タイミング（複数対応）をデフォルト選択としてセット
+            selectedPreNotificationMinutesList = appState.preNotificationMinutesList
+            // NLParserが解析した繰り返しルールを引き継ぐ
+            selectedRecurrence = parsedInput?.recurrenceRule
         }
     }
 
     // MARK: - Write-Through（アラーム登録の核心）
 
     /// 確認後に実行するWrite-Through処理
-    /// 1. 音声ファイル生成 → 2. EventKit書き込み → 3. AlarmKit登録 → 4. ローカル保存
+    /// 1. 音声ファイル生成 → 2. AlarmKit登録（成功時のみ3へ）→ 3. EventKit書き込み → 4. ローカル保存
+    /// ★ AlarmKit成功後にEventKitを書くことで、失敗時の重複書込を防ぐ
     func confirmAndSchedule() async {
         guard let parsed = parsedInput else { return }
+        // すでに処理中なら多重タップを無視する
+        guard !isWritingThrough else { return }
 
         isWritingThrough = true
         errorMessage = nil
@@ -114,77 +128,125 @@ final class InputViewModel {
         // アラームEventの基本情報を組み立てる
         // 複数選択がある場合は最も早い通知（最大分数）を主として使用
         let primaryMinutes = selectedPreNotificationMinutesList.max() ?? 15
-        var alarm = AlarmEvent(
-            title: parsed.title,
-            fireDate: parsed.fireDate,
-            preNotificationMinutes: primaryMinutes,
-            calendarIdentifier: appState.subscriptionTier.canSelectCalendar
-                ? appState.selectedCalendarID
-                : nil,
-            voiceCharacter: appState.voiceCharacter
-        )
+        let recurrence = selectedRecurrence
+        let calendarID = appState.subscriptionTier.canSelectCalendar
+            ? (selectedCalendarID ?? appState.selectedCalendarID)
+            : nil
 
-        do {
-            // Step 1: 音声ファイル（.caf）を生成してLibrary/Soundsに保存
+        // 繰り返し予定の場合は共通グループIDを付与（将来の一括削除に使用）
+        let groupID: UUID? = recurrence != nil ? UUID() : nil
+
+        // ユーザーが今日/明日トグルで選択した日時を優先、なければNLParser解析結果を使用
+        let resolvedFireDate = selectedFireDate ?? parsed.fireDate
+
+        // 登録する発火日時のリスト（単発なら1件、繰り返しならN件）
+        let fireDates: [Date]
+        if let rule = recurrence {
+            fireDates = rule.nextOccurrences(from: resolvedFireDate, count: rule.scheduledCount)
+        } else {
+            fireDates = [resolvedFireDate]
+        }
+
+        var alarmKitSucceeded = false
+
+        for (index, fireDate) in fireDates.enumerated() {
+            var alarm = AlarmEvent(
+                title: parsed.title,
+                fireDate: fireDate,
+                preNotificationMinutes: primaryMinutes,
+                calendarIdentifier: calendarID,
+                voiceCharacter: appState.voiceCharacter,
+                recurrenceRule: recurrence,
+                recurrenceGroupID: groupID
+            )
+
+            // Step 1: 音声ファイル（.caf）を生成してLibrary/Soundsに保存（失敗してもスキップして続行）
             let speechText = VoiceFileGenerator.speechText(for: alarm)
-            let voiceURL   = try await voiceGenerator.generateAudio(
+            if let voiceURL = try? await voiceGenerator.generateAudio(
                 text: speechText,
                 character: alarm.voiceCharacter,
                 alarmID: alarm.id
-            )
-            alarm.voiceFileName = voiceURL.lastPathComponent
-
-            // Step 2: EventKitに予定を書き込む
-            let eventKitID = try await calendarProvider.writeEvent(
-                alarm,
-                to: alarm.calendarIdentifier
-            )
-            alarm.eventKitIdentifier = eventKitID
-
-            // Step 3: 選択された各分数ごとにAlarmKitアラームを登録
-            // ジャスト（0分）は常に含まれる（parse()でデフォルト選択済み）
-            var scheduledIDs: [UUID] = []
-            var minutesMap: [String: Int] = [:]
-            for minutes in selectedPreNotificationMinutesList.sorted(by: >) {
-                var tempAlarm = alarm
-                tempAlarm.preNotificationMinutes = minutes
-                let akID = try await alarmScheduler.schedule(tempAlarm)
-                scheduledIDs.append(akID)
-                // AlarmKit ID → 分数のマッピングを記録（発火時に正しいテキストを読み上げるため）
-                minutesMap[akID.uuidString] = minutes
+            ) {
+                alarm.voiceFileName = voiceURL.lastPathComponent
             }
-            alarm.alarmKitIdentifiers = scheduledIDs
-            alarm.alarmKitIdentifier = scheduledIDs.first
-            alarm.alarmKitMinutesMap = minutesMap
 
-            // Step 4: マッピングをローカルに永続化
+            // Step 2: AlarmKitアラームを登録（最重要ステップ。失敗時はEventKitに書かず重複を防ぐ）
+            do {
+                var scheduledIDs: [UUID] = []
+                var minutesMap: [String: Int] = [:]
+                for minutes in selectedPreNotificationMinutesList.sorted(by: >) {
+                    var tempAlarm = alarm
+                    tempAlarm.preNotificationMinutes = minutes
+                    // アラームのみモードではAlarmKitに音声ファイルを渡さない
+                    if appState.notificationType != .alarmAndVoice {
+                        tempAlarm.voiceFileName = nil
+                    }
+                    let akID = try await alarmScheduler.schedule(tempAlarm)
+                    scheduledIDs.append(akID)
+                    minutesMap[akID.uuidString] = minutes
+                }
+                alarm.alarmKitIdentifiers = scheduledIDs
+                alarm.alarmKitIdentifier = scheduledIDs.first
+                alarm.alarmKitMinutesMap = minutesMap
+            } catch {
+                // AlarmKit登録失敗 → EventKit書込をスキップしてループを継続
+                continue
+            }
+
+            // Step 3: EventKitに予定を書き込む（AlarmKit成功後のみ。カレンダー権限なし時はスキップ）
+            if index == 0 {
+                if let eventKitID = try? await calendarProvider.writeEvent(
+                    alarm,
+                    to: alarm.calendarIdentifier
+                ) {
+                    alarm.eventKitIdentifier = eventKitID
+                }
+            }
+
+            // Step 4: ローカルに永続化
             eventStore.save(alarm)
-
-            // WidgetKitのタイムラインを即座に更新
-            WidgetCenter.shared.reloadAllTimelines()
-
-            // 成功フィードバック（コンシェルジュ口調）
-            confirmationMessage = "\(parsed.fireDate.naturalJapaneseString)、\(parsed.title)ですね。アラームをセットしました！バッチリです。"
-            parsedInput = nil
-            transcribedText = ""
-
-        } catch {
-            // ロールバック: 一部だけ書き込まれた場合のクリーンアップ
-            if let ekID = alarm.eventKitIdentifier {
-                try? await calendarProvider.deleteEvent(eventKitIdentifier: ekID)
-            }
-            let idsToCancel = alarm.alarmKitIdentifiers.isEmpty
-                ? [alarm.alarmKitIdentifier].compactMap { $0 }
-                : alarm.alarmKitIdentifiers
-            if !idsToCancel.isEmpty {
-                try? await AlarmKitScheduler().cancelAll(alarmKitIDs: idsToCancel)
-            }
-            voiceGenerator.deleteAudio(alarmID: alarm.id)
-
-            errorMessage = "うまくセットできませんでした。\nもう一度やってみてくださいね。"
+            alarmKitSucceeded = true
         }
 
+        if !alarmKitSucceeded {
+            errorMessage = "アラームのセットに失敗しました。\niPhoneの「設定」アプリからアラームの\n許可をオンにして、もう一度お試しください。"
+            isWritingThrough = false
+            return
+        }
+
+        // WidgetKitのタイムラインを即座に更新
+        WidgetCenter.shared.reloadAllTimelines()
+
+        // 成功フィードバック（コンシェルジュ口調）
+        let recurrenceSuffix = recurrence.map { "（\($0.shortDisplayName)）" } ?? ""
+        let calendarName = await resolvedCalendarName(id: calendarID)
+        let calendarSuffix = calendarName.map { "「\($0)」にも登録しました。" } ?? ""
+        confirmationMessage = "\(resolvedFireDate.naturalJapaneseString)、\(parsed.title)\(recurrenceSuffix)ですね。アラームをセットしました！\(calendarSuffix)バッチリです。"
+        parsedInput = nil
+        transcribedText = ""
+
         isWritingThrough = false
+    }
+
+    // MARK: - カレンダー情報
+
+    /// PRO版かつ複数カレンダー所持の場合に利用可能カレンダーをロードする
+    func loadCalendarsIfNeeded() async {
+        guard appState.subscriptionTier.canSelectCalendar else { return }
+        guard let calendars = try? await calendarProvider.availableCalendars(),
+              calendars.count >= 2 else { return }
+        availableCalendars = calendars
+        // デフォルト選択: グローバル設定 → 最初のカレンダーの順でフォールバック
+        if selectedCalendarID == nil {
+            selectedCalendarID = appState.selectedCalendarID ?? calendars.first?.id
+        }
+    }
+
+    /// カレンダーIDからカレンダー名を解決する（成功メッセージ用）
+    private func resolvedCalendarName(id: String?) async -> String? {
+        guard let id else { return nil }
+        let calendars = (try? await calendarProvider.availableCalendars()) ?? []
+        return calendars.first(where: { $0.id == id })?.title
     }
 
     // MARK: - リセット
@@ -196,6 +258,9 @@ final class InputViewModel {
         errorMessage      = nil
         confirmationMessage = nil
         isListening       = false
-        selectedPreNotificationMinutesList = [appState.preNotificationMinutes]
+        selectedFireDate  = nil
+        selectedPreNotificationMinutesList = appState.preNotificationMinutesList
+        selectedRecurrence = nil
+        selectedCalendarID = nil
     }
 }

@@ -122,26 +122,31 @@ struct CategoryRecorderSheet: View {
             ScrollView {
                 VStack(spacing: 28) {
 
-                    // ヘッダー
-                    VStack(spacing: 10) {
+                    // ヘッダー（絵文字 + カテゴリ名）
+                    VStack(spacing: 8) {
                         Text(category.emoji)
                             .font(.system(size: 56))
                         Text(category.displayName)
                             .font(.title2.weight(.bold))
-                        Text("録音例:")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(category.exampleScript)
-                            .font(.callout)
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 10)
-                            .background(Color(.secondarySystemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .padding(.horizontal, 24)
                     }
                     .padding(.top, 8)
+
+                    // メイン録音例（「こんな感じで喋ればOK」の映像化）
+                    VStack(spacing: 6) {
+                        Text("こんなふうに話しかけてみてね")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(category.exampleScript)
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity)
+                            .background(Color(.secondarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .padding(.horizontal, 24)
 
                     // 録音ステータス
                     if viewModel.isRecording {
@@ -161,19 +166,38 @@ struct CategoryRecorderSheet: View {
                     }
 
                     // 録音ボタン
-                    Button {
-                        viewModel.toggleRecording()
-                    } label: {
-                        Label(
-                            viewModel.isRecording ? "録音を止める" : "録音を開始する",
-                            systemImage: viewModel.isRecording ? "stop.circle.fill" : "mic.circle.fill"
-                        )
+                    VStack(spacing: 16) {
+                        Button {
+                            viewModel.toggleRecording()
+                        } label: {
+                            Label(
+                                viewModel.isRecording ? "録音を止める" : "録音を開始する",
+                                systemImage: viewModel.isRecording ? "stop.circle.fill" : "mic.circle.fill"
+                            )
+                        }
+                        .buttonStyle(.large(
+                            background: viewModel.isRecording ? .red : .pink,
+                            foreground: .white
+                        ))
+                        .padding(.horizontal, 32)
+
+                        // 参考フレーズ（録音ボタン直下のマイクロコピー）
+                        if !viewModel.isRecording && !viewModel.hasRecording {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("💡 参考フレーズ")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                ForEach(category.scriptHints, id: \.self) { hint in
+                                    Text(hint)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 32)
+                        }
                     }
-                    .buttonStyle(.large(
-                        background: viewModel.isRecording ? .red : .pink,
-                        foreground: .white
-                    ))
-                    .padding(.horizontal, 32)
 
                     // 試し聴き・削除
                     if viewModel.hasRecording {

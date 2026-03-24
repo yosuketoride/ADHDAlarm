@@ -1,10 +1,16 @@
 import SwiftUI
+import AVFoundation
 
 /// 音声キャラクター選択（PRO限定）
 struct VoiceCharacterPicker: View {
     @Binding var selection: VoiceCharacter
     let isPro: Bool
     var onUpgradeTapped: (() -> Void)?
+
+    @State private var synthesizer = AVSpeechSynthesizer()
+    @State private var playingCharacter: VoiceCharacter?
+
+    private let sampleText = "お時間です。準備はよろしいですか？"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -27,6 +33,7 @@ struct VoiceCharacterPicker: View {
     private func characterCard(_ character: VoiceCharacter, icon: String, label: String) -> some View {
         let isSelected = selection == character
         let isEnabled  = isPro || character == .femaleConcierge
+        let isPlaying  = playingCharacter == character
 
         return Button {
             if isEnabled {
@@ -50,6 +57,26 @@ struct VoiceCharacterPicker: View {
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(.blue)
                 }
+
+                // 試聴ボタン（カスタム録音以外）
+                if character != .customRecording && isEnabled {
+                    Button {
+                        playPreview(for: character)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+                                .font(.system(size: 10))
+                            Text(isPlaying ? "停止" : "試聴")
+                                .font(.caption2.weight(.semibold))
+                        }
+                        .foregroundStyle(isSelected ? .white.opacity(0.85) : .blue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(isSelected ? Color.white.opacity(0.2) : Color.blue.opacity(0.1))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
@@ -61,6 +88,34 @@ struct VoiceCharacterPicker: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    private func playPreview(for character: VoiceCharacter) {
+        if playingCharacter == character {
+            // 同じキャラをタップ → 停止
+            synthesizer.stopSpeaking(at: .immediate)
+            playingCharacter = nil
+            return
+        }
+
+        // 別キャラ or 停止中 → 停止してから新しい声を再生
+        synthesizer.stopSpeaking(at: .immediate)
+
+        let utterance = AVSpeechUtterance(string: sampleText)
+        utterance.voice = VoiceFileGenerator.voice(for: character)
+        utterance.rate  = AVSpeechUtteranceDefaultSpeechRate * 0.85
+        utterance.pitchMultiplier = character == .maleButler ? 0.85 : 1.05
+
+        playingCharacter = character
+        synthesizer.speak(utterance)
+
+        // 再生終了後にフラグをリセット（3秒程度で終わるので余裕を持って5秒後）
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            if playingCharacter == character {
+                playingCharacter = nil
+            }
+        }
     }
 
     private var proTag: some View {

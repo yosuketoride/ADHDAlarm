@@ -3,10 +3,11 @@ import Foundation
 // メインアプリのAlarmEvent/VoiceCharacterをWidgetターゲット内で再宣言
 // JSON形式が一致している必要がある（AlarmEvent.swiftと同じCodable構造）
 
+/// AlarmEventのVoiceCharacterと同じraw valueを使う（JSONの互換性が必須）
 enum WidgetVoiceCharacter: String, Codable {
-    case femaleConcierge
-    case maleButler
-    case customRecording
+    case femaleConcierge  = "female_concierge"
+    case maleButler       = "male_butler"
+    case customRecording  = "custom_recording"
 }
 
 struct WidgetAlarmEvent: Identifiable, Codable {
