@@ -524,7 +524,7 @@ struct PaywallView: View {
             // Apple審査要件: ボタン直下に価格・自動更新を明記
             if let id = selectedProductID,
                let product = viewModel.products.first(where: { $0.id == id }) {
-                let period: String = {
+                let period: String? = {
                     switch product.subscription?.subscriptionPeriod.unit {
                     case .year:  return "年"
                     case .month: return "月"
