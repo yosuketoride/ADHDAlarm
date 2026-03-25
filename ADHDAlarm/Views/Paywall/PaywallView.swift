@@ -446,8 +446,11 @@ struct PaywallView: View {
     /// 年間価格を12分割して月あたり表示（例: ¥149）
     private func monthlyEquivalent(for product: Product) -> String {
         let monthly = product.price / Decimal(12)
-        let intValue = (monthly as NSDecimalNumber).intValue
-        return "¥\(intValue)"
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = product.priceFormatStyle.currencyCode
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: monthly as NSDecimalNumber) ?? product.displayPrice
     }
 
     // MARK: - 法的セクション（App Store審査必須）
