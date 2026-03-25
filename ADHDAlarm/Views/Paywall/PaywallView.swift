@@ -497,7 +497,7 @@ struct PaywallView: View {
     // MARK: - スティッキーCTAボタン（画面下部に固定）
 
     private var ctaSection: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 6) {
             Button {
                 guard let id = selectedProductID,
                       let product = viewModel.products.first(where: { $0.id == id }) else { return }
@@ -520,8 +520,33 @@ struct PaywallView: View {
             .disabled(viewModel.isPurchasing || viewModel.products.isEmpty)
             .padding(.horizontal, 20)
             .padding(.top, 12)
-            .padding(.bottom, 4)
+
+            // Apple審査要件: ボタン直下に価格・自動更新を明記
+            if let id = selectedProductID,
+               let product = viewModel.products.first(where: { $0.id == id }) {
+                let period: String = {
+                    switch product.subscription?.subscriptionPeriod.unit {
+                    case .year:  return "年"
+                    case .month: return "月"
+                    default:     return nil
+                    }
+                }()
+                if let period {
+                    Text("7日間無料、その後 \(product.displayPrice)/\(period)。いつでもキャンセル可能。")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                } else {
+                    Text("一度の購入で永久にご利用いただけます（\(product.displayPrice)）。")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                }
+            }
         }
+        .padding(.bottom, 4)
         .background(.regularMaterial)
     }
 
