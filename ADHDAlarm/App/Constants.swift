@@ -52,9 +52,9 @@ enum Constants {
 
     // MARK: - StoreKit
     enum ProductID {
-        static let proMonthly  = "com.yosuke.WasurenboAlarm.pro.monthly"
-        static let proYearly   = "com.yosuke.WasurenboAlarm.pro.yearly"
-        static let proLifetime = "com.yosuke.WasurenboAlarm.pro.lifetime"
+        static let proMonthly  = "com.yosuke.WasurenboAlarm.monthly"
+        static let proYearly   = "com.yosuke.WasurenboAlarm.Yearly"
+        static let proLifetime = "com.yosuke.WasurenboAlarm.lifetime"
     }
 
 }
