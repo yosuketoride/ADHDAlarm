@@ -60,7 +60,7 @@ final class AppleCalendarProvider: CalendarProviding {
         }
 
         // アプリ作成イベントを識別するマーカーをnotesに埋め込む（人間が読める説明 + 機械識別マーカー）
-        ekEvent.notes = "📱 声メモアラームで登録\n\(Constants.eventMarker(for: alarm.id))"
+        ekEvent.notes = "📱 忘れん坊アラームで登録\n\(Constants.eventMarker(for: alarm.id))"
 
         try eventStore.save(ekEvent, span: .thisEvent)
         return ekEvent.eventIdentifier

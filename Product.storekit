@@ -1,0 +1,131 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "53A694EE",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "99.99",
+      "familyShareable" : false,
+      "internalID" : "6761060779",
+      "localizations" : [
+        {
+          "description" : "一度の購入で、すべてのPRO機能を一生使い放題。追加料金は一切かかりません。",
+          "displayName" : "忘れ坊アラーム PRO（一生プラン）",
+          "locale" : "ja"
+        }
+      ],
+      "productID" : "com.yosuke.WasurenboAlarm.lifetime",
+      "referenceName" : "一生プラン（買い切り）",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6761059424",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_developerTeamID" : "PTT6AX3CK2",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 796200809.97047698,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21994786",
+      "localizations" : [
+
+      ],
+      "name" : "Premium Plan",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6761060766",
+          "introductoryOffer" : {
+            "internalID" : "3B08815E",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "すべての機能が使い放題。家族へのSOS通知、カレンダー自動同期、家族の生声アラームが利用可能です。",
+              "displayName" : "忘れん坊アラーム PRO",
+              "locale" : "ja"
+            }
+          ],
+          "productID" : "com.yosuke.WasurenboAlarm.Yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "年額プラン",
+          "subscriptionGroupID" : "21994786",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "7.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6761060345",
+          "introductoryOffer" : {
+            "internalID" : "3A765A59",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "すべての機能が使い放題。家族へのSOS通知、カレンダー自動同期、家族の生声アラームが利用可能です。",
+              "displayName" : "忘れん坊アラーム PRO",
+              "locale" : "ja"
+            }
+          ],
+          "productID" : "com.yosuke.WasurenboAlarm.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "月額プラン",
+          "subscriptionGroupID" : "21994786",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

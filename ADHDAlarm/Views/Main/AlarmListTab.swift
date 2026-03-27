@@ -88,7 +88,7 @@ struct AlarmListTab: View {
                 }
             }
             .listStyle(.plain)
-            .navigationTitle("声メモアラーム")
+            .navigationTitle("ふくろう")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
                 await viewModel.loadEvents()
