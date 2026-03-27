@@ -60,6 +60,13 @@ final class RingingViewModel: NSObject {
 
     /// アラーム画面が表示されたとき音声を再生する
     func startAudioPlayback() {
+        // イヤホン切断監視を開始
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRouteChange(_:)),
+            name: AVAudioSession.routeChangeNotification,
+            object: nil
+        )
         // PRO機能: SOSタイマーを開始 (ペアリング済みのLINE、または電話番号がある場合)
         print("DEBUG: startAudioPlayback - sosPairingId: \(sosPairingId ?? "nil")")
         if sosPairingId != nil {
@@ -131,6 +138,7 @@ final class RingingViewModel: NSObject {
     }
 
     func stopAudioPlayback() {
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
         escalationTimer?.invalidate()
         escalationTimer = nil
         repeatTimer?.invalidate()
@@ -159,6 +167,29 @@ final class RingingViewModel: NSObject {
         speechSynthesizer = synthesizer
     }
 
+    // MARK: - イヤホン切断検知
+
+    /// イヤホン・Bluetoothが切断されたとき、音声のみ停止してスピーカー漏れを防ぐ
+    @objc private func handleRouteChange(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue),
+              reason == .oldDeviceUnavailable else { return }
+
+        // 切断前のルートにヘッドフォン/Bluetoothが含まれていたか確認
+        let previousRoute = userInfo[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription
+        let hadHeadphones = previousRoute?.outputs.contains(where: {
+            [.headphones, .bluetoothA2DP, .bluetoothLE, .bluetoothHFP].contains($0.portType)
+        }) ?? false
+
+        guard hadHeadphones else { return }
+
+        // 音声のみ停止（activeAlarmは残してアラーム画面を表示し続ける）
+        DispatchQueue.main.async { [weak self] in
+            self?.stopAudioPlayback()
+        }
+    }
+
     // MARK: - 停止
 
     func dismiss() {
@@ -166,6 +197,7 @@ final class RingingViewModel: NSObject {
               let alarmKitID = alarm.alarmKitIdentifier else {
             stopAudioPlayback()
             activeAlarm = nil
+            playPraisePhrase()
             return
         }
         stopAudioPlayback()
@@ -173,6 +205,50 @@ final class RingingViewModel: NSObject {
             try? await scheduler.cancel(alarmKitID: alarmKitID)
             activeAlarm = nil
         }
+        playPraisePhrase()
+    }
+
+    // MARK: - 褒め言葉（アラーム停止時のポジティブフィードバック）
+
+    /// 毎回異なる褒め言葉をランダムに再生して、止める行動を強化する
+    private static let praisePhrases: [String] = [
+        "えらいですね！今日もよくできました。",
+        "すごい！ちゃんと止められましたね。",
+        "完璧です！その調子ですよ。",
+        "よくできました！自分を褒めてあげましょう。",
+        "さすがですね！ばっちりです。",
+        "おみごと！今日もよくがんばりましたね。",
+        "すばらしい！きちんと確認できていますよ。",
+        "花丸です！今日も頑張りましたね。",
+        "パーフェクト！やっぱりあなたはすごい。",
+        "いいね！その勢いで今日も一日がんばろう。",
+        "よし！完璧に対応できましたね。",
+        "さすがです！時間通りに確認できました。",
+        "素晴らしい行動力です！",
+        "今日もよくできました。自分に拍手！",
+        "ナイスです！アラームをちゃんと止めましたよ。",
+        "しっかり確認できましたね。頼もしい！",
+        "よくできました！これが積み重なって大きな成果になります。",
+        "ありがとう！ちゃんと気づいてくれましたね。",
+        "さすがの一言です！今日も一歩前進しましたよ。",
+        "よくできました！今日の自分をたくさん褒めてあげて。",
+    ]
+
+    private func playPraisePhrase() {
+        let phrase = Self.praisePhrases.randomElement() ?? "よくできました！"
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, options: [])
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("【褒め言葉】セッション確保失敗: \(error.localizedDescription)")
+        }
+        let synthesizer = AVSpeechSynthesizer()
+        let utterance = AVSpeechUtterance(string: phrase)
+        utterance.voice = AVSpeechSynthesisVoice(language: "ja-JP")
+        utterance.rate = 0.50
+        utterance.pitchMultiplier = 1.15
+        synthesizer.speak(utterance)
+        speechSynthesizer = synthesizer
     }
     
     // MARK: - SOS送信（LINE）

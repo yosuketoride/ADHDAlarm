@@ -1,6 +1,109 @@
 import Foundation
 @testable import ADHDAlarm
 
+// MARK: - MockFamilyService
+
+@MainActor
+final class MockFamilyService: FamilyScheduling {
+    var currentDeviceId: String? = "mock-device-id"
+    var shouldThrow = false
+
+    // 記録
+    var registeredDevices: [String] = []
+    var updatedTokens: [String] = []
+    var generatedCodes: [(linkId: String, code: String)] = []
+    var joinedCodes: [String] = []
+    var unlinkedIds: [String] = []
+    var createdEvents: [RemoteEventPayload] = []
+    var cancelledEventIds: [String] = []
+    var syncedEventIds: [String] = []
+    var rolledBackEventIds: [String] = []
+
+    // スタブ返り値
+    var stubLinkId = "mock-link-id"
+    var stubCode = "123456"
+    var stubPendingEvents: [RemoteEventRecord] = []
+    var stubCancelledEvents: [RemoteEventRecord] = []
+    var stubSentEvents: [RemoteEventRecord] = []
+    var stubFamilyLinks: [FamilyLinkRecord] = []
+    var statusStream: AsyncStream<String> = AsyncStream { $0.finish() }
+
+    func ensureDeviceRegistered() async throws -> String {
+        if shouldThrow { throw MockError.intentional }
+        registeredDevices.append(currentDeviceId ?? "mock-device-id")
+        return currentDeviceId ?? "mock-device-id"
+    }
+
+    func updateDeviceToken(_ token: String) async throws {
+        if shouldThrow { throw MockError.intentional }
+        updatedTokens.append(token)
+    }
+
+    func generateFamilyCode() async throws -> (linkId: String, code: String) {
+        if shouldThrow { throw MockError.intentional }
+        let result = (linkId: stubLinkId, code: stubCode)
+        generatedCodes.append(result)
+        return result
+    }
+
+    func listenToFamilyLinkStatus(linkId: String) -> AsyncStream<String> { statusStream }
+
+    func unlinkFamily(linkId: String) async throws {
+        if shouldThrow { throw MockError.intentional }
+        unlinkedIds.append(linkId)
+    }
+
+    func joinFamily(code: String) async throws -> String {
+        if shouldThrow { throw FamilyError.invalidCode }
+        joinedCodes.append(code)
+        return stubLinkId
+    }
+
+    func createRemoteEvent(_ event: RemoteEventPayload) async throws {
+        if shouldThrow { throw MockError.intentional }
+        createdEvents.append(event)
+    }
+
+    func cancelRemoteEvent(id: String) async throws {
+        if shouldThrow { throw MockError.intentional }
+        cancelledEventIds.append(id)
+    }
+
+    func fetchSentEvents(linkId: String) async throws -> [RemoteEventRecord] {
+        if shouldThrow { throw MockError.intentional }
+        return stubSentEvents
+    }
+
+    func fetchPendingEvents() async throws -> [RemoteEventRecord] {
+        if shouldThrow { throw MockError.intentional }
+        return stubPendingEvents
+    }
+
+    func fetchCancelledEvents() async throws -> [RemoteEventRecord] {
+        if shouldThrow { throw MockError.intentional }
+        return stubCancelledEvents
+    }
+
+    func markEventSynced(id: String) async throws {
+        if shouldThrow { throw MockError.intentional }
+        syncedEventIds.append(id)
+    }
+
+    func markEventRolledBack(id: String) async throws {
+        if shouldThrow { throw MockError.intentional }
+        rolledBackEventIds.append(id)
+    }
+
+    func listenToNewEvents() -> AsyncStream<RemoteEventRecord> {
+        AsyncStream { $0.finish() }
+    }
+
+    func fetchMyFamilyLinks() async throws -> [FamilyLinkRecord] {
+        if shouldThrow { throw MockError.intentional }
+        return stubFamilyLinks
+    }
+}
+
 // MARK: - MockAlarmScheduler
 
 final class MockAlarmScheduler: AlarmScheduling {

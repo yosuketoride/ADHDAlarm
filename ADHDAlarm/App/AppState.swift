@@ -78,6 +78,18 @@ final class AppState {
         didSet { UserDefaults.standard.set(sosEscalationMinutes, forKey: Constants.Keys.sosEscalationMinutes) }
     }
 
+    // MARK: - 家族リモートスケジュール（PRO）
+    /// 自分が親としてペアリングしているリンクID（子から予定を受け取る側）
+    var familyLinkId: String? {
+        didSet { UserDefaults.standard.set(familyLinkId, forKey: Constants.Keys.familyLinkId) }
+    }
+    /// 自分が子としてペアリングしているリンクIDの一覧（親に予定を送る側、複数対応）
+    var familyChildLinkIds: [String] {
+        didSet { UserDefaults.standard.set(familyChildLinkIds, forKey: Constants.Keys.familyChildLinkIds) }
+    }
+    /// 未読の家族予定件数（ダッシュボードのバッジ表示用）
+    var unreadFamilyEventCount: Int = 0
+
     init() {
         let defaults = UserDefaults.standard
         self.isOnboardingComplete = defaults.bool(forKey: Constants.Keys.onboardingComplete)
@@ -105,5 +117,7 @@ final class AppState {
         let storedEscalation = defaults.integer(forKey: Constants.Keys.sosEscalationMinutes)
         // 0 = デバッグビルド専用の10秒テストモード。未設定（UserDefaultsが返すデフォルト0）と区別するためキーの存在確認が必要
         self.sosEscalationMinutes = defaults.object(forKey: Constants.Keys.sosEscalationMinutes) == nil ? 5 : storedEscalation
+        self.familyLinkId = defaults.string(forKey: Constants.Keys.familyLinkId)
+        self.familyChildLinkIds = defaults.stringArray(forKey: Constants.Keys.familyChildLinkIds) ?? []
     }
 }

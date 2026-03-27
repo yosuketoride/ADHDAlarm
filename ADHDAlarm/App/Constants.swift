@@ -16,6 +16,9 @@ enum Constants {
         static let micInputMode          = "mic_input_mode"
         static let sosEscalationMinutes  = "sos_escalation_minutes"
         static let sosPairingId          = "sos_pairing_id"
+        // 家族リモートスケジュール
+        static let familyLinkId          = "family_link_id"
+        static let familyChildLinkIds    = "family_child_link_ids"
     }
 
     // MARK: - Supabase (SOS LINE連携用)
