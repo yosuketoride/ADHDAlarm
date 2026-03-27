@@ -44,6 +44,7 @@ final class FamilyPairingViewModel {
                 startCountdown(linkId: linkId, code: code)
                 startListening(linkId: linkId)
             } catch {
+                print("[FamilyPairing] generateCode error: \(error)")
                 state = .error("コードの生成に失敗しました。もう一度お試しください。")
             }
         }
