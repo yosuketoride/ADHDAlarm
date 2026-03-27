@@ -171,13 +171,17 @@ final class SyncEngine {
 
     /// 家族から届いた予定を取り込み、キャンセルされた予定を削除する
     /// アプリのフォアグラウンド復帰時に performFullSync() と合わせて呼ぶ
-    func syncRemoteEvents() async {
-        guard let service = familyService else { return }
+    /// - Returns: 新たに取り込んだ予定の件数（バッジ・バナー表示用）
+    @discardableResult
+    func syncRemoteEvents() async -> Int {
+        guard let service = familyService else { return 0 }
+        var syncedCount = 0
 
         // pending（未同期）の新規予定を取り込む
         if let pendingEvents = try? await service.fetchPendingEvents() {
             for record in pendingEvents {
-                await integrateRemoteEvent(record, service: service)
+                let integrated = await integrateRemoteEvent(record, service: service)
+                if integrated { syncedCount += 1 }
             }
         }
 
@@ -187,12 +191,15 @@ final class SyncEngine {
                 await rollbackRemoteEvent(record, service: service)
             }
         }
+
+        return syncedCount
     }
 
     /// リモート予定をローカルに取り込む（AlarmKit登録 + EventKit書き込み + ローカル保存）
-    private func integrateRemoteEvent(_ record: RemoteEventRecord, service: FamilyScheduling) async {
+    /// - Returns: 取り込み成功かどうか（重複スキップ時はfalse）
+    private func integrateRemoteEvent(_ record: RemoteEventRecord, service: FamilyScheduling) async -> Bool {
         // 既に同期済みのイベントはスキップ（重複防止）
-        guard eventStore.find(remoteEventId: record.id) == nil else { return }
+        guard eventStore.find(remoteEventId: record.id) == nil else { return false }
 
         // RemoteEventRecordをAlarmEventに変換
         var alarm = AlarmEvent(
@@ -231,6 +238,8 @@ final class SyncEngine {
 
         // 「家族から予定が届きました」ローカル通知
         await notifyFamilyEventArrived(title: alarm.title)
+
+        return true
     }
 
     /// キャンセルされたリモート予定をロールバックする（AlarmKit削除 + EventKit削除 + ローカル削除）
