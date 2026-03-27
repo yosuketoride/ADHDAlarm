@@ -3,6 +3,7 @@ import EventKit
 import AlarmKit
 import Speech
 import AVFoundation
+import UserNotifications
 import Observation
 
 /// Calendar / AlarmKit / Speech / Microphone の4権限を一括管理する
@@ -11,12 +12,13 @@ final class PermissionsService {
 
     // MARK: - 状態
 
-    var isCalendarAuthorized  = false
-    var isAlarmKitAuthorized  = false
-    var isSpeechAuthorized    = false
-    var isMicrophoneAuthorized = false
+    var isCalendarAuthorized    = false
+    var isAlarmKitAuthorized    = false
+    var isSpeechAuthorized      = false
+    var isMicrophoneAuthorized  = false
+    var isNotificationAuthorized = false
 
-    /// 4権限すべて許可済みかどうか
+    /// 主要権限すべて許可済みかどうか
     var isAllAuthorized: Bool {
         isCalendarAuthorized && isAlarmKitAuthorized && isSpeechAuthorized && isMicrophoneAuthorized
     }
@@ -41,12 +43,20 @@ final class PermissionsService {
 
     // MARK: - 権限リクエスト
 
-    /// 4権限を順番にリクエストする（オンボーディングのCTAステップで呼ぶ）
+    /// 権限を順番にリクエストする（オンボーディングのCTAステップで呼ぶ）
     func requestAll() async {
         await requestCalendar()
         await requestAlarmKit()
         await requestSpeech()
         await requestMicrophone()
+        await requestNotification()
+    }
+
+    /// 通知権限のみリクエスト（家族機能のお知らせに使用）
+    func requestNotification() async {
+        let granted = (try? await UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+        isNotificationAuthorized = granted
     }
 
     /// カレンダー権限のみリクエスト
@@ -105,5 +115,12 @@ final class PermissionsService {
         // マイク
         let micStatus = AVAudioApplication.shared.recordPermission
         isMicrophoneAuthorized = (micStatus == .granted)
+
+        // 通知
+        Task {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            isNotificationAuthorized = (settings.authorizationStatus == .authorized
+                                     || settings.authorizationStatus == .provisional)
+        }
     }
 }

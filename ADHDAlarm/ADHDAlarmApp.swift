@@ -54,6 +54,9 @@ struct ADHDAlarmApp: App {
         if await isPro { appState.subscriptionTier = .pro }
         // App Shortcutsをシステムに登録する（これを呼ばないと毎回許可ダイアログが出る）
         VoiceMemoAlarmShortcuts.updateAppShortcutParameters()
+        // 通知権限をリクエスト（家族機能のお知らせ・事前通知に使用）
+        // 既に許可済みの場合はダイアログが出ない
+        await permissionsService.requestNotification()
     }
 
     // MARK: - URL Scheme ハンドラ
