@@ -29,6 +29,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
     var recurrenceRule: RecurrenceRule?
     /// 繰り返し予定のグループID（同じ繰り返しグループのアラームが共有するID）
     var recurrenceGroupID: UUID?
+    /// 家族リモートスケジュールで作成された場合のremote_events.id（ロールバック検索用）
+    var remoteEventId: String?
 
     init(
         id: UUID = UUID(),
@@ -44,7 +46,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         voiceCharacter: VoiceCharacter = .femaleConcierge,
         createdAt: Date = Date(),
         recurrenceRule: RecurrenceRule? = nil,
-        recurrenceGroupID: UUID? = nil
+        recurrenceGroupID: UUID? = nil,
+        remoteEventId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -60,6 +63,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         self.createdAt = createdAt
         self.recurrenceRule = recurrenceRule
         self.recurrenceGroupID = recurrenceGroupID
+        self.remoteEventId = remoteEventId
     }
 
     // MARK: - Codable（後方互換）
@@ -70,7 +74,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         case eventKitIdentifier, alarmKitIdentifier
         case alarmKitIdentifiers, alarmKitMinutesMap
         case voiceFileName, calendarIdentifier, voiceCharacter
-        case createdAt, recurrenceRule, recurrenceGroupID
+        case createdAt, recurrenceRule, recurrenceGroupID, remoteEventId
     }
 
     init(from decoder: Decoder) throws {
@@ -89,5 +93,6 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         createdAt              = try c.decodeIfPresent(Date.self,         forKey: .createdAt)              ?? Date()
         recurrenceRule         = try c.decodeIfPresent(RecurrenceRule.self, forKey: .recurrenceRule)
         recurrenceGroupID      = try c.decodeIfPresent(UUID.self,         forKey: .recurrenceGroupID)
+        remoteEventId          = try c.decodeIfPresent(String.self,       forKey: .remoteEventId)
     }
 }

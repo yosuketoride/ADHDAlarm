@@ -35,7 +35,10 @@ struct ADHDAlarmApp: App {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 permissionsService.refreshStatuses()
-                Task { await syncEngine.performFullSync() }
+                Task {
+                    await syncEngine.performFullSync()
+                    await syncEngine.syncRemoteEvents()
+                }
             }
         }
     }
