@@ -141,6 +141,48 @@ struct AdvancedSettingsView: View {
                 }
             }
 
+            // 家族リモートスケジュール（PRO限定）
+            Section {
+                if viewModel.isPro {
+                    NavigationLink {
+                        FamilyLinkView()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "person.2.fill")
+                                .foregroundStyle(.blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("家族と連携する")
+                                    .foregroundStyle(.primary)
+                                Text(appState.familyLinkId != nil ? "連携済み" : "家族が代わりに予定を登録できます")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            if appState.familyLinkId != nil {
+                                Spacer()
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundStyle(.green)
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                } else {
+                    Button { showPaywall = true } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "star.fill").foregroundStyle(.orange)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("家族が代わりに予定を登録")
+                                    .foregroundStyle(.primary)
+                                Text("アップグレードして有効にする")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("家族リモートスケジュール（PRO）")
+            } footer: {
+                Text("家族のスマホから親の予定を登録すると、自動でアラームがセットされます。")
+            }
+
             // 自動化（全ユーザー無料）
             Section {
                 NavigationLink {
