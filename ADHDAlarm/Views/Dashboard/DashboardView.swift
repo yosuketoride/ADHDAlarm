@@ -20,6 +20,14 @@ struct DashboardView: View {
                     // コンシェルジュの挨拶
                     greetingSection
 
+                    // 家族から予定が届いたときのふくろうバナー
+                    if appState.unreadFamilyEventCount > 0 {
+                        FamilyInboxBanner(count: appState.unreadFamilyEventCount) {
+                            appState.unreadFamilyEventCount = 0
+                        }
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
                     // ウィジェット状態バナー
                     WidgetStatusBanner(isInstalled: viewModel.isWidgetInstalled)
                         .padding(.horizontal, 16)

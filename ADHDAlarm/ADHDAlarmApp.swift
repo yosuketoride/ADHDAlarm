@@ -37,7 +37,10 @@ struct ADHDAlarmApp: App {
                 permissionsService.refreshStatuses()
                 Task {
                     await syncEngine.performFullSync()
-                    await syncEngine.syncRemoteEvents()
+                    let newCount = await syncEngine.syncRemoteEvents()
+                    if newCount > 0 {
+                        appState.unreadFamilyEventCount += newCount
+                    }
                 }
             }
         }
