@@ -35,6 +35,19 @@ struct FamilyLinkView: View {
                         childLinksSection
                     }
 
+                    // DEBUGビルド限定: 連携なしでも予定送信UIを確認できるボタン
+                    #if DEBUG
+                    if appState.familyChildLinkIds.isEmpty {
+                        Button {
+                            showFamilyInput = true
+                        } label: {
+                            Label("【DEBUG】予定送信UIを開く", systemImage: "hammer.fill")
+                                .font(.caption)
+                                .foregroundStyle(.purple)
+                        }
+                    }
+                    #endif
+
                     // どちらでもない場合は連携UI
                     if linkedLinkId == nil && appState.familyChildLinkIds.isEmpty {
                         // ロール選択
@@ -68,11 +81,10 @@ struct FamilyLinkView: View {
             .navigationTitle("家族と連携する")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showFamilyInput) {
-                if let linkId = appState.familyChildLinkIds.first {
-                    FamilyInputView(
-                        viewModel: FamilyInputViewModel(familyLinkId: linkId)
-                    )
-                }
+                let linkId = appState.familyChildLinkIds.first ?? "debug-link-id"
+                FamilyInputView(
+                    viewModel: FamilyInputViewModel(familyLinkId: linkId)
+                )
             }
         }
         .onChange(of: viewModel.state) { _, newState in

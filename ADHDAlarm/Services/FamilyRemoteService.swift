@@ -9,35 +9,38 @@ final class FamilyRemoteService: FamilyScheduling {
     private let client = SupabaseClientFactory.shared
     private(set) var currentDeviceId: String?
 
-    private init() {
-        // 既存セッションがあればdeviceIdを復元
-        Task { try? await restoreSessionIfNeeded() }
-    }
+    private init() {}
 
     // MARK: - デバイス登録・認証
 
     func ensureDeviceRegistered() async throws -> String {
-        // 既にセッションがあれば再利用
-        if let id = currentDeviceId { return id }
+        // SDKに最新セッションを問い合わせる（期限切れなら自動リフレッシュ、なければnil）
+        let session: Auth.Session
+        if let existing = try? await client.auth.session {
+            session = existing
+        } else {
+            // セッションなし → 新規匿名ログイン
+            session = try await client.auth.signInAnonymously()
+        }
 
-        // 匿名ログイン（初回のみアカウント作成、以降はセッション継続）
-        let session = try await client.auth.signInAnonymously()
         let deviceId = session.user.id.uuidString
 
-        // devicesテーブルにUPSERT（既存行があれば更新日時だけ更新）
-        struct DeviceRow: Encodable {
-            let id: String
-            let updated_at: String
+        // IDが変わった場合のみdevicesテーブルをUPSERT（初回 or セッション再作成時）
+        if currentDeviceId != deviceId {
+            struct DeviceRow: Encodable {
+                let id: String
+                let updated_at: String
+            }
+            try await client
+                .from("devices")
+                .upsert(DeviceRow(
+                    id: deviceId,
+                    updated_at: ISO8601DateFormatter().string(from: Date())
+                ))
+                .execute()
+            currentDeviceId = deviceId
         }
-        try await client
-            .from("devices")
-            .upsert(DeviceRow(
-                id: deviceId,
-                updated_at: ISO8601DateFormatter().string(from: Date())
-            ))
-            .execute()
 
-        currentDeviceId = deviceId
         return deviceId
     }
 
@@ -318,13 +321,6 @@ final class FamilyRemoteService: FamilyScheduling {
             .value
     }
 
-    // MARK: - Private
-
-    private func restoreSessionIfNeeded() async throws {
-        if let session = try? await client.auth.session {
-            currentDeviceId = session.user.id.uuidString
-        }
-    }
 }
 
 // MARK: - エラー定義
