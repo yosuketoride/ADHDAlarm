@@ -20,13 +20,38 @@ final class SyncEngineTests: XCTestCase {
     private func makeSyncEngine(
         calendarProvider: MockCalendarProvider = MockCalendarProvider(),
         alarmScheduler: MockAlarmScheduler = MockAlarmScheduler(),
-        voiceGenerator: MockVoiceGenerator = MockVoiceGenerator()
+        voiceGenerator: MockVoiceGenerator = MockVoiceGenerator(),
+        familyService: MockFamilyService? = nil
     ) -> SyncEngine {
         SyncEngine(
             calendarProvider: calendarProvider,
             alarmScheduler: alarmScheduler,
             voiceGenerator: voiceGenerator,
-            eventStore: store
+            eventStore: store,
+            familyService: familyService
+        )
+    }
+
+    /// テスト用RemoteEventRecordを作成するヘルパー
+    private func makeRemoteRecord(
+        id: String = UUID().uuidString,
+        title: String = "テストリモート予定",
+        status: String = "pending",
+        offsetFromNow: TimeInterval = 3600
+    ) -> RemoteEventRecord {
+        RemoteEventRecord(
+            id: id,
+            familyLinkId: "link-1",
+            creatorDeviceId: "child-device",
+            targetDeviceId: "parent-device",
+            title: title,
+            fireDate: Date().addingTimeInterval(offsetFromNow),
+            preNotificationMinutes: 15,
+            voiceCharacter: "femaleConcierge",
+            note: nil,
+            status: status,
+            createdAt: Date(),
+            syncedAt: nil
         )
     }
 
@@ -200,5 +225,141 @@ final class SyncEngineTests: XCTestCase {
 
         // エラーが発生してもクラッシュしない
         await engine.performFullSync()
+    }
+
+    // MARK: - syncRemoteEvents: pending→登録
+
+    func testSyncRemoteEvents_PendingEvent_RegistersAlarmAndMarksSync() async {
+        // Arrange
+        let record = makeRemoteRecord(title: "お薬の時間")
+        let mockFamily = MockFamilyService()
+        mockFamily.stubPendingEvents = [record]
+
+        let scheduler = MockAlarmScheduler()
+        let calProvider = MockCalendarProvider()
+        let voiceGen = MockVoiceGenerator()
+
+        let engine = makeSyncEngine(
+            calendarProvider: calProvider,
+            alarmScheduler: scheduler,
+            voiceGenerator: voiceGen,
+            familyService: mockFamily
+        )
+
+        // Act
+        await engine.syncRemoteEvents()
+
+        // Assert: アラームが登録されている
+        XCTAssertEqual(scheduler.scheduledAlarms.count, 1)
+        XCTAssertEqual(scheduler.scheduledAlarms.first?.title, "お薬の時間")
+
+        // カレンダーに書き込まれている
+        XCTAssertEqual(calProvider.writtenEvents.count, 1)
+
+        // 音声ファイルが生成されている
+        XCTAssertEqual(voiceGen.generatedAlarmIDs.count, 1)
+
+        // Supabaseにsynced済みとしてマークされている
+        XCTAssertEqual(mockFamily.syncedEventIds, [record.id])
+
+        // ローカルストアにremoteEventIdつきで保存されている
+        let saved = store.find(remoteEventId: record.id)
+        XCTAssertNotNil(saved)
+        XCTAssertEqual(saved?.title, "お薬の時間")
+    }
+
+    func testSyncRemoteEvents_AlreadySyncedEvent_NotDuplicated() async {
+        // Arrange: 既にローカルに同じremoteEventIdで保存済み
+        let record = makeRemoteRecord(title: "既存予定")
+        var existingAlarm = AlarmEvent(
+            title: "既存予定",
+            fireDate: record.fireDate,
+            remoteEventId: record.id
+        )
+        store.save(existingAlarm)
+
+        let mockFamily = MockFamilyService()
+        mockFamily.stubPendingEvents = [record]
+
+        let scheduler = MockAlarmScheduler()
+        let engine = makeSyncEngine(alarmScheduler: scheduler, familyService: mockFamily)
+
+        // Act
+        await engine.syncRemoteEvents()
+
+        // Assert: 重複スケジュールされない
+        XCTAssertTrue(scheduler.scheduledAlarms.isEmpty)
+        XCTAssertTrue(mockFamily.syncedEventIds.isEmpty)
+    }
+
+    // MARK: - syncRemoteEvents: cancelled→ロールバック
+
+    func testSyncRemoteEvents_CancelledEvent_RemovesAlarmAndMarksRolledBack() async {
+        // Arrange: ローカルに登録済みのアラームをキャンセルされた状態にする
+        let record = makeRemoteRecord(title: "ゴミ出し", status: "cancelled")
+        let akID = UUID()
+        var localAlarm = AlarmEvent(
+            title: "ゴミ出し",
+            fireDate: record.fireDate,
+            alarmKitIdentifier: akID,
+            remoteEventId: record.id
+        )
+        localAlarm.eventKitIdentifier = "ek-test-id"
+        store.save(localAlarm)
+
+        let mockFamily = MockFamilyService()
+        mockFamily.stubCancelledEvents = [record]
+
+        let scheduler = MockAlarmScheduler()
+        let calProvider = MockCalendarProvider()
+        let voiceGen = MockVoiceGenerator()
+
+        let engine = makeSyncEngine(
+            calendarProvider: calProvider,
+            alarmScheduler: scheduler,
+            voiceGenerator: voiceGen,
+            familyService: mockFamily
+        )
+
+        // Act
+        await engine.syncRemoteEvents()
+
+        // Assert: アラームがキャンセルされている
+        XCTAssertTrue(scheduler.cancelledIDs.contains(akID))
+
+        // EventKitから削除されている
+        XCTAssertEqual(calProvider.deletedIDs, ["ek-test-id"])
+
+        // 音声ファイルが削除されている
+        XCTAssertEqual(voiceGen.deletedAlarmIDs, [localAlarm.id])
+
+        // ローカルストアから削除されている
+        XCTAssertNil(store.find(remoteEventId: record.id))
+
+        // Supabaseにrolled_backとしてマークされている
+        XCTAssertEqual(mockFamily.rolledBackEventIds, [record.id])
+    }
+
+    func testSyncRemoteEvents_CancelledEventWithNoLocal_MarksRolledBackAnyway() async {
+        // Arrange: ローカルに存在しないキャンセル済みイベント
+        let record = makeRemoteRecord(status: "cancelled")
+        let mockFamily = MockFamilyService()
+        mockFamily.stubCancelledEvents = [record]
+
+        let engine = makeSyncEngine(familyService: mockFamily)
+
+        // Act
+        await engine.syncRemoteEvents()
+
+        // Assert: ローカルに何もなくてもrolled_backにマークされる（再ロールバック防止）
+        XCTAssertEqual(mockFamily.rolledBackEventIds, [record.id])
+    }
+
+    func testSyncRemoteEvents_FamilyServiceNil_DoesNotCrash() async {
+        // Arrange: familyService=nil
+        let engine = makeSyncEngine(familyService: nil)
+
+        // Act & Assert: クラッシュしない
+        await engine.syncRemoteEvents()
     }
 }

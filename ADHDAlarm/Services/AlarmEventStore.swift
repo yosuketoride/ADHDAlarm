@@ -56,6 +56,11 @@ final class AlarmEventStore {
         loadAll().first { $0.eventKitIdentifier == eventKitIdentifier }
     }
 
+    /// remoteEventIdでAlarmEventを検索する（家族リモートスケジュールのロールバック用）
+    func find(remoteEventId: String) -> AlarmEvent? {
+        loadAll().first { $0.remoteEventId == remoteEventId }
+    }
+
     /// alarmKitIdentifierでAlarmEventを検索する
     /// 単一IDと配列IDの両方を検索する（ジャストアラームなど複数登録時に対応）
     func find(alarmKitID: UUID) -> AlarmEvent? {

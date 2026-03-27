@@ -6,6 +6,7 @@ struct FamilyLinkView: View {
     @Environment(AppState.self) private var appState
     /// 親として連携するか、子として連携するか
     @State private var selectedRole: Role = .parent
+    @State private var showFamilyInput = false
 
     enum Role: String, CaseIterable {
         case parent = "受け取る（親）"
@@ -24,10 +25,18 @@ struct FamilyLinkView: View {
                     // ヘッダー説明
                     headerSection
 
-                    // 既にリンク済みの場合
+                    // 既にリンク済みの場合（親として）
                     if let linkId = linkedLinkId {
                         linkedSection(linkId: linkId)
-                    } else {
+                    }
+
+                    // 子として連携済みのリンクがある場合（送る側）
+                    if !appState.familyChildLinkIds.isEmpty {
+                        childLinksSection
+                    }
+
+                    // どちらでもない場合は連携UI
+                    if linkedLinkId == nil && appState.familyChildLinkIds.isEmpty {
                         // ロール選択
                         rolePicker
 
@@ -58,6 +67,13 @@ struct FamilyLinkView: View {
             }
             .navigationTitle("家族と連携する")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showFamilyInput) {
+                if let linkId = appState.familyChildLinkIds.first {
+                    FamilyInputView(
+                        viewModel: FamilyInputViewModel(familyLinkId: linkId)
+                    )
+                }
+            }
         }
         .onChange(of: viewModel.state) { _, newState in
             // ペアリング完了時にAppStateに保存
@@ -234,6 +250,46 @@ struct FamilyLinkView: View {
             .buttonStyle(.bordered)
         }
         .padding()
+    }
+
+    // MARK: - 子として連携済み（送る側）
+
+    private var childLinksSection: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.title2)
+                    .foregroundStyle(.blue)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("連携済み（送る側）")
+                        .font(.headline)
+                    Text("家族の代わりに予定を登録できます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                showFamilyInput = true
+            } label: {
+                Label("予定を送る", systemImage: "paperplane.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.large(background: .blue))
+
+            Button(role: .destructive) {
+                if let linkId = appState.familyChildLinkIds.first {
+                    viewModel.unlink(linkId: linkId)
+                }
+                appState.familyChildLinkIds = []
+            } label: {
+                Label("連携を解除する", systemImage: "xmark.circle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(.red)
+        }
     }
 
     // MARK: - Helper

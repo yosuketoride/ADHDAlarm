@@ -1,5 +1,6 @@
 import Foundation
 import EventKit
+import UserNotifications
 
 /// EventKit ⇔ AlarmKit の差分同期エンジン
 ///
@@ -17,17 +18,20 @@ final class SyncEngine {
     private let alarmScheduler: AlarmScheduling
     private let voiceGenerator: VoiceSynthesizing
     private let eventStore: AlarmEventStore
+    private let familyService: FamilyScheduling?
 
     init(
         calendarProvider: CalendarProviding  = AppleCalendarProvider(),
         alarmScheduler: AlarmScheduling      = AlarmKitScheduler(),
         voiceGenerator: VoiceSynthesizing    = VoiceFileGenerator(),
-        eventStore: AlarmEventStore          = .shared
+        eventStore: AlarmEventStore          = .shared,
+        familyService: FamilyScheduling?     = FamilyRemoteService.shared
     ) {
         self.calendarProvider = calendarProvider
         self.alarmScheduler   = alarmScheduler
         self.voiceGenerator   = voiceGenerator
         self.eventStore       = eventStore
+        self.familyService    = familyService
     }
 
     // MARK: - フル同期（メインエントリーポイント）
@@ -161,5 +165,117 @@ final class SyncEngine {
                 eventStore.save(alarm)
             }
         }
+    }
+
+    // MARK: - 家族リモートスケジュール同期
+
+    /// 家族から届いた予定を取り込み、キャンセルされた予定を削除する
+    /// アプリのフォアグラウンド復帰時に performFullSync() と合わせて呼ぶ
+    func syncRemoteEvents() async {
+        guard let service = familyService else { return }
+
+        // pending（未同期）の新規予定を取り込む
+        if let pendingEvents = try? await service.fetchPendingEvents() {
+            for record in pendingEvents {
+                await integrateRemoteEvent(record, service: service)
+            }
+        }
+
+        // cancelled（子がキャンセルした）予定をロールバックする
+        if let cancelledEvents = try? await service.fetchCancelledEvents() {
+            for record in cancelledEvents {
+                await rollbackRemoteEvent(record, service: service)
+            }
+        }
+    }
+
+    /// リモート予定をローカルに取り込む（AlarmKit登録 + EventKit書き込み + ローカル保存）
+    private func integrateRemoteEvent(_ record: RemoteEventRecord, service: FamilyScheduling) async {
+        // 既に同期済みのイベントはスキップ（重複防止）
+        guard eventStore.find(remoteEventId: record.id) == nil else { return }
+
+        // RemoteEventRecordをAlarmEventに変換
+        var alarm = AlarmEvent(
+            title: record.title,
+            fireDate: record.fireDate,
+            preNotificationMinutes: record.preNotificationMinutes,
+            voiceCharacter: VoiceCharacter(rawValue: record.voiceCharacter) ?? .femaleConcierge,
+            remoteEventId: record.id
+        )
+
+        // 音声ファイルを生成
+        let speechText = VoiceFileGenerator.speechText(for: alarm)
+        if let voiceURL = try? await voiceGenerator.generateAudio(
+            text: speechText,
+            character: alarm.voiceCharacter,
+            alarmID: alarm.id
+        ) {
+            alarm.voiceFileName = voiceURL.lastPathComponent
+        }
+
+        // AlarmKit登録
+        if let alarmKitID = try? await alarmScheduler.schedule(alarm) {
+            alarm.alarmKitIdentifier = alarmKitID
+        }
+
+        // EventKit書き込み
+        if let ekIdentifier = try? await calendarProvider.writeEvent(alarm, to: nil) {
+            alarm.eventKitIdentifier = ekIdentifier
+        }
+
+        // ローカルストアに保存
+        eventStore.save(alarm)
+
+        // Supabaseのステータスを同期済みに更新
+        try? await service.markEventSynced(id: record.id)
+
+        // 「家族から予定が届きました」ローカル通知
+        await notifyFamilyEventArrived(title: alarm.title)
+    }
+
+    /// キャンセルされたリモート予定をロールバックする（AlarmKit削除 + EventKit削除 + ローカル削除）
+    private func rollbackRemoteEvent(_ record: RemoteEventRecord, service: FamilyScheduling) async {
+        // ローカルのAlarmEventを検索
+        guard let alarm = eventStore.find(remoteEventId: record.id) else {
+            // ローカルにない場合でも rolled_back にマークしておく（再ロールバック防止）
+            try? await service.markEventRolledBack(id: record.id)
+            return
+        }
+
+        // AlarmKitアラームを削除（複数アラーム対応）
+        if !alarm.alarmKitIdentifiers.isEmpty {
+            try? await alarmScheduler.cancelAll(alarmKitIDs: alarm.alarmKitIdentifiers)
+        } else if let alarmKitID = alarm.alarmKitIdentifier {
+            try? await alarmScheduler.cancel(alarmKitID: alarmKitID)
+        }
+
+        // EventKitイベントを削除
+        if let ekIdentifier = alarm.eventKitIdentifier {
+            try? await calendarProvider.deleteEvent(eventKitIdentifier: ekIdentifier)
+        }
+
+        // 音声ファイルを削除
+        voiceGenerator.deleteAudio(alarmID: alarm.id)
+
+        // ローカルストアから削除
+        eventStore.delete(id: alarm.id)
+
+        // Supabaseのステータスをrolled_backに更新
+        try? await service.markEventRolledBack(id: record.id)
+    }
+
+    /// ローカル通知で「家族から予定が届きました」をユーザーに知らせる
+    private func notifyFamilyEventArrived(title: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = "家族から予定が届きました"
+        content.body = "「\(title)」が自動でアラームにセットされました。"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "family-event-\(UUID().uuidString)",
+            content: content,
+            trigger: nil  // 即時配信
+        )
+        try? await UNUserNotificationCenter.current().add(request)
     }
 }
