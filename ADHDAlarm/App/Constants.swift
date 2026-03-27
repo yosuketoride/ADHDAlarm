@@ -45,9 +45,9 @@ enum Constants {
     // MARK: - 法的URL（App Store審査必須。提出前に実際のURLに差し替えること）
     enum LegalURL {
         /// 利用規約ページのURL
-        static let terms   = "https://yosuketoride.github.io/koememo/terms"
+        static let terms   = "https://yosuketoride.github.io/ADHDAlarm/terms"
         /// プライバシーポリシーページのURL
-        static let privacy = "https://yosuketoride.github.io/koememo/privacy"
+        static let privacy = "https://yosuketoride.github.io/ADHDAlarm/privacy"
     }
 
     // MARK: - StoreKit

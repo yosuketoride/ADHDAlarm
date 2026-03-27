@@ -37,7 +37,7 @@ serve(async (req) => {
     }
 
     const userId = pairing.line_user_id
-    const message = `⚠️ 【SOS】声メモアラームからのお知らせ\n\n「${alarmTitle}」のアラームが${minutes}分間止められていません。\n念のためご確認をお願いいたします。`
+    const message = `⚠️ 【SOS】忘れん坊アラームからのお知らせ\n\n「${alarmTitle}」のアラームが${minutes}分間止められていません。\n念のためご確認をお願いいたします。`
 
     // LINE Push API
     const res = await fetch("https://api.line.me/v2/bot/message/push", {

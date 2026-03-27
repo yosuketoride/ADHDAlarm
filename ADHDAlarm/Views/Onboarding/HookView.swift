@@ -57,7 +57,7 @@ struct HookView: View {
                         color: .blue,
                         icon: "🎙️",
                         label: "さらにSiriでも使えます（スマホに触らずに！）",
-                        phrase: "「Hey Siri、こえメモにお願い」\n「Hey Siri、こえメモで予定を追加」"
+                        phrase: "「Hey Siri、ふくろうにお願い」\n「Hey Siri、ふくろうで予定を追加」"
                     )
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared ? 0 : 20)

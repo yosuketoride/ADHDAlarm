@@ -11,7 +11,7 @@
 		33A5B06F2F717EFB00EC26B4 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 33A5B06E2F717EFB00EC26B4 /* Functions */; };
 		33A5B0712F717EFB00EC26B4 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 33A5B0702F717EFB00EC26B4 /* PostgREST */; };
 		33A5B0732F7180BC00EC26B4 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 33A5B0722F7180BC00EC26B4 /* Supabase */; };
-		33A5B14E2F72D4DE00EC26B4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 33A5B14D2F72D4DD00EC26B4 /* PrivacyInfo.xcprivacy */; };
+		33A5B1AE2F750F6700EC26B4 /* Product.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 33A5B1AD2F750F6700EC26B4 /* Product.storekit */; };
 		33F5C7E62F694C7100720FF0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33F5C7E52F694C7100720FF0 /* WidgetKit.framework */; };
 		33F5C7E82F694C7100720FF0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33F5C7E72F694C7100720FF0 /* SwiftUI.framework */; };
 		33F5C7F72F694C7200720FF0 /* ADHDAlarmWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 33F5C7E32F694C7100720FF0 /* ADHDAlarmWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -49,7 +49,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		33A5B14D2F72D4DD00EC26B4 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		33A5B1AD2F750F6700EC26B4 /* Product.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Product.storekit; sourceTree = "<group>"; };
 		33D3B9D62F68210000B5A49F /* ADHDAlarm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ADHDAlarm.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		33F5C7E32F694C7100720FF0 /* ADHDAlarmWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ADHDAlarmWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		33F5C7E52F694C7100720FF0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
@@ -133,7 +133,7 @@
 		33D3B9CD2F68210000B5A49F = {
 			isa = PBXGroup;
 			children = (
-				33A5B14D2F72D4DD00EC26B4 /* PrivacyInfo.xcprivacy */,
+				33A5B1AD2F750F6700EC26B4 /* Product.storekit */,
 				33F5C8032F694E7F00720FF0 /* ADHDAlarmWidgetExtension.entitlements */,
 				33D3B9D82F68210000B5A49F /* ADHDAlarm */,
 				33F5C7E92F694C7100720FF0 /* ADHDAlarmWidget */,
@@ -294,7 +294,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				33A5B14E2F72D4DE00EC26B4 /* PrivacyInfo.xcprivacy in Resources */,
+				33A5B1AE2F750F6700EC26B4 /* Product.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

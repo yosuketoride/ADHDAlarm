@@ -40,7 +40,7 @@ fileprivate struct PaywallVariant {
             icon: "mic.badge.plus",
             color: .blue,
             title: "Hey Siriで完全ハンズフリー登録",
-            detail: "「Hey Siri、こえメモにお願い」と話しかけるだけ。操作の手間ゼロ。"
+            detail: "「Hey Siri、ふくろうにお願い」と話しかけるだけ。操作の手間ゼロ。"
         ),
         Benefit(
             icon: "bell.badge.fill",

@@ -222,7 +222,7 @@ struct SettingsView: View {
             }
             let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
             let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-            Text("声メモアラーム v\(version) (\(build))")
+            Text("ふくろう v\(version) (\(build))")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }

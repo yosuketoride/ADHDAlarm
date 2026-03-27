@@ -12,7 +12,7 @@ struct SyncIntent: AppIntent {
     static var title: LocalizedStringResource = "カレンダーとアラームを同期する"
     static var description = IntentDescription(
         "予定とアラームを最新の状態に更新します。「ショートカット」アプリのオートメーションに登録すると、自動でお掃除してくれます。",
-        categoryName: "こえメモ"
+        categoryName: "ふくろう"
     )
 
     /// バックグラウンドで動作する（アプリを前面に出さない）
