@@ -34,7 +34,7 @@ struct EventRow: View {
             .frame(width: 56)
 
             // タイトル + サブ情報
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(alarm.title)
                     .font(.body.weight(.medium))
                     .foregroundStyle(isPast ? .secondary : .primary)

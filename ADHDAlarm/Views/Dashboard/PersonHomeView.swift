@@ -91,7 +91,7 @@ struct PersonHomeView: View {
                         .foregroundStyle(.secondary)
                         .frame(width: ComponentSize.small, height: ComponentSize.small)
                 }
-                .offset(x: 24, y: -8)
+                .offset(x: Spacing.lg, y: -Spacing.sm)
             }
             .padding(.trailing, Spacing.xl)
 
@@ -198,7 +198,9 @@ struct PersonHomeView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, Spacing.lg)
 
-            if viewModel.events.isEmpty {
+            // 未完了の予定がゼロの場合に空状態メッセージを表示
+            // （完了済みが残っていても未完了がゼロなら空状態）
+            if viewModel.visibleEvents.isEmpty {
                 emptyStateView
             } else {
                 // 未完了の予定（折りたたみ）
@@ -252,14 +254,16 @@ struct PersonHomeView: View {
                     .padding(.horizontal, Spacing.md)
                 }
 
-                // 完了済み予定（グレーアウト）
-                if !viewModel.completedTodayEvents.isEmpty {
-                    ForEach(viewModel.completedTodayEvents) { alarm in
-                        EventRow(alarm: alarm) {
-                            Task { await viewModel.deleteEvent(alarm) }
-                        }
-                        .padding(.horizontal, Spacing.md)
+            }
+
+            // 完了済み予定（greyout・未完了リストの外に独立配置）
+            // visibleEvents が空でも完了済みは常に表示する
+            if !viewModel.completedTodayEvents.isEmpty {
+                ForEach(viewModel.completedTodayEvents) { alarm in
+                    EventRow(alarm: alarm) {
+                        Task { await viewModel.deleteEvent(alarm) }
                     }
+                    .padding(.horizontal, Spacing.md)
                 }
             }
         }
@@ -324,7 +328,7 @@ struct PersonHomeView: View {
         Button {
             viewModel.showMicSheet = true
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: Spacing.xs) {
                 Image(systemName: "mic.fill")
                     .font(.system(size: IconSize.md, weight: .bold))
                 Text("予定を追加")

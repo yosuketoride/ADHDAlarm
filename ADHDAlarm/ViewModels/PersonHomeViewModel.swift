@@ -81,7 +81,7 @@ final class PersonHomeViewModel {
         let isExtremeSize = sizeCategory >= .accessibilityLarge
         if isExtremeSize {
             let availableHeight = UIScreen.main.bounds.height * 0.5
-            return max(1, Int(availableHeight / 64))
+            return max(1, Int(availableHeight / ComponentSize.eventRow))
         }
         return 3
     }
@@ -128,10 +128,11 @@ final class PersonHomeViewModel {
 
         if total == 0 {
             return ("🌸 今日はのんびり過ごしてね", "🎤 何か予定を追加してみよう")
+        } else if skipped > 0 {
+            // スキップを先に評価（全完了でもスキップが含まれる場合はこちら優先）
+            return ("🍵 今日は無理せず休もう。明日は明日の風が吹くよ 🦉", "🦉 体調が戻ったら声で教えてね")
         } else if completed == total {
             return ("🎉 お疲れ様！全部終わったよ！ふくろうも誇らしいよ", "🌙 明日の予定を追加しておく？")
-        } else if skipped > 0 {
-            return ("🍵 今日は無理せず休もう。明日は明日の風が吹くよ 🦉", "🦉 体調が戻ったら声で教えてね")
         }
         return ("🌸 今日はのんびり過ごしてね", "🎤 何か予定を追加してみよう")
     }
@@ -210,10 +211,12 @@ final class PersonHomeViewModel {
     // MARK: - 予定削除（3秒Undo付き）
 
     func deleteEvent(_ alarm: AlarmEvent) async {
+        // タイマーを先に止めてから await（タイマー発火との競合を防ぐ）
+        deleteTimer?.invalidate()
+        deleteTimer = nil
         if let pending = pendingDelete {
             await commitDelete(pending)
         }
-        deleteTimer?.invalidate()
         events.removeAll { $0.id == alarm.id }
         pendingDelete = alarm
         deleteTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
