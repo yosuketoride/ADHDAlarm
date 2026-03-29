@@ -10,6 +10,11 @@ enum WidgetVoiceCharacter: String, Codable {
     case customRecording  = "custom_recording"
 }
 
+enum WidgetCompletionStatus: String, Codable {
+    case completed
+    case skipped
+}
+
 struct WidgetAlarmEvent: Identifiable, Codable {
     let id: UUID
     var title: String
@@ -21,4 +26,6 @@ struct WidgetAlarmEvent: Identifiable, Codable {
     var calendarIdentifier: String?
     var voiceCharacter: WidgetVoiceCharacter
     let createdAt: Date
+    var eventEmoji: String?
+    var completionStatus: WidgetCompletionStatus?
 }

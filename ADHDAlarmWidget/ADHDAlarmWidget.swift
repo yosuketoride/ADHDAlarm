@@ -1,6 +1,6 @@
 import WidgetKit
 import SwiftUI
-
+import AppIntents
 // MARK: - Timeline Entry
 
 struct NextAlarmEntry: TimelineEntry {
@@ -53,6 +53,27 @@ struct NextAlarmWidgetView: View {
     let entry: NextAlarmEntry
     @Environment(\.widgetFamily) private var family
 
+    // MARK: - App Group Data
+    private var owlName: String {
+        UserDefaults(suiteName: "group.com.yosuke.WasurenboAlarm")?.string(forKey: "owl_name") ?? "ふくろう"
+    }
+    
+    private var owlXP: Int {
+        UserDefaults(suiteName: "group.com.yosuke.WasurenboAlarm")?.integer(forKey: "owl_xp") ?? 0
+    }
+
+    private func getOwlEmoji(for alarm: WidgetAlarmEvent?) -> String {
+        guard let alarm = alarm else { return "🦉💤" }
+        let minutes = Int(alarm.fireDate.timeIntervalSinceNow / 60)
+        if minutes < 10 {
+            return "🦉👀" // worried
+        } else if minutes > 60 {
+            return "🦉💤" // sleepy
+        } else {
+            return "🦉" // normal
+        }
+    }
+
     var body: some View {
         if family == .systemLarge {
             largeView
@@ -69,9 +90,14 @@ struct NextAlarmWidgetView: View {
     // Small: 残り時間 + タイトル（高齢者向け大文字）
     private func smallView(alarm: WidgetAlarmEvent) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(alarm.fireDate.remainingString)
-                .font(.system(.caption, design: .rounded).weight(.bold))
-                .foregroundStyle(.blue)
+            HStack {
+                Text(getOwlEmoji(for: alarm))
+                    .font(.title2)
+                Spacer()
+                Text(alarm.fireDate.remainingString)
+                    .font(.system(.caption, design: .rounded).weight(.bold))
+                    .foregroundStyle(.blue)
+            }
 
             Text(alarm.title)
                 .font(.system(.title2, design: .rounded).weight(.black))
@@ -81,44 +107,44 @@ struct NextAlarmWidgetView: View {
 
             Spacer()
 
-            HStack(spacing: 4) {
-                Text(alarm.fireDate.widgetDateLabel)
-                Text(alarm.fireDate.widgetTimeString)
-                    .fontWeight(.semibold)
+            Button(intent: CompleteAlarmIntent(eventID: alarm.id.uuidString)) {
+                Text("✓ 完了にする")
+                    .font(.caption)
+                    .bold()
+                    .frame(maxWidth: .infinity)
             }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
+            .buttonStyle(.borderedProminent)
+            .tint(Color.green)
+            .controlSize(.small)
         }
         .padding(14)
         .containerBackground(.fill.tertiary, for: .widget)
     }
 
-    // Medium: 時刻 + 残り時間 + タイトル + 他の件数 + マイクボタン
+    // Medium: ふくろうの部屋 + 予定情報 + 完了ボタン
     private func mediumView(alarm: WidgetAlarmEvent) -> some View {
-        HStack(spacing: 16) {
-            // 左: 時刻
-            VStack(alignment: .center, spacing: 4) {
-                Text(alarm.fireDate.widgetTimeString)
-                    .font(.system(size: 36, weight: .black, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .minimumScaleFactor(0.6)
-
-                Text(alarm.fireDate.remainingString)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.blue)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Color.blue.opacity(0.12), in: Capsule())
-            }
-            .frame(maxWidth: 110)
-
-            Divider()
-
-            // 右: 予定情報 + マイク追加ボタン
+        HStack(spacing: 0) {
+            // 左ペイン（1/3）: ふくろうの部屋（箱庭）
+            owlRoomView(alarm: alarm)
+                .frame(maxWidth: 140)
+            
+            // 右ペイン（2/3）: 予定情報 + 完了ボタン
             VStack(alignment: .leading, spacing: 6) {
-                Text(alarm.fireDate.widgetDateLabel)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Text(alarm.fireDate.widgetTimeString)
+                        .font(.system(size: 28, weight: .black, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .minimumScaleFactor(0.6)
+                    
+                    Spacer()
+                    
+                    Text(alarm.fireDate.remainingString)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.blue)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.12), in: Capsule())
+                }
 
                 Text(alarm.title)
                     .font(.system(.title3, design: .rounded).weight(.bold))
@@ -126,26 +152,52 @@ struct NextAlarmWidgetView: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.7)
 
-                let others = WidgetDataProvider.todayAlarms().filter { $0.id != alarm.id }
-                if !others.isEmpty {
-                    Text("他\(others.count)件のご予定")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-
                 Spacer(minLength: 0)
 
-                // 予定を追加するマイクボタン
-                Link(destination: URL(string: "adhdalarm://voice-input")!) {
-                    Label("予定を追加", systemImage: "mic.circle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.blue)
+                Button(intent: CompleteAlarmIntent(eventID: alarm.id.uuidString)) {
+                    Text("✓ 完了にする")
+                        .font(.caption)
+                        .bold()
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.green)
+                .controlSize(.small)
             }
+            .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(14)
         .containerBackground(.fill.tertiary, for: .widget)
+    }
+
+    private func owlRoomView(alarm: WidgetAlarmEvent?) -> some View {
+        let xp = owlXP
+        let isSleepy = alarm == nil || alarm!.fireDate.timeIntervalSinceNow > 3600
+        let isWorried = alarm != nil && alarm!.fireDate.timeIntervalSinceNow < 600
+
+        return ZStack {
+            // Layer 1: 背景レイヤー (後日画像アセットに差し替え可能)
+            GeometryReader { geo in
+                VStack(spacing: 0) {
+                    Color(isSleepy ? .gray : .orange).opacity(0.2)
+                    Color.brown.opacity(0.3).frame(height: geo.size.height * 0.4)
+                }
+            }
+            .ignoresSafeArea()
+
+            // Layer 2: アイテムアイコン
+            ZStack {
+                if xp >= 100 { Text("🪵").font(.system(size: 30)).offset(x: -25, y: -20) } // 本棚 奥
+                if xp >= 300 { Text("🪴").font(.system(size: 24)).offset(x: 30, y: 15) }   // 観葉植物 手前
+                if xp >= 700 { Text("🕯️").font(.system(size: 20)).offset(x: -15, y: -5) }  // ランプ
+                if xp >= 1000 { Text("🔭").font(.system(size: 28)).offset(x: 20, y: -15) } // 望遠鏡 奥
+            }
+
+            // Layer 3: ふくろうキャラ
+            Text(getOwlEmoji(for: alarm))
+                .font(.system(size: 44))
+                .offset(x: isWorried ? -8 : 0, y: 10)
+        }
     }
 
     // Large: 今日の予定一覧
@@ -247,24 +299,21 @@ struct NextAlarmWidgetView: View {
         }
     }
 
-    // 予定なし（タップで音声入力画面を開く）
+    // 予定なし（タップで音声入力またはアプリを開く）
     private var emptyView: some View {
-        Link(destination: URL(string: "adhdalarm://voice-input")!) {
-            VStack(spacing: 8) {
-                Image(systemName: "mic.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundStyle(.blue)
-                Text("予定を追加する")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.blue)
-                Text("タップして声で入力")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding()
-            .containerBackground(.fill.tertiary, for: .widget)
+        VStack(spacing: 8) {
+            owlRoomView(alarm: nil) // 簡易表示
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal, 10)
+                .padding(.top, 10)
+
+            Text("\(owlName)と一緒にのんびりしてね")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            
+            Spacer(minLength: 0)
         }
+        .containerBackground(.fill.tertiary, for: .widget)
     }
 }
 

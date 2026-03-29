@@ -16,11 +16,14 @@ struct RingingView: View {
 
     @State private var pendingAlarm: AlarmEvent
     @State private var showDismissMessage = false
+    @State private var isSkipped = false
     // アニメーション状態
     @State private var appeared = false
     @State private var bubbleBounce = false
     @State private var ripplePulse = false
-    
+    // スキップセクション（5秒後に表示）
+    @State private var showSkipSection = false
+
     // SOSバナー用状態
     @State private var showSuccessBanner = false
     @State private var showErrorBanner = false
@@ -111,6 +114,11 @@ struct RingingView: View {
             default: break
             }
         }
+        // 5秒後にスキップセクションを表示（View が消えると自動キャンセル）
+        .task {
+            try? await Task.sleep(for: .seconds(5))
+            withAnimation(.easeInOut(duration: 0.4)) { showSkipSection = true }
+        }
         .interactiveDismissDisabled()
         .statusBarHidden(true)
         .animation(.spring(duration: 0.4), value: showDismissMessage)
@@ -144,12 +152,18 @@ struct RingingView: View {
 
             Spacer()
 
-            // 停止ボタン（下部）
-            stopButton
-                .padding(.horizontal, 32)
-                .padding(.bottom, 56)
-                .opacity(appeared ? 1.0 : 0)
-                .offset(y: appeared ? 0 : 20)
+            // 停止ボタン + スキップセクション（下部）
+            VStack(spacing: Spacing.sm) {
+                stopButton
+                if showSkipSection {
+                    skipSection
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .padding(.horizontal, 32)
+            .padding(.bottom, 56)
+            .opacity(appeared ? 1.0 : 0)
+            .offset(y: appeared ? 0 : 20)
         }
     }
 
@@ -267,6 +281,7 @@ struct RingingView: View {
     private var stopButton: some View {
         Button {
             let sosWasFired = viewModel.sosStatus != .idle
+            isSkipped = false
             viewModel.dismiss()
             withAnimation(.spring(duration: 0.4)) {
                 showDismissMessage = true
@@ -285,7 +300,7 @@ struct RingingView: View {
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 76)
+            .frame(height: ComponentSize.actionGiant)
             .background(
                 LinearGradient(
                     colors: [
@@ -309,6 +324,29 @@ struct RingingView: View {
                         lineWidth: 1
                     )
             }
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - スキップセクション（5秒後に表示）
+
+    private var skipSection: some View {
+        Button {
+            isSkipped = true
+            viewModel.skip()
+            withAnimation(.spring(duration: 0.4)) {
+                showDismissMessage = true
+            }
+            Task {
+                try? await Task.sleep(for: .seconds(2.5))
+                onDismissed()
+            }
+        } label: {
+            Text("今日は休む（スキップ）")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: ComponentSize.small)
         }
         .buttonStyle(.plain)
     }
@@ -351,11 +389,13 @@ struct RingingView: View {
 
                 // メッセージカード
                 VStack(spacing: 10) {
-                    Text("よくできました！")
+                    Text(isSkipped ? "ゆっくり休んでね" : "よくできました！")
                         .font(.system(size: 32, weight: .black, design: .rounded))
                         .foregroundStyle(.primary)
 
-                    Text("「\(pendingAlarm.title)」\nそろそろ準備を始めましょう！")
+                    Text(isSkipped
+                         ? "「\(pendingAlarm.title)」\n無理せず、今日は休みましょう 🍵"
+                         : "「\(pendingAlarm.title)」\nそろそろ準備を始めましょう！")
                         .font(.title3.weight(.medium))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)

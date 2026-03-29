@@ -107,10 +107,17 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
+        @Bindable var appState = appState
+
         Group {
             if !appState.isOnboardingComplete || appState.appMode == nil {
-                ModeSelectionView()
-                    .transition(.opacity)
+                NavigationStack(path: $appState.onboardingPath) {
+                    ModeSelectionView()
+                        .navigationDestination(for: OnboardingDestination.self) { destination in
+                            destinationView(for: destination)
+                        }
+                }
+                .transition(.opacity)
             } else if appState.appMode == .person {
                 PersonHomeView()
                     .transition(.opacity)
@@ -129,6 +136,18 @@ struct RootView: View {
             RingingView(alarm: alarm) {
                 router.ringingAlarm = nil
             }
+        }
+    }
+
+    @ViewBuilder
+    private func destinationView(for destination: OnboardingDestination) -> some View {
+        switch destination {
+        case .personWelcome:    PersonWelcomeView()
+        case .permissionsCTA:   PermissionsCTAView()
+        case .owlNaming:        OwlNamingView()
+        case .magicDemoWarning: MagicDemoWarningView()
+        case .magicDemo(let hapticOnly): MagicDemoView(hapticOnly: hapticOnly)
+        case .widgetGuide:      WidgetGuideView()
         }
     }
 }

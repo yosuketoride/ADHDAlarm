@@ -26,6 +26,9 @@ enum Constants {
         static let owlName                = "owl_name"
         static let owlXP                  = "owl_xp"
         static let owlStage               = "owl_stage"
+        // XP 日次管理（日付をまたいだリセット用）
+        static let owlXPToday             = "owl_xp_today"
+        static let owlXPLastDate          = "owl_xp_last_date"
     }
 
     // MARK: - Supabase (SOS LINE連携用)

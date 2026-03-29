@@ -1,5 +1,14 @@
 import Foundation
 
+// MARK: - 完了状態
+
+/// アラームの完了状態
+/// nil = まだ発火していない or 未対応（後方互換）
+enum CompletionStatus: String, Codable {
+    case completed  // ユーザーが「とめる」を押した
+    case skipped    // ユーザーが「スキップ」を選んだ
+}
+
 /// アプリのコアドメインモデル。
 /// EventKit (eventKitIdentifier) と AlarmKit (alarmKitIdentifier) の橋渡し役。
 /// App Groupコンテナに永続化され、ウィジェットとも共有される。
@@ -33,6 +42,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
     var remoteEventId: String?
     /// NLParserが推定した絵文字アイコン（nil → 表示時は "📌" をフォールバック）
     var eventEmoji: String?
+    /// アラームへの対応状態（nil = 未対応 or 過去日時プロキシで判定）
+    var completionStatus: CompletionStatus?
 
     init(
         id: UUID = UUID(),
@@ -50,7 +61,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         recurrenceRule: RecurrenceRule? = nil,
         recurrenceGroupID: UUID? = nil,
         remoteEventId: String? = nil,
-        eventEmoji: String? = nil
+        eventEmoji: String? = nil,
+        completionStatus: CompletionStatus? = nil
     ) {
         self.id = id
         self.title = title
@@ -68,6 +80,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         self.recurrenceGroupID = recurrenceGroupID
         self.remoteEventId = remoteEventId
         self.eventEmoji = eventEmoji
+        self.completionStatus = completionStatus
     }
 
     // MARK: - Codable（後方互換）
@@ -80,6 +93,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         case voiceFileName, calendarIdentifier, voiceCharacter
         case createdAt, recurrenceRule, recurrenceGroupID, remoteEventId
         case eventEmoji
+        case completionStatus
     }
 
     init(from decoder: Decoder) throws {
@@ -98,7 +112,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         createdAt              = try c.decodeIfPresent(Date.self,         forKey: .createdAt)              ?? Date()
         recurrenceRule         = try c.decodeIfPresent(RecurrenceRule.self, forKey: .recurrenceRule)
         recurrenceGroupID      = try c.decodeIfPresent(UUID.self,         forKey: .recurrenceGroupID)
-        remoteEventId          = try c.decodeIfPresent(String.self,       forKey: .remoteEventId)
-        eventEmoji             = try c.decodeIfPresent(String.self,       forKey: .eventEmoji)
+        remoteEventId          = try c.decodeIfPresent(String.self,            forKey: .remoteEventId)
+        eventEmoji             = try c.decodeIfPresent(String.self,            forKey: .eventEmoji)
+        completionStatus       = try c.decodeIfPresent(CompletionStatus.self,  forKey: .completionStatus)
     }
 }

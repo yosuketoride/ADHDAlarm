@@ -4,7 +4,7 @@ import AudioToolbox
 import Observation
 
 /// アラーム鳴動中の状態管理
-@Observable
+@Observable @MainActor
 final class RingingViewModel: NSObject {
     var activeAlarm: AlarmEvent?
     /// SOSのステータス
@@ -19,6 +19,7 @@ final class RingingViewModel: NSObject {
     var escalationTimer: Timer?
     private let scheduler: AlarmScheduling
     private let voiceGenerator: VoiceSynthesizing
+    private let calendarProvider: CalendarProviding
     private var notificationType: NotificationType = .alarmAndVoice
     private var audioOutputMode: AudioOutputMode = .automatic
     /// Supabase LINE連携用のペアリングID
@@ -31,12 +32,14 @@ final class RingingViewModel: NSObject {
     init(
         scheduler: AlarmScheduling = AlarmKitScheduler(),
         voiceGenerator: VoiceSynthesizing = VoiceFileGenerator(),
+        calendarProvider: CalendarProviding = AppleCalendarProvider(),
         notificationType: NotificationType = .alarmAndVoice,
         audioOutputMode: AudioOutputMode = .automatic,
         sosService: SOSNotifying = SupabaseSOSService()
     ) {
         self.scheduler = scheduler
         self.voiceGenerator = voiceGenerator
+        self.calendarProvider = calendarProvider
         self.notificationType = notificationType
         self.audioOutputMode = audioOutputMode
         self.sosService = sosService
@@ -209,19 +212,75 @@ final class RingingViewModel: NSObject {
     // MARK: - 停止
 
     func dismiss() {
-        guard let alarm = activeAlarm,
-              let alarmKitID = alarm.alarmKitIdentifier else {
+        guard let alarm = activeAlarm else {
             stopAudioPlayback()
             activeAlarm = nil
             playPraisePhrase()
             return
         }
+        // completionStatus を .completed に更新して永続化
+        recordCompletion(for: alarm, status: .completed)
+        addXP(10)
         stopAudioPlayback()
         Task {
-            try? await scheduler.cancel(alarmKitID: alarmKitID)
+            // EK から削除（SyncEngine による復活を防ぐ）
+            if let ekID = alarm.eventKitIdentifier {
+                try? await calendarProvider.deleteEvent(eventKitIdentifier: ekID)
+            }
+            if let alarmKitID = alarm.alarmKitIdentifier {
+                try? await scheduler.cancel(alarmKitID: alarmKitID)
+            }
             activeAlarm = nil
         }
         playPraisePhrase()
+    }
+
+    /// スキップ（今日は休む）: completionStatus を .skipped にして XP +3
+    func skip() {
+        guard let alarm = activeAlarm else {
+            stopAudioPlayback()
+            activeAlarm = nil
+            return
+        }
+        recordCompletion(for: alarm, status: .skipped)
+        addXP(3)
+        stopAudioPlayback()
+        Task {
+            // EK から削除（SyncEngine による復活を防ぐ）
+            if let ekID = alarm.eventKitIdentifier {
+                try? await calendarProvider.deleteEvent(eventKitIdentifier: ekID)
+            }
+            if let alarmKitID = alarm.alarmKitIdentifier {
+                try? await scheduler.cancel(alarmKitID: alarmKitID)
+            }
+            activeAlarm = nil
+        }
+    }
+
+    // MARK: - プライベートヘルパー
+
+    private func recordCompletion(for alarm: AlarmEvent, status: CompletionStatus) {
+        var updated = alarm
+        updated.completionStatus = status
+        AlarmEventStore.shared.save(updated)
+    }
+
+    private func addXP(_ amount: Int) {
+        let cap = 50
+        let defaults = UserDefaults.standard
+        // 日付が変わっていたら今日のXPをリセット
+        let lastDate = defaults.object(forKey: Constants.Keys.owlXPLastDate) as? Date ?? .distantPast
+        var dailyAdded = defaults.integer(forKey: Constants.Keys.owlXPToday)
+        if !Calendar.current.isDateInToday(lastDate) {
+            dailyAdded = 0
+            defaults.set(0, forKey: Constants.Keys.owlXPToday)
+        }
+        let current = defaults.integer(forKey: Constants.Keys.owlXP)
+        let actual = min(amount, cap - dailyAdded)
+        guard actual > 0 else { return }
+        defaults.set(current + actual, forKey: Constants.Keys.owlXP)
+        defaults.set(dailyAdded + actual, forKey: Constants.Keys.owlXPToday)
+        defaults.set(Date(), forKey: Constants.Keys.owlXPLastDate)
     }
 
     // MARK: - 褒め言葉（アラーム停止時のポジティブフィードバック）

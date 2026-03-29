@@ -15,13 +15,22 @@ final class AppState {
 
     // MARK: - フクロウキャラクター
     var owlName: String {
-        didSet { UserDefaults.standard.set(owlName, forKey: Constants.Keys.owlName) }
+        didSet {
+            UserDefaults.standard.set(owlName, forKey: Constants.Keys.owlName)
+            UserDefaults(suiteName: Constants.appGroupID)?.set(owlName, forKey: Constants.Keys.owlName)
+        }
     }
     var owlXP: Int {
-        didSet { UserDefaults.standard.set(owlXP, forKey: Constants.Keys.owlXP) }
+        didSet {
+            UserDefaults.standard.set(owlXP, forKey: Constants.Keys.owlXP)
+            UserDefaults(suiteName: Constants.appGroupID)?.set(owlXP, forKey: Constants.Keys.owlXP)
+        }
     }
     var owlStage: Int {
-        didSet { UserDefaults.standard.set(owlStage, forKey: Constants.Keys.owlStage) }
+        didSet {
+            UserDefaults.standard.set(owlStage, forKey: Constants.Keys.owlStage)
+            UserDefaults(suiteName: Constants.appGroupID)?.set(owlStage, forKey: Constants.Keys.owlStage)
+        }
     }
 
     // MARK: - ナビゲーション
@@ -29,6 +38,8 @@ final class AppState {
     var familyNavigationPath = NavigationPath()
     /// シートをすべて閉じるためのトリガー
     var dismissAllSheets = false
+    /// オンボーディング NavigationStack のパス（起動間で保持不要）
+    var onboardingPath = NavigationPath()
     // MARK: - オンボーディング
     var isOnboardingComplete: Bool {
         didSet { UserDefaults.standard.set(isOnboardingComplete, forKey: Constants.Keys.onboardingComplete) }

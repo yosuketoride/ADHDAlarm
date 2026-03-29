@@ -87,8 +87,9 @@ final class PersonHomeViewModel {
     }
 
     /// 未完了の今日の予定（表示対象）
+    /// completionStatus が設定済みのものは明示的に完了 or スキップ → 未完了リストから除外
     private var incompleteTodayEvents: [AlarmEvent] {
-        events.filter { $0.fireDate >= Date() }
+        events.filter { $0.completionStatus == nil && $0.fireDate >= Date() }
     }
 
     /// 画面に表示する予定（折りたたみ考慮済み）
@@ -104,9 +105,10 @@ final class PersonHomeViewModel {
         max(0, incompleteTodayEvents.count - maxVisibleEventCount)
     }
 
-    /// 完了済みの今日の予定（リスト下部に表示）
+    /// 完了済み・スキップ済みの今日の予定（リスト下部に表示）
+    /// completionStatus が設定済み、または fireDate 過ぎたもの（後方互換プロキシ）
     var completedTodayEvents: [AlarmEvent] {
-        events.filter { $0.fireDate < Date() }
+        events.filter { $0.completionStatus != nil || $0.fireDate < Date() }
     }
 
     /// 明日以降の予定（最大2件）
@@ -124,7 +126,7 @@ final class PersonHomeViewModel {
     var emptyStateInfo: (message: String, ctaLabel: String) {
         let total = events.count
         let completed = completedTodayEvents.count
-        let skipped = events.filter { $0.fireDate < Date() && $0.title.contains("パス") }.count
+        let skipped = events.filter { $0.completionStatus == .skipped }.count
 
         if total == 0 {
             return ("🌸 今日はのんびり過ごしてね", "🎤 何か予定を追加してみよう")
@@ -325,15 +327,21 @@ final class PersonHomeViewModel {
     // MARK: - XP管理
 
     func addXP(_ amount: Int) {
-        // AppState 経由で加算（AppState を直接渡さずに通知で解決予定・Phase 3）
-        // Phase 2 では UserDefaults に直接書く（暫定）
-        let current = UserDefaults.standard.integer(forKey: "owl_xp")
-        let dailyAdded = UserDefaults.standard.integer(forKey: "owl_xp_today")
         let cap = 50
+        let defaults = UserDefaults.standard
+        // 日付が変わっていたら今日のXPをリセット
+        let lastDate = defaults.object(forKey: Constants.Keys.owlXPLastDate) as? Date ?? .distantPast
+        var dailyAdded = defaults.integer(forKey: Constants.Keys.owlXPToday)
+        if !Calendar.current.isDateInToday(lastDate) {
+            dailyAdded = 0
+            defaults.set(0, forKey: Constants.Keys.owlXPToday)
+        }
+        let current = defaults.integer(forKey: Constants.Keys.owlXP)
         let actual = min(amount, cap - dailyAdded)
         guard actual > 0 else { return }
-        UserDefaults.standard.set(current + actual, forKey: "owl_xp")
-        UserDefaults.standard.set(dailyAdded + actual, forKey: "owl_xp_today")
+        defaults.set(current + actual, forKey: Constants.Keys.owlXP)
+        defaults.set(dailyAdded + actual, forKey: Constants.Keys.owlXPToday)
+        defaults.set(Date(), forKey: Constants.Keys.owlXPLastDate)
     }
 
     // MARK: - プライベートヘルパー

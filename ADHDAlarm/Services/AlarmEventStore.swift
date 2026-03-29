@@ -1,4 +1,5 @@
 import Foundation
+import WidgetKit
 
 /// AlarmEventのマッピング（eventKitID ⇔ alarmKitID）を永続化するストア
 /// App Groupコンテナに保存してウィジェットとも共有する
@@ -82,5 +83,6 @@ final class AlarmEventStore {
     private func persist(_ alarms: [AlarmEvent]) {
         guard let data = try? JSONEncoder().encode(alarms) else { return }
         try? data.write(to: resolvedURL, options: .atomic)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }

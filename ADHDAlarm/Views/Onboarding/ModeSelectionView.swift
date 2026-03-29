@@ -1,105 +1,96 @@
 import SwiftUI
 
 /// モード選択画面（初回起動時・設定変更時に表示）
-/// 「自分で使う（当事者）」か「家族として使う」かを選択する
 struct ModeSelectionView: View {
     @Environment(AppState.self) private var appState
+    @State private var selectedMode: AppMode = .person
 
     var body: some View {
-        VStack(spacing: Spacing.xl) {
+        VStack(spacing: 0) {
             Spacer()
 
-            // ロゴ・タイトルエリア
-            VStack(spacing: Spacing.md) {
-                Image("OwlIcon")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 100, height: 100)
+            Image("OwlIcon")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 160, height: 160)
 
-                Text("忘れ坊アラーム")
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(.primary)
+            Spacer().frame(height: Spacing.lg)
 
-                Text("どちらのモードで使いますか？")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-            }
+            Text("どなたがお使いですか？")
+                .font(.title2.bold())
+                .multilineTextAlignment(.center)
 
-            Spacer()
+            Spacer().frame(height: Spacing.md)
 
-            // モード選択カード
-            VStack(spacing: Spacing.md) {
-                ModeCard(
-                    title: "自分で使う",
-                    subtitle: "アラームを自分でセットしたい方",
-                    icon: "person.fill",
-                    color: .owlAmber
-                ) {
-                    selectMode(.person)
-                }
-
-                ModeCard(
-                    title: "家族として使う",
-                    subtitle: "大切な人の予定を管理したい方",
-                    icon: "person.2.fill",
-                    color: .owlBrown
-                ) {
-                    selectMode(.family)
-                }
-            }
-            .padding(.horizontal, Spacing.lg)
-
-            Spacer()
-        }
-    }
-
-    private func selectMode(_ mode: AppMode) {
-        appState.appMode = mode
-        appState.isOnboardingComplete = false
-    }
-}
-
-// MARK: - モードカード
-
-private struct ModeCard: View {
-    let title: String
-    let subtitle: String
-    let icon: String
-    let color: Color
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
+            // 2カード横並び
             HStack(spacing: Spacing.md) {
-                Image(systemName: icon)
-                    .font(.system(size: IconSize.lg))
-                    .foregroundStyle(color)
-                    .frame(width: IconSize.xl, height: IconSize.xl)
-
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(title)
-                        .font(.title3.bold())
-                        .foregroundStyle(.primary)
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: IconSize.sm))
-                    .foregroundStyle(.tertiary)
+                modeCard(
+                    emoji: "👤",
+                    title: "自分で使う",
+                    mode: .person
+                )
+                modeCard(
+                    emoji: "👨‍👩‍👧",
+                    title: "家族の見守り",
+                    mode: .family
+                )
             }
-            .padding(Spacing.md)
-            .frame(minHeight: ComponentSize.eventRow)
+            .padding(.horizontal, Spacing.md)
+
+            Spacer()
+
+            Button(appState.isOnboardingComplete ? "この設定で使う" : "🦉 はじめる") {
+                confirmSelection()
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: ComponentSize.primary)
+            .background(Color.owlAmber)
+            .foregroundStyle(.black)
+            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
+            .padding(.horizontal, Spacing.md)
+            .padding(.bottom, Spacing.xl)
+        }
+        .navigationBarBackButtonHidden()
+    }
+
+    private func modeCard(emoji: String, title: String, mode: AppMode) -> some View {
+        let isSelected = selectedMode == mode
+        return Button {
+            selectedMode = mode
+        } label: {
+            VStack(spacing: Spacing.sm) {
+                Text(emoji)
+                    .font(.system(size: IconSize.lg))
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 100)
             .background(.regularMaterial)
             .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
             .overlay(
                 RoundedRectangle(cornerRadius: CornerRadius.lg)
-                    .stroke(color.opacity(0.3), lineWidth: BorderWidth.thin)
+                    .stroke(isSelected ? Color.owlAmber : Color.clear, lineWidth: BorderWidth.thick)
             )
         }
         .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
+    }
+
+    private func confirmSelection() {
+        appState.appMode = selectedMode
+        if appState.isOnboardingComplete {
+            // 既存ユーザー: モード変更のみ。RootView が自動切替
+            return
+        }
+        // 初回: オンボーディングフローへ
+        if selectedMode == .person {
+            appState.onboardingPath.append(OnboardingDestination.personWelcome)
+        } else {
+            // 家族フロー（Phase 5 で本実装）: 暫定で直接ホームへ
+            appState.isOnboardingComplete = true
+        }
     }
 }

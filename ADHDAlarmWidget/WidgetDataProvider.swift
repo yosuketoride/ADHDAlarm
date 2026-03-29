@@ -21,7 +21,7 @@ enum WidgetDataProvider {
     /// 直近の未来アラームを1件返す
     static func nextAlarm() -> WidgetAlarmEvent? {
         loadAll()
-            .filter { $0.fireDate > Date() }
+            .filter { $0.completionStatus == nil && $0.fireDate > Date() }
             .sorted { $0.fireDate < $1.fireDate }
             .first
     }
@@ -30,7 +30,7 @@ enum WidgetDataProvider {
     static func todayAlarms() -> [WidgetAlarmEvent] {
         let end = Calendar.current.startOfDay(for: Date()).addingTimeInterval(86400)
         return loadAll()
-            .filter { $0.fireDate > Date() && $0.fireDate < end }
+            .filter { $0.completionStatus == nil && $0.fireDate > Date() && $0.fireDate < end }
             .sorted { $0.fireDate < $1.fireDate }
     }
 
