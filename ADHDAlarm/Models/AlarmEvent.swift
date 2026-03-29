@@ -31,6 +31,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
     var recurrenceGroupID: UUID?
     /// 家族リモートスケジュールで作成された場合のremote_events.id（ロールバック検索用）
     var remoteEventId: String?
+    /// NLParserが推定した絵文字アイコン（nil → 表示時は "📌" をフォールバック）
+    var eventEmoji: String?
 
     init(
         id: UUID = UUID(),
@@ -47,7 +49,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         createdAt: Date = Date(),
         recurrenceRule: RecurrenceRule? = nil,
         recurrenceGroupID: UUID? = nil,
-        remoteEventId: String? = nil
+        remoteEventId: String? = nil,
+        eventEmoji: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -64,6 +67,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         self.recurrenceRule = recurrenceRule
         self.recurrenceGroupID = recurrenceGroupID
         self.remoteEventId = remoteEventId
+        self.eventEmoji = eventEmoji
     }
 
     // MARK: - Codable（後方互換）
@@ -75,6 +79,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         case alarmKitIdentifiers, alarmKitMinutesMap
         case voiceFileName, calendarIdentifier, voiceCharacter
         case createdAt, recurrenceRule, recurrenceGroupID, remoteEventId
+        case eventEmoji
     }
 
     init(from decoder: Decoder) throws {
@@ -94,5 +99,6 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         recurrenceRule         = try c.decodeIfPresent(RecurrenceRule.self, forKey: .recurrenceRule)
         recurrenceGroupID      = try c.decodeIfPresent(UUID.self,         forKey: .recurrenceGroupID)
         remoteEventId          = try c.decodeIfPresent(String.self,       forKey: .remoteEventId)
+        eventEmoji             = try c.decodeIfPresent(String.self,       forKey: .eventEmoji)
     }
 }

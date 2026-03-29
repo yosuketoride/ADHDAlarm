@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// 予定1件の行表示（変更・削除ボタン付き）
+/// 予定1件の行表示
+/// 左端に絵文字アイコン・時刻・タイトル・削除ボタンを並べる
 struct EventRow: View {
     let alarm: AlarmEvent
     var showDate: Bool = false
@@ -9,8 +10,14 @@ struct EventRow: View {
     @State private var showDeleteConfirm = false
 
     var body: some View {
-        HStack(spacing: 16) {
-            // 時刻（大きく表示）。showDate=trueの場合は日付も上に添える
+        HStack(spacing: Spacing.md) {
+            // 絵文字アイコン（左端・28pt相当）
+            Text(alarm.eventEmoji ?? "📌")
+                .font(.system(size: IconSize.lg))
+                .opacity(isPast ? 0.4 : 1.0)
+                .frame(width: IconSize.xl, alignment: .center)
+
+            // 時刻
             VStack(alignment: .center, spacing: 2) {
                 if showDate {
                     Text(alarm.fireDate.japaneseDateString)
@@ -24,9 +31,9 @@ struct EventRow: View {
                     .monospacedDigit()
                     .foregroundStyle(isPast ? .secondary : .primary)
             }
-            .frame(width: 60)
+            .frame(width: 56)
 
-            // 予定タイトル
+            // タイトル + サブ情報
             VStack(alignment: .leading, spacing: 4) {
                 Text(alarm.title)
                     .font(.body.weight(.medium))
@@ -34,7 +41,6 @@ struct EventRow: View {
                     .lineLimit(2)
                     .strikethrough(isPast, color: .secondary)
 
-                // アラーム通知タイミング（小さく・ベル付き）
                 if !isPast {
                     let values = Array(alarm.alarmKitMinutesMap.values)
                     let minutes = values.isEmpty ? [alarm.preNotificationMinutes] : values.sorted(by: >)
@@ -58,34 +64,33 @@ struct EventRow: View {
             Spacer()
 
             if isPast {
-                // 完了済み: チェックマーク表示
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title3)
-                    .foregroundStyle(.green.opacity(0.7))
-                    .frame(width: 44, height: 44)
+                    .foregroundStyle(Color.statusSuccess.opacity(0.7))
+                    .frame(width: ComponentSize.small, height: ComponentSize.small)
             } else {
-                // 削除ボタン（「とりけす」）
                 Button {
                     showDeleteConfirm = true
                 } label: {
                     Image(systemName: "trash")
                         .font(.callout)
-                        .foregroundStyle(.red.opacity(0.7))
-                        .frame(width: 44, height: 44)
+                        .foregroundStyle(Color.statusDanger.opacity(0.7))
+                        .frame(width: ComponentSize.small, height: ComponentSize.small)
                 }
             }
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
+        .padding(.vertical, Spacing.sm)
+        .padding(.horizontal, Spacing.md)
+        .frame(minHeight: ComponentSize.eventRow)
         .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
         .opacity(isPast ? 0.7 : 1.0)
         .confirmationDialog(
-            "「\(alarm.title)」のアラームをとりけしますか？",
+            "「\(alarm.title)」を削除しますか？（iPhoneのカレンダーからも消えます）",
             isPresented: $showDeleteConfirm,
             titleVisibility: .visible
         ) {
-            Button("とりけす", role: .destructive) { onDelete() }
+            Button("削除する", role: .destructive) { onDelete() }
             Button("やめる", role: .cancel) {}
         }
     }
@@ -93,5 +98,4 @@ struct EventRow: View {
     private var isPast: Bool {
         alarm.fireDate < Date()
     }
-
 }
