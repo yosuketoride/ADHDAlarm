@@ -87,8 +87,10 @@ final class AppState {
     var familyChildLinkIds: [String] {
         didSet { UserDefaults.standard.set(familyChildLinkIds, forKey: Constants.Keys.familyChildLinkIds) }
     }
-    /// 未読の家族予定件数（ダッシュボードのバッジ表示用）
-    var unreadFamilyEventCount: Int = 0
+    /// 未読の家族予定件数（ダッシュボードのバナー表示用）
+    var unreadFamilyEventCount: Int {
+        didSet { UserDefaults.standard.set(unreadFamilyEventCount, forKey: Constants.Keys.unreadFamilyEventCount) }
+    }
 
     init() {
         let defaults = UserDefaults.standard
@@ -119,5 +121,6 @@ final class AppState {
         self.sosEscalationMinutes = defaults.object(forKey: Constants.Keys.sosEscalationMinutes) == nil ? 5 : storedEscalation
         self.familyLinkId = defaults.string(forKey: Constants.Keys.familyLinkId)
         self.familyChildLinkIds = defaults.stringArray(forKey: Constants.Keys.familyChildLinkIds) ?? []
+        self.unreadFamilyEventCount = defaults.integer(forKey: Constants.Keys.unreadFamilyEventCount)
     }
 }
