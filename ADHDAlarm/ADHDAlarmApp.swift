@@ -2,6 +2,7 @@ import SwiftUI
 import AlarmKit
 import ActivityKit
 import AppIntents
+import UserNotifications
 
 @main
 struct ADHDAlarmApp: App {
@@ -17,6 +18,8 @@ struct ADHDAlarmApp: App {
         let state = AppState()
         _appState  = State(initialValue: state)
         _appRouter = State(initialValue: AppRouter(appState: state))
+        // フォアグラウンド中も通知を表示するためにデリゲートを設定
+        UNUserNotificationCenter.current().delegate = ForegroundNotificationDelegate.shared
     }
 
     var body: some Scene {

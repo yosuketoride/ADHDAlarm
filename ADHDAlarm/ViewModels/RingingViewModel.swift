@@ -91,6 +91,12 @@ final class RingingViewModel: NSObject {
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, options: [])
             try AVAudioSession.sharedInstance().setActive(true)
+            // AlarmKitは常にデバイスのスピーカーから鳴る。
+            // Bluetooth接続中にアプリ音声をイヤホンに流すと二重出力になるため、
+            // Bluetooth接続中 or スピーカー強制モードの場合はスピーカーに統一する
+            if audioOutputMode == .speaker || isBluetoothOutputActive() {
+                try AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
+            }
         } catch {
             print("【音声セッション】確保失敗: \(error.localizedDescription)")
         }
@@ -165,6 +171,16 @@ final class RingingViewModel: NSObject {
         utterance.pitchMultiplier = 1.1
         synthesizer.speak(utterance)
         speechSynthesizer = synthesizer
+    }
+
+    // MARK: - 音声出力ルート判定
+
+    /// 現在BluetoothデバイスがアクティブなAudio出力かどうかを返す
+    private func isBluetoothOutputActive() -> Bool {
+        let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
+        return outputs.contains(where: {
+            [.bluetoothA2DP, .bluetoothLE, .bluetoothHFP].contains($0.portType)
+        })
     }
 
     // MARK: - イヤホン切断検知

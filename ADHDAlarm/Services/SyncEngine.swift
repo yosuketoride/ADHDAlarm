@@ -174,24 +174,36 @@ final class SyncEngine {
     /// - Returns: 新たに取り込んだ予定の件数（バッジ・バナー表示用）
     @discardableResult
     func syncRemoteEvents() async -> Int {
-        guard let service = familyService else { return 0 }
+        guard let service = familyService else {
+            print("[SyncEngine] familyService が nil のためスキップ")
+            return 0
+        }
         var syncedCount = 0
 
         // pending（未同期）の新規予定を取り込む
-        if let pendingEvents = try? await service.fetchPendingEvents() {
+        do {
+            let pendingEvents = try await service.fetchPendingEvents()
+            print("[SyncEngine] pending件数: \(pendingEvents.count)")
             for record in pendingEvents {
                 let integrated = await integrateRemoteEvent(record, service: service)
                 if integrated { syncedCount += 1 }
             }
+        } catch {
+            print("[SyncEngine] fetchPendingEvents エラー: \(error)")
         }
 
         // cancelled（子がキャンセルした）予定をロールバックする
-        if let cancelledEvents = try? await service.fetchCancelledEvents() {
+        do {
+            let cancelledEvents = try await service.fetchCancelledEvents()
+            print("[SyncEngine] cancelled件数: \(cancelledEvents.count)")
             for record in cancelledEvents {
                 await rollbackRemoteEvent(record, service: service)
             }
+        } catch {
+            print("[SyncEngine] fetchCancelledEvents エラー: \(error)")
         }
 
+        print("[SyncEngine] syncRemoteEvents 完了: \(syncedCount)件取り込み")
         return syncedCount
     }
 
@@ -199,7 +211,12 @@ final class SyncEngine {
     /// - Returns: 取り込み成功かどうか（重複スキップ時はfalse）
     private func integrateRemoteEvent(_ record: RemoteEventRecord, service: FamilyScheduling) async -> Bool {
         // 既に同期済みのイベントはスキップ（重複防止）
-        guard eventStore.find(remoteEventId: record.id) == nil else { return false }
+        guard eventStore.find(remoteEventId: record.id) == nil else {
+            print("[SyncEngine] \(record.title) は既に同期済みのためスキップ")
+            return false
+        }
+
+        print("[SyncEngine] 取り込み開始: \(record.title) / \(record.fireDate)")
 
         // RemoteEventRecordをAlarmEventに変換
         var alarm = AlarmEvent(
@@ -218,23 +235,38 @@ final class SyncEngine {
             alarmID: alarm.id
         ) {
             alarm.voiceFileName = voiceURL.lastPathComponent
+            print("[SyncEngine] 音声ファイル生成: \(voiceURL.lastPathComponent)")
+        } else {
+            print("[SyncEngine] 音声ファイル生成スキップ（失敗 or 権限なし）")
         }
 
         // AlarmKit登録
         if let alarmKitID = try? await alarmScheduler.schedule(alarm) {
             alarm.alarmKitIdentifier = alarmKitID
+            print("[SyncEngine] AlarmKit登録: \(alarmKitID)")
+        } else {
+            print("[SyncEngine] AlarmKit登録スキップ（失敗 or 権限なし）")
         }
 
         // EventKit書き込み
         if let ekIdentifier = try? await calendarProvider.writeEvent(alarm, to: nil) {
             alarm.eventKitIdentifier = ekIdentifier
+            print("[SyncEngine] EventKit書き込み完了")
+        } else {
+            print("[SyncEngine] EventKit書き込みスキップ（失敗 or 権限なし）")
         }
 
         // ローカルストアに保存
         eventStore.save(alarm)
+        print("[SyncEngine] ローカル保存完了")
 
         // Supabaseのステータスを同期済みに更新
-        try? await service.markEventSynced(id: record.id)
+        do {
+            try await service.markEventSynced(id: record.id)
+            print("[SyncEngine] Supabase status → synced")
+        } catch {
+            print("[SyncEngine] markEventSynced エラー: \(error)")
+        }
 
         // 「家族から予定が届きました」ローカル通知
         await notifyFamilyEventArrived(title: alarm.title)
@@ -275,6 +307,14 @@ final class SyncEngine {
 
     /// ローカル通知で「家族から予定が届きました」をユーザーに知らせる
     private func notifyFamilyEventArrived(title: String) async {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        print("[SyncEngine] 通知権限状態: \(settings.authorizationStatus.rawValue)")
+        guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+            print("[SyncEngine] 通知権限なし → 通知スキップ")
+            return
+        }
+
         let content = UNMutableNotificationContent()
         content.title = "家族から予定が届きました"
         content.body = "「\(title)」が自動でアラームにセットされました。"
@@ -285,6 +325,11 @@ final class SyncEngine {
             content: content,
             trigger: nil  // 即時配信
         )
-        try? await UNUserNotificationCenter.current().add(request)
+        do {
+            try await center.add(request)
+            print("[SyncEngine] 通知スケジュール完了: \(title)")
+        } catch {
+            print("[SyncEngine] 通知スケジュールエラー: \(error)")
+        }
     }
 }

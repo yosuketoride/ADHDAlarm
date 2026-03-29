@@ -39,3 +39,9 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# 開発中の一時ファイル
+*.py
+V2_patch_*.md
+63件の修正.md
+v15レビュー.md
