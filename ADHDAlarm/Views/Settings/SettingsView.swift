@@ -245,7 +245,7 @@ struct SettingsView: View {
 
             Button {
                 appState.isOnboardingComplete = false
-                router.currentDestination = .onboarding
+                appState.appMode = nil
             } label: {
                 Label("【DEBUG】オンボーディングをやり直す", systemImage: "arrow.counterclockwise")
                     .foregroundStyle(.orange)

@@ -6,11 +6,10 @@ struct MainTabView: View {
     @Environment(AppState.self)  private var appState
     @Environment(AppRouter.self) private var router
     @State private var dashboardViewModel = DashboardViewModel()
+    @State private var selectedTab = 0
 
     var body: some View {
-        @Bindable var router = router
-
-        TabView(selection: $router.selectedTab) {
+        TabView(selection: $selectedTab) {
             VoiceInputTab(dashboardViewModel: dashboardViewModel)
                 .tabItem {
                     Label("追加", systemImage: "mic.fill")

@@ -7,7 +7,7 @@ import UserNotifications
 @main
 struct ADHDAlarmApp: App {
     @State private var appState  = AppState()
-    @State private var appRouter: AppRouter
+    @State private var appRouter = AppRouter()
     @Environment(\.scenePhase) private var scenePhase
 
     private let syncEngine         = SyncEngine()
@@ -15,9 +15,6 @@ struct ADHDAlarmApp: App {
     @State private var storeKit    = StoreKitService()
 
     init() {
-        let state = AppState()
-        _appState  = State(initialValue: state)
-        _appRouter = State(initialValue: AppRouter(appState: state))
         // フォアグラウンド中も通知を表示するためにデリゲートを設定
         UNUserNotificationCenter.current().delegate = ForegroundNotificationDelegate.shared
     }
@@ -64,13 +61,10 @@ struct ADHDAlarmApp: App {
 
     // MARK: - URL Scheme ハンドラ
 
-    /// adhdalarm://voice-input → 音声入力タブに切り替える
+    /// adhdalarm://voice-input → 当事者ホームに移動（Phase 2で詳細実装）
     private func handleOpenURL(_ url: URL) {
         guard url.scheme == "adhdalarm" else { return }
-        if url.host == "voice-input" {
-            appRouter.currentDestination = .dashboard
-            appRouter.selectedTab = 0
-        }
+        // TODO: Phase 2でdeeplink対応を実装する
     }
 
     // MARK: - AlarmKit発火監視
@@ -80,12 +74,10 @@ struct ADHDAlarmApp: App {
         for await alarms in AlarmManager.shared.alarmUpdates {
             // alerting（発火中）のアラームを探す
             guard let alertingAlarm = alarms.first(where: { $0.state == .alerting }) else {
-                // 発火中アラームがなくなった（ユーザーが止めた）→ RingingViewを閉じる
-                // AlarmKit側で止められた場合のみ閉じる（アプリ内操作は RingingView が自分で閉じる）
                 continue
             }
 
-            // アプリ内ストアからAlarmEventを検索（単一IDと配列の両方を検索）
+            // アプリ内ストアからAlarmEventを検索
             let foundEvent = AlarmEventStore.shared.find(alarmKitID: alertingAlarm.id)
 
             // すでに同じアラームを表示中なら重複表示しない
@@ -93,7 +85,6 @@ struct ADHDAlarmApp: App {
                appRouter.ringingAlarm?.alarmKitIdentifier == alertingAlarm.id { continue }
 
             // alarmKitMinutesMap から発火したアラームの事前通知分数を取得
-            // （ジャストアラームと事前通知アラームで読み上げテキストが異なるため）
             var alarmToDisplay = foundEvent ?? AlarmEvent(
                 id: UUID(),
                 title: "アラーム",
@@ -104,7 +95,6 @@ struct ADHDAlarmApp: App {
                 alarmToDisplay.preNotificationMinutes = mappedMinutes
             }
 
-            // RingingViewを表示
             appRouter.ringingAlarm = alarmToDisplay
         }
     }
@@ -118,12 +108,14 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            switch router.currentDestination {
-            case .onboarding:
-                OnboardingContainerView()
+            if !appState.isOnboardingComplete || appState.appMode == nil {
+                ModeSelectionView()
                     .transition(.opacity)
-            case .dashboard:
-                MainTabView()
+            } else if appState.appMode == .person {
+                PersonHomeView()
+                    .transition(.opacity)
+            } else {
+                FamilyHomeView()
                     .transition(.opacity)
             }
         }

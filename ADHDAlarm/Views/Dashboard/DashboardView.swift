@@ -58,7 +58,7 @@ struct DashboardView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         appState.isOnboardingComplete = false
-                        router.currentDestination = .onboarding
+                        appState.appMode = nil
                     } label: {
                         Label("最初から", systemImage: "arrow.counterclockwise")
                             .font(.caption)

@@ -28,7 +28,7 @@ struct MicrophoneInputView: View {
 
     var body: some View {
         ZStack {
-            Color.themeBackground.ignoresSafeArea()
+            Color(.systemBackground).ignoresSafeArea()
 
             if isIdle {
                 // ── 初期状態: フクロウが主役のフルデザイン ──

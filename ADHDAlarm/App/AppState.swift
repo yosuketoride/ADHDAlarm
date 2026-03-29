@@ -1,10 +1,34 @@
 import Foundation
 import Observation
+import SwiftUI
 
 /// アプリ全体のグローバル状態
 /// @Observableにより、依存するViewが自動的に再描画される
-@Observable
+@Observable @MainActor
 final class AppState {
+    // MARK: - モード選択
+    var appMode: AppMode? {
+        didSet {
+            UserDefaults.standard.set(appMode?.rawValue, forKey: Constants.Keys.appMode)
+        }
+    }
+
+    // MARK: - フクロウキャラクター
+    var owlName: String {
+        didSet { UserDefaults.standard.set(owlName, forKey: Constants.Keys.owlName) }
+    }
+    var owlXP: Int {
+        didSet { UserDefaults.standard.set(owlXP, forKey: Constants.Keys.owlXP) }
+    }
+    var owlStage: Int {
+        didSet { UserDefaults.standard.set(owlStage, forKey: Constants.Keys.owlStage) }
+    }
+
+    // MARK: - ナビゲーション
+    var personNavigationPath = NavigationPath()
+    var familyNavigationPath = NavigationPath()
+    /// シートをすべて閉じるためのトリガー
+    var dismissAllSheets = false
     // MARK: - オンボーディング
     var isOnboardingComplete: Bool {
         didSet { UserDefaults.standard.set(isOnboardingComplete, forKey: Constants.Keys.onboardingComplete) }
@@ -94,6 +118,10 @@ final class AppState {
 
     init() {
         let defaults = UserDefaults.standard
+        self.appMode = AppMode(rawValue: defaults.string(forKey: Constants.Keys.appMode) ?? "")
+        self.owlName = defaults.string(forKey: Constants.Keys.owlName) ?? "ふくろう"
+        self.owlXP = defaults.integer(forKey: Constants.Keys.owlXP)
+        self.owlStage = defaults.integer(forKey: Constants.Keys.owlStage)
         self.isOnboardingComplete = defaults.bool(forKey: Constants.Keys.onboardingComplete)
         self.subscriptionTier = SubscriptionTier(rawValue: defaults.string(forKey: Constants.Keys.subscriptionTier) ?? "") ?? .free
         self.voiceCharacter = VoiceCharacter(rawValue: defaults.string(forKey: Constants.Keys.voiceCharacter) ?? "") ?? .femaleConcierge

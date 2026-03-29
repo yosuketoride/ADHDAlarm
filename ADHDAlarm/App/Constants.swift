@@ -22,6 +22,10 @@ enum Constants {
         static let unreadFamilyEventCount = "unread_family_event_count"
         // モード選択
         static let appMode                = "app_mode"
+        // フクロウキャラクター
+        static let owlName                = "owl_name"
+        static let owlXP                  = "owl_xp"
+        static let owlStage               = "owl_stage"
     }
 
     // MARK: - Supabase (SOS LINE連携用)

@@ -10,7 +10,7 @@ import UserNotifications
 ///
 /// 同期対象: アプリ作成イベントのみ（notesマーカーで識別）
 /// 他カレンダーのイベントは一切触らない
-final class SyncEngine {
+actor SyncEngine {
 
     // MARK: - 依存サービス
 

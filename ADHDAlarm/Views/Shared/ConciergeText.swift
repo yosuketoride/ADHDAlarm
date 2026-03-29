@@ -8,7 +8,7 @@ struct ConciergeText: View {
     var body: some View {
         Text(message)
             .font(font)
-            .foregroundStyle(Color.themeSecondary)
+            .foregroundStyle(Color(.secondaryLabel))
             .multilineTextAlignment(.center)
     }
 }

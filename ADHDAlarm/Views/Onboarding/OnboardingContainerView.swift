@@ -56,7 +56,7 @@ struct OnboardingContainerView: View {
         }
         // オンボーディング完了後のPaywall（1回だけ・全画面）
         .fullScreenCover(isPresented: $showOnboardingPaywall, onDismiss: {
-            router.completeOnboarding()
+            // TODO: Phase 2で削除
         }) {
             PaywallView(
                 viewModel: PaywallViewModel(
@@ -75,7 +75,7 @@ struct OnboardingContainerView: View {
             appState.isOnboardingComplete = true
             if appState.subscriptionTier == .pro {
                 // すでにPRO（他デバイスで購入済み等）はPaywallをスキップ
-                router.completeOnboarding()
+                // TODO: Phase 2で削除
             } else {
                 showOnboardingPaywall = true
             }
