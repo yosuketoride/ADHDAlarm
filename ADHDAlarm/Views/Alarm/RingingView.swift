@@ -17,6 +17,7 @@ struct RingingView: View {
     @State private var pendingAlarm: AlarmEvent
     @State private var showDismissMessage = false
     @State private var isSkipped = false
+    @State private var isUndone = false
     // アニメーション状態
     @State private var appeared = false
     @State private var bubbleBounce = false
@@ -287,9 +288,10 @@ struct RingingView: View {
                 showDismissMessage = true
             }
             ReviewManager.shared.recordCompletionAndRequestIfNeeded(isSOSFired: sosWasFired)
+            // P-9-13: 自動クローズは10秒後。ユーザーは「閉じる」ボタンでいつでも閉じられる
             Task {
-                try? await Task.sleep(for: .seconds(2.5))
-                onDismissed()
+                try? await Task.sleep(for: .seconds(10))
+                if !isUndone { onDismissed() }
             }
         } label: {
             HStack(spacing: 14) {
@@ -331,24 +333,72 @@ struct RingingView: View {
     // MARK: - スキップセクション（5秒後に表示）
 
     private var skipSection: some View {
-        Button {
-            isSkipped = true
-            viewModel.skip()
-            withAnimation(.spring(duration: 0.4)) {
-                showDismissMessage = true
+        let snoozeCount = viewModel.activeAlarm?.snoozeCount ?? 0
+
+        return VStack(spacing: Spacing.sm) {
+            // スヌーズボタン（最大3回まで。P-2-2/P-9-15）
+            // P-2-3: 5秒間は透明プレースホルダーとして空間確保
+            if snoozeCount < 3 {
+                Button {
+                    viewModel.snooze()
+                    onDismissed()
+                } label: {
+                    HStack(spacing: 10) {
+                        Text("⏱️")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(snoozeCount == 2
+                                 ? "30分後にまた教えて（最後の1回）"
+                                 : "30分後にまた教えて")
+                                .font(.callout.weight(.medium))
+                            if snoozeCount == 2 {
+                                Text("次はパスか完了を選んでね")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: ComponentSize.small)
+                    .background(Color(.secondarySystemBackground).opacity(0.8))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
+                .buttonStyle(.plain)
+            } else {
+                // スヌーズ上限到達メッセージ（P-9-15）
+                VStack(spacing: 6) {
+                    Text("🦉 何度もお知らせしたよ。今日は無理せず「今回はパス」にしてね")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    Image(systemName: "arrow.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 8)
             }
-            Task {
-                try? await Task.sleep(for: .seconds(2.5))
-                onDismissed()
+
+            // スキップボタン
+            Button {
+                isSkipped = true
+                viewModel.skip()
+                withAnimation(.spring(duration: 0.4)) {
+                    showDismissMessage = true
+                }
+                Task {
+                    try? await Task.sleep(for: .seconds(2.5))
+                    onDismissed()
+                }
+            } label: {
+                Text("今日は休む（スキップ）")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: ComponentSize.small)
             }
-        } label: {
-            Text("今日は休む（スキップ）")
-                .font(.callout.weight(.medium))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: ComponentSize.small)
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - 停止後の画面（おつかれさまです）
@@ -388,18 +438,68 @@ struct RingingView: View {
                 .padding(.trailing, 80)
 
                 // メッセージカード
-                VStack(spacing: 10) {
-                    Text(isSkipped ? "ゆっくり休んでね" : "よくできました！")
-                        .font(.system(size: 32, weight: .black, design: .rounded))
-                        .foregroundStyle(.primary)
+                VStack(spacing: 16) {
+                    // メインメッセージ
+                    VStack(spacing: 10) {
+                        Text(isSkipped ? "ゆっくり休んでね" : "よくできました！")
+                            .font(.system(size: 32, weight: .black, design: .rounded))
+                            .foregroundStyle(.primary)
 
-                    Text(isSkipped
-                         ? "「\(pendingAlarm.title)」\n無理せず、今日は休みましょう 🍵"
-                         : "「\(pendingAlarm.title)」\nそろそろ準備を始めましょう！")
-                        .font(.title3.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(4)
+                        Text(isSkipped
+                             ? "「\(pendingAlarm.title)」\n無理せず、今日は休みましょう 🍵"
+                             : "「\(pendingAlarm.title)」\nそろそろ準備を始めましょう！")
+                            .font(.title3.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                    }
+
+                    // XPバッジ（完了時のみ、P-2-1）
+                    if !isSkipped {
+                        HStack(spacing: 8) {
+                            Image(systemName: "star.fill")
+                                .foregroundStyle(.yellow)
+                            Text("+10ポイント！")
+                                .font(.callout.weight(.bold))
+                                .foregroundStyle(Color.owlAmber)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.owlAmber.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+
+                    // Undoボタン（P-2-1/P-9-13）
+                    if !isUndone {
+                        Button {
+                            isUndone = true
+                            viewModel.undoCompletion(alarm: pendingAlarm)
+                            Task {
+                                try? await Task.sleep(for: .seconds(0.5))
+                                onDismissed()
+                            }
+                        } label: {
+                            Text("↩ 間違えたので取り消す")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(minHeight: 44)
+                    }
+
+                    // 閉じるボタン（P-9-13: 即座に閉じられる）
+                    Button {
+                        onDismissed()
+                    } label: {
+                        Text("閉じる")
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(Color.owlAmber)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 28)

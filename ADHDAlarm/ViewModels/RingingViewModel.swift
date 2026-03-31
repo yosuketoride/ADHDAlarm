@@ -235,6 +235,55 @@ final class RingingViewModel: NSObject {
         playPraisePhrase()
     }
 
+    /// スヌーズ（30分後に再アラーム）: completionStatus は変えず snoozeCount をインクリメント（P-2-2）
+    func snooze() {
+        guard let alarm = activeAlarm else {
+            stopAudioPlayback()
+            activeAlarm = nil
+            return
+        }
+        var updated = alarm
+        updated.snoozeCount = alarm.snoozeCount + 1
+        AlarmEventStore.shared.save(updated)
+        stopAudioPlayback()
+        let snoozeDate = Date().addingTimeInterval(30 * 60)
+        // 新しいアラームイベントとして30分後に再登録する
+        var snoozedAlarm = alarm
+        snoozedAlarm = AlarmEvent(
+            id: alarm.id,
+            title: alarm.title,
+            fireDate: snoozeDate,
+            preNotificationMinutes: 0,
+            eventKitIdentifier: alarm.eventKitIdentifier,
+            alarmKitIdentifier: nil,
+            alarmKitIdentifiers: [],
+            alarmKitMinutesMap: [:],
+            voiceFileName: alarm.voiceFileName,
+            calendarIdentifier: alarm.calendarIdentifier,
+            voiceCharacter: alarm.voiceCharacter,
+            createdAt: alarm.createdAt,
+            recurrenceRule: alarm.recurrenceRule,
+            recurrenceGroupID: alarm.recurrenceGroupID,
+            remoteEventId: alarm.remoteEventId,
+            eventEmoji: alarm.eventEmoji,
+            completionStatus: nil,
+            snoozeCount: updated.snoozeCount
+        )
+        Task {
+            if let alarmKitID = alarm.alarmKitIdentifier {
+                try? await scheduler.cancel(alarmKitID: alarmKitID)
+            }
+            // AlarmKitに30分後で再登録
+            let alarmKitID = try? await scheduler.schedule(snoozedAlarm)
+            let alarmKitIDs: [UUID] = alarmKitID.map { [$0] } ?? []
+            var final = snoozedAlarm
+            final.alarmKitIdentifiers = alarmKitIDs
+            final.alarmKitIdentifier = alarmKitIDs.first
+            AlarmEventStore.shared.save(final)
+            activeAlarm = nil
+        }
+    }
+
     /// スキップ（今日は休む）: completionStatus を .skipped にして XP +3
     func skip() {
         guard let alarm = activeAlarm else {
@@ -255,6 +304,17 @@ final class RingingViewModel: NSObject {
             }
             activeAlarm = nil
         }
+    }
+
+    // MARK: - Undo完了（P-2-1/P-9-13）
+
+    /// 完了をUndoする: completionStatus を nil に戻す
+    func undoCompletion(alarm: AlarmEvent) {
+        var reverted = alarm
+        reverted.completionStatus = nil
+        AlarmEventStore.shared.save(reverted)
+        // 再度EKに書き戻す（将来Phase3で実装。現時点はローカル復元のみ）
+        activeAlarm = nil
     }
 
     // MARK: - プライベートヘルパー
