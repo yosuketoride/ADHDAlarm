@@ -162,18 +162,51 @@ final class RingingViewModel: NSObject {
     }
 
     private func speakAlarmTitle(_ title: String, preNotificationMinutes: Int = 0) {
+        // ⚠️ P-4-1: マナーモード中でもTTSが聞こえるようにAudioSessionカテゴリを強制上書き
+        // .playback + .voicePrompt を設定しないと、マナーモード中に「アラームは鳴るがふくろうが喋らない」致命的バグが発生する
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .voicePrompt, options: [.duckOthers])
+            try session.setActive(true)
+        } catch {
+            print("【TTS音声セッション】確保失敗: \(error.localizedDescription)")
+        }
+
         let synthesizer = AVSpeechSynthesizer()
         synthesizer.delegate = self
         let minutesText = preNotificationMinutes == 0
             ? "になりました"
             : "まであと\(preNotificationMinutes)分です"
-        let text = "お時間です。\(title)\(minutesText)。準備はよろしいですか？"
-        let utterance = AVSpeechUtterance(string: text)
+        let rawText = "お時間です。\(title)\(minutesText)。準備はよろしいですか？"
+        // P-4-2: 時刻表記（例: 15:30）を「15時30分」に変換してTTSで読めるようにする
+        let sanitizedText = sanitizeForTTS(rawText)
+        let utterance = AVSpeechUtterance(string: sanitizedText)
         utterance.voice = AVSpeechSynthesisVoice(language: "ja-JP")
         utterance.rate  = 0.48
         utterance.pitchMultiplier = 1.1
         synthesizer.speak(utterance)
         speechSynthesizer = synthesizer
+    }
+
+    /// TTS用テキストサニタイズ（P-4-2）
+    /// 「15:30」→「15時30分」、「○:00」→「○時ちょうど」に変換
+    private func sanitizeForTTS(_ text: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: #"(\d{1,2}):(\d{2})"#) else { return text }
+        var result = text
+        // 後ろから置換して位置ズレを防ぐ
+        let nsResult = result as NSString
+        let matches = regex.matches(in: result, range: NSRange(result.startIndex..., in: result)).reversed()
+        for match in matches {
+            guard let r1 = Range(match.range(at: 1), in: result),
+                  let r2 = Range(match.range(at: 2), in: result),
+                  let fullRange = Range(match.range, in: result) else { continue }
+            let hour   = String(result[r1])
+            let minute = String(result[r2])
+            let replacement = minute == "00" ? "\(hour)時ちょうど" : "\(hour)時\(minute)分"
+            result.replaceSubrange(fullRange, with: replacement)
+        }
+        _ = nsResult  // 未使用変数警告を防ぐ
+        return result
     }
 
     // MARK: - 音声出力ルート判定
