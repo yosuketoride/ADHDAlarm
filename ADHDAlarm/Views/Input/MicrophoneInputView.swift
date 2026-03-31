@@ -8,6 +8,7 @@ struct MicrophoneInputView: View {
     @State var viewModel: InputViewModel
     @Environment(AppState.self) private var appState
     @State private var showTextFallback = false
+    @State private var showManualInput = false
     @State private var owlBounce = false
 
     /// マイク・音声認識の権限が揃っているか
@@ -120,13 +121,26 @@ struct MicrophoneInputView: View {
 
             // テキスト入力切り替え
             Button {
-                withAnimation(.spring(duration: 0.3)) { showTextFallback = true }
+                showManualInput = true
             } label: {
                 Text("文字で入力する")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 24)
+            .sheet(isPresented: $showManualInput) {
+                NavigationStack {
+                    PersonManualInputView(viewModel: viewModel)
+                        .navigationTitle("予定を追加")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("閉じる") { showManualInput = false }
+                            }
+                        }
+                }
+                .presentationDetents([.large])
+            }
         }
     }
 

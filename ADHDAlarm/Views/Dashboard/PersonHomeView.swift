@@ -53,6 +53,20 @@ struct PersonHomeView: View {
         .sheet(isPresented: $viewModel.showSettings) {
             SettingsView(viewModel: SettingsViewModel(appState: appState))
         }
+        // テキスト手動入力シート（P-1-3）
+        .sheet(isPresented: $viewModel.showManualInput) {
+            NavigationStack {
+                PersonManualInputView(viewModel: InputViewModel(appState: appState))
+                    .navigationTitle("予定を追加")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("閉じる") { viewModel.showManualInput = false }
+                        }
+                    }
+            }
+            .presentationDetents([.large])
+        }
         // 削除アンドゥバナー
         .overlay(alignment: .bottom) {
             if viewModel.pendingDelete != nil {
@@ -83,13 +97,24 @@ struct PersonHomeView: View {
                     }
 
                 // ⚙️ ボタン（右上）
-                Button {
-                    viewModel.showSettings = true
-                } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: IconSize.md))
-                        .foregroundStyle(.secondary)
-                        .frame(width: ComponentSize.small, height: ComponentSize.small)
+                HStack(spacing: Spacing.xs) {
+                    // 🔄 手動同期ボタン（P-1-9）
+                    Button {
+                        Task { await viewModel.performManualSync() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: IconSize.sm))
+                            .foregroundStyle(.secondary)
+                            .frame(width: ComponentSize.small, height: ComponentSize.small)
+                    }
+                    Button {
+                        viewModel.showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: IconSize.md))
+                            .foregroundStyle(.secondary)
+                            .frame(width: ComponentSize.small, height: ComponentSize.small)
+                    }
                 }
                 .offset(x: Spacing.lg, y: -Spacing.sm)
             }
@@ -254,6 +279,33 @@ struct PersonHomeView: View {
                     .padding(.horizontal, Spacing.md)
                 }
 
+                // P-1-4: 未完了が2件以下のときは追加CTAを表示
+                if viewModel.visibleEvents.count <= 2 {
+                    HStack(spacing: Spacing.md) {
+                        Button {
+                            viewModel.showMicSheet = true
+                        } label: {
+                            Text("🎤 予定を追加")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        Text("｜").foregroundStyle(.tertiary).font(.footnote)
+                        Button {
+                            viewModel.showManualInput = true
+                        } label: {
+                            Text("✏️ テキストで追加")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.xs)
+                    .frame(minHeight: 44)
+                }
+
             }
 
             // 完了済み予定（greyout・未完了リストの外に独立配置）
@@ -280,24 +332,60 @@ struct PersonHomeView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, Spacing.xl)
 
-            // CTA（さりげない提案）
-            Button {
-                viewModel.showMicSheet = true
-            } label: {
-                HStack(spacing: Spacing.xs) {
-                    Text(info.ctaLabel)
+            // CTA（P-1-4: マイクとテキスト両方表示）
+            HStack(spacing: Spacing.md) {
+                Button {
+                    viewModel.showMicSheet = true
+                } label: {
+                    HStack(spacing: Spacing.xs) {
+                        Text(info.ctaLabel)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(minHeight: ComponentSize.small)
+
+                Text("｜")
+                    .foregroundStyle(.tertiary)
+
+                // テキストで追加（P-1-4）
+                Button {
+                    viewModel.showManualInput = true
+                } label: {
+                    Text("✏️ テキストで追加")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
                 }
+                .buttonStyle(.plain)
+                .frame(minHeight: ComponentSize.small)
             }
-            .buttonStyle(.plain)
-            .frame(minHeight: ComponentSize.small)
+
+            // デイリーミニタスク（P-1-5）: 全完了時のみ
+            if viewModel.completedTodayEvents.count > 0 && !viewModel.isMiniTaskCompletedToday {
+                Button {
+                    viewModel.completeDailyMiniTask()
+                } label: {
+                    Text(viewModel.dailyMiniTask)
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.vertical, Spacing.sm)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .frame(minHeight: 44)
+            }
         }
         .padding(Spacing.lg)
     }
+
+    // MARK: - ManualInputシート用状態
+    // (showManualInput は PersonHomeViewModel に追加)
 
     // MARK: - 明日の予定セクション
 
@@ -317,6 +405,18 @@ struct PersonHomeView: View {
                     }
                     .padding(.horizontal, Spacing.md)
                     .opacity(0.6)
+                }
+
+                // 📅 カレンダーで先を見るリンク（P-1-8）
+                if let url = URL(string: "calshow://") {
+                    Link(destination: url) {
+                        Text("📅 カレンダーで先の予定を確認する")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.xs)
                 }
             }
         }

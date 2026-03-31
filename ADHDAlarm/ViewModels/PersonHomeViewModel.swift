@@ -49,6 +49,7 @@ final class PersonHomeViewModel {
     // MARK: - UI状態
     var isEventListExpanded = false
     var showMicSheet = false
+    var showManualInput = false
     var showSettings = false
     var confirmationMessage: String?
 
@@ -342,6 +343,39 @@ final class PersonHomeViewModel {
         defaults.set(current + actual, forKey: Constants.Keys.owlXP)
         defaults.set(dailyAdded + actual, forKey: Constants.Keys.owlXPToday)
         defaults.set(Date(), forKey: Constants.Keys.owlXPLastDate)
+    }
+
+    // MARK: - デイリーミニタスク（P-1-5）
+
+    /// 日替わりのミニタスク候補（ランダム選出）
+    private let miniTaskCandidates = [
+        "🍵 お水飲んだ？",
+        "🧘 ストレッチした？",
+        "🪟 窓を開けて空気を入れ替えた？",
+        "😊 今日ひとつ、いいことあった？",
+        "🌿 深呼吸してみよう",
+        "☀️ 少し日光を浴びた？",
+        "📝 今日のよかったことを1つ思い出せる？",
+    ]
+
+    /// 今日のミニタスク（日付からシードを決めて固定）
+    var dailyMiniTask: String {
+        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+        return miniTaskCandidates[dayOfYear % miniTaskCandidates.count]
+    }
+
+    /// 今日すでにミニタスクを完了したか
+    var isMiniTaskCompletedToday: Bool {
+        let lastDate = UserDefaults.standard.object(forKey: "miniTaskCompletedDate") as? Date ?? .distantPast
+        return Calendar.current.isDateInToday(lastDate)
+    }
+
+    /// ミニタスクを完了する（+5XP・1日1回）
+    func completeDailyMiniTask() {
+        guard !isMiniTaskCompletedToday else { return }
+        UserDefaults.standard.set(Date(), forKey: "miniTaskCompletedDate")
+        addXP(5)
+        showConfirmation("🦉 えらい！+5ポイントだよ")
     }
 
     // MARK: - プライベートヘルパー
