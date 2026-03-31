@@ -361,11 +361,13 @@ struct MicrophoneInputView: View {
         .padding(.horizontal, 24)
         .padding(.top, 16)
         .transition(.move(edge: .top).combined(with: .opacity))
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                withAnimation(.spring(duration: 0.3)) {
-                    viewModel.confirmationMessage = nil
-                }
+        .task {
+            // レビュー指摘: DispatchQueue.main.asyncAfter はキャンセルできないため
+            // ビュー破棄後もクロージャが実行される恐れがある。Task はビュー破棄時に自動キャンセルされる。
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            withAnimation(.spring(duration: 0.3)) {
+                viewModel.confirmationMessage = nil
             }
         }
     }

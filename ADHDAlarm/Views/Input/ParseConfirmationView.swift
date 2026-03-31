@@ -168,6 +168,11 @@ struct ParseConfirmationView: View {
             if parsed.recurrenceRule != nil {
                 isDetailExpanded = true
             }
+            // レビュー指摘: 今日の候補時刻が過去の場合、selectedFireDate が nil のままだと
+            // displayFireDate が過去日時を表示してしまう。明日を自動選択しておく。
+            if todayIsPast && selectedFireDate == nil {
+                selectedFireDate = tomorrowFireDate
+            }
         }
     }
 

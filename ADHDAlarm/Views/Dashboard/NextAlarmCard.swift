@@ -33,27 +33,23 @@ struct NextAlarmCard: View {
 
     @ViewBuilder
     private var countdownBody: some View {
-        let remaining = alarm.fireDate.timeIntervalSince(Date())
-
-        if remaining < 60 {
-            // 残り1分未満: 秒カウントダウン + 強調メッセージ
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                urgentCountdown
-            }
-        } else if remaining < 600 {
-            // 残り10分未満: 分＋秒カウントダウン（1秒更新）
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                minuteSecondCountdown
-            }
-        } else if remaining < 3600 {
-            // 残り10〜59分: 「あと約○分」（60秒更新）
-            TimelineView(.periodic(from: .now, by: 60)) { _ in
-                approximateMinuteView
-            }
-        } else {
-            // 残り1時間以上: 「あと約○時間」（60秒更新）
-            TimelineView(.periodic(from: .now, by: 60)) { _ in
-                approximateHourView
+        // レビュー指摘: 残り時間の分岐を TimelineView の外で評価すると初回レンダリング時の
+        // 値が固定されてしまい、閾値をまたいでも表示形式が切り替わらない。
+        // context.date を使って毎秒評価することで正しく切り替わるようにする。
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let remaining = alarm.fireDate.timeIntervalSince(context.date)
+            if remaining < 60 {
+                // 残り1分未満: 秒カウントダウン + 強調メッセージ
+                urgentCountdown(remaining: remaining)
+            } else if remaining < 600 {
+                // 残り10分未満: 分＋秒カウントダウン（1秒更新）
+                minuteSecondCountdown(remaining: remaining)
+            } else if remaining < 3600 {
+                // 残り10〜59分: 「あと約○分」（60秒更新でも十分だが統一して1秒で問題なし）
+                approximateMinuteView(remaining: remaining)
+            } else {
+                // 残り1時間以上: 「あと約○時間」
+                approximateHourView(remaining: remaining)
             }
         }
     }
@@ -61,9 +57,8 @@ struct NextAlarmCard: View {
     // MARK: - 各表示形式
 
     /// 残り1分未満: 赤 + 「もうすぐです！」
-    private var urgentCountdown: some View {
-        let remaining = max(0, alarm.fireDate.timeIntervalSince(Date()))
-        let s = Int(remaining) % 60
+    private func urgentCountdown(remaining: TimeInterval) -> some View {
+        let s = Int(max(0, remaining)) % 60
         return VStack(spacing: 4) {
             timeUnit(value: s, label: "秒", size: 52, color: .red)
             Text("もうすぐです！")
@@ -73,10 +68,10 @@ struct NextAlarmCard: View {
     }
 
     /// 残り10分未満: 分（大）＋秒（小）
-    private var minuteSecondCountdown: some View {
-        let remaining = max(0, alarm.fireDate.timeIntervalSince(Date()))
-        let m = (Int(remaining) % 3600) / 60
-        let s = Int(remaining) % 60
+    private func minuteSecondCountdown(remaining: TimeInterval) -> some View {
+        let total = Int(max(0, remaining))
+        let m = (total % 3600) / 60
+        let s = total % 60
         return HStack(alignment: .firstTextBaseline, spacing: 4) {
             if m > 0 {
                 timeUnit(value: m, label: "分", size: 52, color: .primary)
@@ -86,9 +81,8 @@ struct NextAlarmCard: View {
     }
 
     /// 残り10〜59分: ざっくり分表示
-    private var approximateMinuteView: some View {
-        let remaining = max(0, alarm.fireDate.timeIntervalSince(Date()))
-        let m = Int(ceil(remaining / 60))
+    private func approximateMinuteView(remaining: TimeInterval) -> some View {
+        let m = Int(ceil(max(0, remaining) / 60))
         return HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text("あと約")
                 .font(.title3)
@@ -98,9 +92,8 @@ struct NextAlarmCard: View {
     }
 
     /// 残り1時間以上: ざっくり時間表示
-    private var approximateHourView: some View {
-        let remaining = max(0, alarm.fireDate.timeIntervalSince(Date()))
-        let h = Int(ceil(remaining / 3600))
+    private func approximateHourView(remaining: TimeInterval) -> some View {
+        let h = Int(ceil(max(0, remaining) / 3600))
         return HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text("あと約")
                 .font(.title3)
