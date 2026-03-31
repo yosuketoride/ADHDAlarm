@@ -153,21 +153,19 @@ final class NLParserService: NLParsing {
     // MARK: - 個別パターンマッチ
 
     /// 「30分後」「15分後」→ 分数を返す
+    /// レビュー指摘 #4: range(of:)+firstMatch の二重パースを Swift Regex 1回に統一
     private func matchRelativeMinutes(_ text: String) -> (Int, Range<String.Index>)? {
-        let pattern = #"(\d+)\s*分後"#
-        guard let match = text.range(of: pattern, options: .regularExpression),
-              let numStr = text[match].firstMatch(of: /(\d+)/)?.output.1,
-              let minutes = Int(numStr) else { return nil }
-        return (minutes, match)
+        guard let m = text.firstMatch(of: /(\d+)\s*分後/),
+              let minutes = Int(m.output.1) else { return nil }
+        return (minutes, m.range)
     }
 
     /// 「2時間後」「1時間後」→ 時間数を返す
+    /// レビュー指摘 #4: range(of:)+firstMatch の二重パースを Swift Regex 1回に統一
     private func matchRelativeHours(_ text: String) -> (Int, Range<String.Index>)? {
-        let pattern = #"(\d+)\s*時間後"#
-        guard let match = text.range(of: pattern, options: .regularExpression),
-              let numStr = text[match].firstMatch(of: /(\d+)/)?.output.1,
-              let hours = Int(numStr) else { return nil }
-        return (hours, match)
+        guard let m = text.firstMatch(of: /(\d+)\s*時間後/),
+              let hours = Int(m.output.1) else { return nil }
+        return (hours, m.range)
     }
 
     /// 「今日」「明日」「明後日」「来週の月曜」などを Date に変換
@@ -220,8 +218,10 @@ final class NLParserService: NLParsing {
         components.second = 0
 
         // 過去になる場合は翌年に設定
+        // レビュー指摘 #3: ハードコード2026を除去。現在の年から動的に計算する。
         if let date = calendar.date(from: components), date < Date() {
-            components.year = (components.year ?? 2026) + 1
+            let currentYear = Calendar.current.component(.year, from: Date())
+            components.year = currentYear + 1
         }
         let date = calendar.date(from: components) ?? Date()
         return (date, match)

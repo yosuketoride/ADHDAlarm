@@ -32,6 +32,9 @@ final class SpeechRecognitionService {
 
                 // マイク入力をSpeechRecognizerに流す
                 let inputNode = audioEngine.inputNode
+                // レビュー指摘 #1: 既存Tapが残っている状態でinstallTapを呼ぶと即クラッシュする。
+                // 先にremoveTapで安全にクリアしてからinstallTapを呼ぶ。
+                inputNode.removeTap(onBus: 0)
                 let format = inputNode.outputFormat(forBus: 0)
                 inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
                     request.append(buffer)

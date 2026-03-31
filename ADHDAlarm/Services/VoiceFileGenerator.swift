@@ -110,9 +110,12 @@ final class VoiceFileGenerator: VoiceSynthesizing {
         utterance.pitchMultiplier = character == .maleButler ? 0.85 : 1.05  // 女性: 少し柔らかく
 
         // AVSpeechSynthesizer.write()でPCMバッファを受け取り、.cafファイルに書き出す
+        // レビュー指摘 #2: AVFoundation内部スレッドから並行コールバックが来る可能性があるため
+        // NSLockでfinishedフラグをスレッドセーフに保護し、continuation多重Resume（即クラッシュ）を防ぐ
         return try await withCheckedThrowingContinuation { continuation in
             var outputFile: AVAudioFile?
             var finished = false
+            let lock = NSLock()
 
             synthesizer.write(utterance) { buffer in
                 guard let pcmBuffer = buffer as? AVAudioPCMBuffer else { return }
@@ -125,7 +128,10 @@ final class VoiceFileGenerator: VoiceSynthesizing {
                         channels: pcmBuffer.format.channelCount,
                         interleaved: false
                     ) else {
-                        continuation.resume(throwing: VoiceError.invalidAudioFormat)
+                        lock.lock()
+                        let alreadyDone = finished; finished = true
+                        lock.unlock()
+                        if !alreadyDone { continuation.resume(throwing: VoiceError.invalidAudioFormat) }
                         return
                     }
                     do {
@@ -137,27 +143,30 @@ final class VoiceFileGenerator: VoiceSynthesizing {
                             interleaved: false
                         )
                     } catch {
-                        continuation.resume(throwing: error)
+                        lock.lock()
+                        let alreadyDone = finished; finished = true
+                        lock.unlock()
+                        if !alreadyDone { continuation.resume(throwing: error) }
                         return
                     }
                 }
 
                 if pcmBuffer.frameLength == 0 {
                     // frameLength == 0 は書き込み完了のシグナル
-                    if !finished {
-                        finished = true
-                        continuation.resume()
-                    }
+                    lock.lock()
+                    let alreadyDone = finished; finished = true
+                    lock.unlock()
+                    if !alreadyDone { continuation.resume() }
                     return
                 }
 
                 do {
                     try outputFile?.write(from: pcmBuffer)
                 } catch {
-                    if !finished {
-                        finished = true
-                        continuation.resume(throwing: error)
-                    }
+                    lock.lock()
+                    let alreadyDone = finished; finished = true
+                    lock.unlock()
+                    if !alreadyDone { continuation.resume(throwing: error) }
                 }
             }
         }

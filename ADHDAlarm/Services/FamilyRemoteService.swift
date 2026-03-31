@@ -23,6 +23,11 @@ final class FamilyRemoteService: FamilyScheduling {
             session = try await client.auth.signInAnonymously()
         }
 
+        // ⚠️ レビュー指摘 #5（仕様確認事項）:
+        // Supabase匿名認証のセッションIDはKeychainに永続化されないため、
+        // アプリを削除して再インストールすると deviceId が変わり family_links が無効になる。
+        // 「アプリ削除でペアリングはリセット（要再ペアリング）」という仕様で許容するならこのままでOK。
+        // 許容できない場合は deviceId を Keychain に保存してインストールを跨いで維持する必要がある。
         let deviceId = session.user.id.uuidString
 
         // IDが変わった場合のみdevicesテーブルをUPSERT（初回 or セッション再作成時）
