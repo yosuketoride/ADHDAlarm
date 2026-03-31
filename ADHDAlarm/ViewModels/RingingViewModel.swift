@@ -341,10 +341,12 @@ final class RingingViewModel: NSObject {
 
     // MARK: - Undo完了（P-2-1/P-9-13）
 
-    /// 完了をUndoする: completionStatus を nil に戻す
+    /// 完了をUndoする: completionStatus を nil に戻す（P-2-1/P-9-1）
     func undoCompletion(alarm: AlarmEvent) {
         var reverted = alarm
         reverted.completionStatus = nil
+        // P-9-1: 薬の二重服用トラップ防止 — Undo直後の5分間は家族側からの complete 上書きをブロック
+        reverted.undoPendingUntil = Date().addingTimeInterval(5 * 60)
         AlarmEventStore.shared.save(reverted)
         // 再度EKに書き戻す（将来Phase3で実装。現時点はローカル復元のみ）
         activeAlarm = nil

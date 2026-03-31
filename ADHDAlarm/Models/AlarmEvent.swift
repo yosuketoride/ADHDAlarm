@@ -49,6 +49,9 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
     /// 時間指定なし（ToDo）タスクかどうか（P-1-11）
     /// trueの場合アラーム発火なし・ホーム最上部に常駐
     var isToDo: Bool
+    /// Undo操作後の上書き保護期限（P-9-1）
+    /// この時刻までは家族側からのcomplete上書きをブロックする
+    var undoPendingUntil: Date?
 
     init(
         id: UUID = UUID(),
@@ -69,7 +72,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         eventEmoji: String? = nil,
         completionStatus: CompletionStatus? = nil,
         snoozeCount: Int = 0,
-        isToDo: Bool = false
+        isToDo: Bool = false,
+        undoPendingUntil: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -90,6 +94,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         self.completionStatus = completionStatus
         self.snoozeCount = snoozeCount
         self.isToDo = isToDo
+        self.undoPendingUntil = undoPendingUntil
     }
 
     // MARK: - Codable（後方互換）
@@ -105,6 +110,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         case completionStatus
         case snoozeCount
         case isToDo
+        case undoPendingUntil
     }
 
     init(from decoder: Decoder) throws {
@@ -128,5 +134,6 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         completionStatus       = try c.decodeIfPresent(CompletionStatus.self,  forKey: .completionStatus)
         snoozeCount            = try c.decodeIfPresent(Int.self,                forKey: .snoozeCount) ?? 0
         isToDo                 = try c.decodeIfPresent(Bool.self,               forKey: .isToDo) ?? false
+        undoPendingUntil       = try c.decodeIfPresent(Date.self,               forKey: .undoPendingUntil)
     }
 }

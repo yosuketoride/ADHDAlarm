@@ -17,6 +17,8 @@ struct ADHDAlarmApp: App {
     init() {
         // フォアグラウンド中も通知を表示するためにデリゲートを設定
         UNUserNotificationCenter.current().delegate = ForegroundNotificationDelegate.shared
+        // P-9-6: データモデルのマイグレーション（新フィールド追加時に既存データを補完）
+        DataMigrationService.migrateIfNeeded()
     }
 
     var body: some Scene {
