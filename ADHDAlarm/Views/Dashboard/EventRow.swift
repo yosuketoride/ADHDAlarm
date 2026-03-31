@@ -114,14 +114,15 @@ struct EventRow: View {
                     .foregroundStyle(isPast ? .secondary : .primary)
                     .lineLimit(2)
                     .strikethrough(isPast, color: .secondary)
-                // ToDoバッジ（P-1-11）
+                // ToDoバッジ（P-1-11/P-9-14）
                 if alarm.isToDo && !isPast {
-                    Text("ToDo")
+                    let isCarriedOver = Calendar.current.startOfDay(for: alarm.fireDate) < Calendar.current.startOfDay(for: Date())
+                    Text(isCarriedOver ? "🔁 昨日から" : "ToDo")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.owlAmber)
+                        .background(isCarriedOver ? Color.secondary : Color.owlAmber)
                         .clipShape(Capsule())
                 }
             }

@@ -39,6 +39,9 @@ actor SyncEngine {
     /// EventKitとAlarmKitの差分を洗い出し、ローカルマッピングと照合して修正する
     /// アプリのフォアグラウンド復帰時に必ず呼ぶ
     func performFullSync() async {
+        // P-9-14: 日付変更時のToDoタスク持ち越し・完了済みアラームのクリーンアップ
+        performDailyReset()
+
         // カレンダー権限がない場合はスキップ
         // 権限なしでfetchAppEventsが空を返すと、全ローカルイベントが誤削除される
         let authStatus = EKEventStore.authorizationStatus(for: .event)
@@ -331,5 +334,41 @@ actor SyncEngine {
         } catch {
             print("[SyncEngine] 通知スケジュールエラー: \(error)")
         }
+    }
+
+    // MARK: - デイリーリセット（P-9-14）
+
+    /// 日付変更時の処理:
+    /// - 完了済みToDoを削除（達成済みのため）
+    /// - 未完了ToDoは持ち越し（startOfDayを今日に更新してリスト先頭に残す）
+    /// - 通常の完了済みアラームの古いものをクリーンアップ
+    private func performDailyReset() {
+        let defaults = UserDefaults.standard
+        let lastResetKey = "lastDailyResetDate"
+        let lastReset = defaults.object(forKey: lastResetKey) as? Date ?? .distantPast
+
+        // 今日すでにリセット済みならスキップ
+        guard !Calendar.current.isDateInToday(lastReset) else { return }
+        defaults.set(Date(), forKey: lastResetKey)
+
+        let allEvents = eventStore.loadAll()
+        let today = Calendar.current.startOfDay(for: Date())
+
+        for event in allEvents {
+            if event.isToDo {
+                if event.completionStatus == .completed {
+                    // 完了済みToDoは削除
+                    eventStore.delete(id: event.id)
+                }
+                // 未完了ToDoは何もしない（持ち越し = 削除しない）
+            } else {
+                // 通常アラーム: 3日以上前の完了済みアラームを削除してストレージを節約
+                let threeDaysAgo = Calendar.current.date(byAdding: .day, value: -3, to: today) ?? today
+                if event.completionStatus != nil && event.fireDate < threeDaysAgo {
+                    eventStore.delete(id: event.id)
+                }
+            }
+        }
+        print("[SyncEngine] デイリーリセット完了")
     }
 }

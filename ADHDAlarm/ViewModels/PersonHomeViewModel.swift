@@ -89,8 +89,11 @@ final class PersonHomeViewModel {
 
     /// 未完了の今日の予定（表示対象）
     /// completionStatus が設定済みのものは明示的に完了 or スキップ → 未完了リストから除外
+    /// P-9-14: ToDoタスクは最上部に表示（時刻に関係なく）
     private var incompleteTodayEvents: [AlarmEvent] {
-        events.filter { $0.completionStatus == nil && $0.fireDate >= Date() }
+        let todos = events.filter { $0.isToDo && $0.completionStatus == nil }
+        let timed = events.filter { !$0.isToDo && $0.completionStatus == nil && $0.fireDate >= Date() }
+        return todos + timed
     }
 
     /// 画面に表示する予定（折りたたみ考慮済み）
