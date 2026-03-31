@@ -117,7 +117,9 @@ final class PermissionsService {
         isMicrophoneAuthorized = (micStatus == .granted)
 
         // 通知
-        Task {
+        // レビュー指摘: @Observable のプロパティ更新は MainActor で行う必要がある。
+        // Task { } の暗黙的なコンテキストはバックグラウンドになり得るため明示的に指定する。
+        Task { @MainActor in
             let settings = await UNUserNotificationCenter.current().notificationSettings()
             isNotificationAuthorized = (settings.authorizationStatus == .authorized
                                      || settings.authorizationStatus == .provisional)

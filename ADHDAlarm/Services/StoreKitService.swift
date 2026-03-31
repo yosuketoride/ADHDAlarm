@@ -14,10 +14,16 @@ final class StoreKitService {
 
     // MARK: - 初期化
 
+    // レビュー指摘: Transaction.updates は無限シーケンスのため、await で直接呼ぶと
+    // 呼び出し元の Task を永遠にブロックして後続処理が実行されなくなる（Task Starvation）。
+    // 独立した Task に切り出してバックグラウンドで監視させる。
+    private var updateListenerTask: Task<Void, Never>?
+
     /// アプリ起動時に呼ぶ: 商品取得 + トランザクション監視開始
     func start() async {
         await loadProducts()
-        await listenForTransactions()
+        updateListenerTask?.cancel()
+        updateListenerTask = Task { await listenForTransactions() }
     }
 
     // MARK: - 商品取得

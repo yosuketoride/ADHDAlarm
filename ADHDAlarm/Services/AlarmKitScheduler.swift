@@ -64,9 +64,20 @@ final class AlarmKitScheduler: AlarmScheduling {
 
     /// スケジュール済みのアラームID一覧
     /// AlarmKit公式にlistAll()がないためローカルマッピングで管理する
-    /// Phase 3のSyncEngine実装時に AlarmManager.shared のプロパティを再調査する
+    ///
+    /// ⚠️ レビュー指摘: 空配列を返すスタブのままだと SyncEngine が
+    /// 「AlarmKitに何も登録されていない」と誤認し、登録済みアラームを再登録し続けるバグになる。
+    /// AlarmEventStore.shared.loadAll() から alarmKitIdentifiers を集めて返すことで代替する。
+    /// Phase 3 で AlarmManager.shared の公式プロパティが確認できたら置き換えること。
     func scheduledIDs() async -> [UUID] {
-        []
+        let allEvents = AlarmEventStore.shared.loadAll()
+        let ids = allEvents.flatMap { event -> [UUID] in
+            if !event.alarmKitIdentifiers.isEmpty {
+                return event.alarmKitIdentifiers
+            }
+            return [event.alarmKitIdentifier].compactMap { $0 }
+        }
+        return Array(Set(ids))
     }
 }
 
