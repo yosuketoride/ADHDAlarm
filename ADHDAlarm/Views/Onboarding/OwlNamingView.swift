@@ -77,9 +77,11 @@ struct OwlNamingView: View {
             .padding(.bottom, Spacing.xl)
         }
         .navigationBarBackButtonHidden()
-        .task {
-            // P-1-1: 10秒無入力でフォールバック表示
+        .task(id: owlNameInput) {
+            // レビュー指摘: owlNameInputが変わるたびにタスクがキャンセル・再起動される。
+            // 入力中はタイマーがリセットされ、10秒間キー操作がなかった場合のみボタンを表示する。
             try? await Task.sleep(for: .seconds(10))
+            guard !Task.isCancelled else { return }
             withAnimation { showSkipFallback = true }
         }
     }

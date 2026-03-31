@@ -44,8 +44,11 @@ struct FamilyInputView: View {
             }
             .onChange(of: viewModel.sendState) { _, state in
                 if case .sent = state {
-                    // 少し待ってから閉じる（「送りました！」表示を見せるため）
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    // レビュー指摘: DispatchQueue.main.asyncAfter はキャンセル不可で
+                    // dismiss後にも呼ばれ画面スタックが崩れる恐れがある。Task に変更。
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        guard !Task.isCancelled else { return }
                         dismiss()
                     }
                 }

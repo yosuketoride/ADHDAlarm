@@ -259,7 +259,9 @@ struct SettingsView: View {
 
 /// 設定画面用の白いカード。余白が文字サイズに連動してスケールする。
 private struct SettingsCard<Content: View>: View {
-    @ScaledMetric private var cardPadding: CGFloat = 20
+    // レビュー指摘: @ScaledMetric を余白に使うとaccessibility3以上で余白が異常膨張し
+    // コンテンツが画面外に押し出されるレイアウト崩壊が起きる。固定値に変更。
+    private let cardPadding: CGFloat = 20
     @ViewBuilder let content: () -> Content
 
     var body: some View {

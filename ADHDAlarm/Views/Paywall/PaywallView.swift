@@ -493,7 +493,10 @@ struct PaywallView: View {
                 .symbolRenderingMode(.palette)
                 .foregroundStyle(Color.white, Color.black.opacity(0.35))
         }
-        .padding(.top, 56)
+        // レビュー指摘: .padding(.top, 56) のマジックナンバーはノッチ/Dynamic Island の有無で
+        // 時計アイコンと重なりApple審査リジェクトの原因になる。safeAreaPadding でOSに任せる。
+        .safeAreaPadding(.top)
+        .padding(.top, 8)
         .padding(.trailing, 20)
     }
 
