@@ -9,7 +9,8 @@ enum SyncDiff {
     case mismatch(current: AlarmEvent, newFireDate: Date)
 
     /// EventKitから予定が削除されたが、AlarmKitにアラームが残っている → アラームキャンセル
-    case orphanedAlarm(alarmKitID: UUID, voiceFileName: String?)
+    /// AlarmEvent全体を渡すことで alarmKitIdentifiers（複数）を漏れなくキャンセルできる（レビュー指摘 #2）
+    case orphanedAlarm(AlarmEvent)
 
     /// AlarmKitからアラームが消えたが、EventKitに予定が残っている → 再スケジュール
     case orphanedEvent(AlarmEvent)

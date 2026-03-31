@@ -31,7 +31,10 @@ final class AlarmKitScheduler: AlarmScheduling {
 
         // preNotificationMinutes分前にスケジュール（0分の場合はジャストタイム）
         let actualFireDate = alarm.fireDate.addingTimeInterval(-Double(alarm.preNotificationMinutes * 60))
-        let schedule = Alarm.Schedule.fixed(actualFireDate)
+        // レビュー指摘 #4: 計算結果が過去日時になった場合（ギリギリ登録 + 大きな事前通知時間など）
+        // AlarmKit に過去日時を渡すとエラー/クラッシュのリスクがあるため、最低5秒後を保証する
+        let safeFireDate = max(actualFireDate, Date().addingTimeInterval(5))
+        let schedule = Alarm.Schedule.fixed(safeFireDate)
 
         // 音声ファイルがある場合はAlarmKitに渡す（バックグラウンド・ロック画面でも声が鳴る）
         // .named(fileName) は Library/Sounds/ 直下のファイルを参照する

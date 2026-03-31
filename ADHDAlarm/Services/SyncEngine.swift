@@ -72,11 +72,21 @@ actor SyncEngine {
         // EventKitのイベントをIDで引ける辞書に変換
         let ekDict = Dictionary(uniqueKeysWithValues: ekEvents.map { ($0.id, $0) })
 
-        // ローカルマッピングのイベントをIDで引ける辞書に変換
+        // ローカルマッピングのイベントをIDで引ける辞書に変換（B. で使用）
         let localDict = Dictionary(uniqueKeysWithValues: localMappings.map { ($0.id, $0) })
 
-        // A. ローカルマッピングを基準にEventKit側の状態を確認
-        for local in localMappings {
+        // レビュー指摘 #1: 差分検知はフェッチ範囲内のイベントのみ対象にする
+        // AppleCalendarProvider.fetchAppEvents() は「過去1日〜1年先」しか取得しない。
+        // 範囲外（2日以上前など）のローカルイベントはEKから返ってこないが、
+        // それを「EKから削除された」と誤認してorphanedAlarmにすると過去データが消滅する。
+        let windowStart = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        let windowEnd   = Calendar.current.date(byAdding: .year, value: 1,  to: Date()) ?? Date()
+        let localInWindow = localMappings.filter {
+            $0.fireDate >= windowStart && $0.fireDate <= windowEnd
+        }
+
+        // A. フェッチ範囲内のローカルイベントを基準にEventKit側の状態を確認
+        for local in localInWindow {
             if let ekEvent = ekDict[local.id] {
                 // EventKit側にイベントが存在する
                 if abs(ekEvent.fireDate.timeIntervalSince(local.fireDate)) > 60 {
@@ -88,10 +98,8 @@ actor SyncEngine {
                 }
             } else {
                 // EventKit側からイベントが消えている → アラームを孤立キャンセル
-                diffs.append(.orphanedAlarm(
-                    alarmKitID: local.alarmKitIdentifier ?? UUID(),
-                    voiceFileName: local.voiceFileName
-                ))
+                // レビュー指摘 #2: AlarmEvent全体を渡して複数アラームIDを漏れなくキャンセルする
+                diffs.append(.orphanedAlarm(local))
             }
         }
 
@@ -142,14 +150,17 @@ actor SyncEngine {
             }
             eventStore.save(updated)
 
-        case .orphanedAlarm(let alarmKitID, let voiceFileName):
-            // EventKitから削除済み → アラームキャンセル + 音声ファイル削除 + ローカル削除
-            try? await alarmScheduler.cancel(alarmKitID: alarmKitID)
-            if voiceFileName != nil,
-               let alarmEvent = eventStore.find(alarmKitID: alarmKitID) {
-                voiceGenerator.deleteAudio(alarmID: alarmEvent.id)
-                eventStore.delete(id: alarmEvent.id)
+        case .orphanedAlarm(let alarm):
+            // EventKitから削除済み → 全アラームキャンセル + 音声ファイル削除 + ローカル削除
+            // レビュー指摘 #2: alarmKitIdentifiers（配列）を優先し、単一IDと両方をキャンセルする
+            let idsToCancel = alarm.alarmKitIdentifiers.isEmpty
+                ? [alarm.alarmKitIdentifier].compactMap { $0 }
+                : alarm.alarmKitIdentifiers
+            if !idsToCancel.isEmpty {
+                try? await alarmScheduler.cancelAll(alarmKitIDs: idsToCancel)
             }
+            voiceGenerator.deleteAudio(alarmID: alarm.id)
+            eventStore.delete(id: alarm.id)
 
         case .orphanedEvent(let ekEvent):
             // AlarmKitからアラームが消えている（通常は起こらないが念のため再登録）
