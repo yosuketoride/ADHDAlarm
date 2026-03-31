@@ -37,6 +37,7 @@ struct ADHDAlarmApp: App {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 permissionsService.refreshStatuses()
+                checkBatteryLevel()
                 Task {
                     await syncEngine.performFullSync()
                     let newCount = await syncEngine.syncRemoteEvents()
@@ -59,6 +60,20 @@ struct ADHDAlarmApp: App {
         // 通知権限をリクエスト（家族機能のお知らせ・事前通知に使用）
         // 既に許可済みの場合はダイアログが出ない
         await permissionsService.requestNotification()
+    }
+
+    // MARK: - バッテリー残量チェック（P-9-3）
+
+    /// バッテリー10%未満かつアラーム登録中の場合にトーストを表示
+    private func checkBatteryLevel() {
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        let level = UIDevice.current.batteryLevel
+        guard level > 0, level < 0.10 else { return }
+        let hasUpcoming = AlarmEventStore.shared.loadAll().contains {
+            $0.fireDate > Date() && $0.completionStatus == nil && !$0.isToDo
+        }
+        guard hasUpcoming else { return }
+        appState.globalToast = "🪫 充電残量が少なくなっています。充電してからアラームを使ってね"
     }
 
     // MARK: - URL Scheme ハンドラ
@@ -130,6 +145,27 @@ struct RootView: View {
         }
         // iPhoneの「テキストサイズ」設定に自動追従。上限はaccessibility1でレイアウト崩壊を防ぐ
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+        // P-9-3: グローバルトースト（バッテリー警告など）
+        .overlay(alignment: .top) {
+            if let toast = appState.globalToast {
+                Text(toast)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .padding(16)
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .onAppear {
+                        Task {
+                            try? await Task.sleep(for: .seconds(5))
+                            withAnimation { appState.globalToast = nil }
+                        }
+                    }
+            }
+        }
+        .animation(.spring(duration: 0.3), value: appState.globalToast != nil)
         // AlarmKit発火時にフルスクリーンでRingingViewを表示
         .fullScreenCover(item: Binding(
             get: { router.ringingAlarm },

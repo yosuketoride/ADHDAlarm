@@ -113,6 +113,10 @@ final class AppState {
         didSet { UserDefaults.standard.set(sosEscalationMinutes, forKey: Constants.Keys.sosEscalationMinutes) }
     }
 
+    // MARK: - グローバルトースト
+    /// アプリ全体で表示するトーストメッセージ（nilで非表示）
+    var globalToast: String?
+
     // MARK: - 家族リモートスケジュール（PRO）
     /// 自分が親としてペアリングしているリンクID（子から予定を受け取る側）
     var familyLinkId: String? {
