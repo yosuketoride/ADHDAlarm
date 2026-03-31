@@ -258,8 +258,8 @@ final class CategoryRecorderViewModel: NSObject {
     private let category: VoiceCategory
     private var audioRecorder: AVAudioRecorder?
     private var audioPlayer: AVAudioPlayer?
-    private var recordingStartTime: Date?
-    private var durationTimer: Timer?
+    // レビュー指摘: Timer は @Observable と相性が悪くメモリリークの原因になる。Task に統一。
+    private var durationTask: Task<Void, Never>?
 
     private let tempURL: URL = {
         FileManager.default.temporaryDirectory.appendingPathComponent("category_voice_temp.caf")
@@ -312,7 +312,6 @@ final class CategoryRecorderViewModel: NSObject {
             audioRecorder?.delegate = self
             audioRecorder?.record()
             isRecording = true
-            recordingStartTime = Date()
             startDurationTimer()
         } catch {
             triggerError("録音を開始できませんでした。もう一度試してください。")
@@ -371,16 +370,21 @@ final class CategoryRecorderViewModel: NSObject {
     }
 
     private func startDurationTimer() {
-        durationTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            guard let self, let start = self.recordingStartTime else { return }
-            let elapsed = Int(Date().timeIntervalSince(start))
-            self.recordingDurationText = String(format: "%d:%02d", elapsed / 60, elapsed % 60)
+        let startTime = Date()
+        durationTask?.cancel()
+        durationTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { break }
+                let elapsed = Int(Date().timeIntervalSince(startTime))
+                recordingDurationText = String(format: "%d:%02d", elapsed / 60, elapsed % 60)
+            }
         }
     }
 
     private func stopDurationTimer() {
-        durationTimer?.invalidate()
-        durationTimer = nil
+        durationTask?.cancel()
+        durationTask = nil
         recordingDurationText = "0:00"
     }
 
@@ -391,8 +395,13 @@ final class CategoryRecorderViewModel: NSObject {
 }
 
 extension CategoryRecorderViewModel: AVAudioRecorderDelegate {
-    func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
-        if !flag { triggerError("録音が正常に完了しませんでした。") }
+    // レビュー指摘: AVAudioRecorderDelegate のコールバックはバックグラウンドスレッドから
+    // 呼ばれる可能性がある。SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor 環境では
+    // nonisolated を付与してMainActorへ明示的にディスパッチする必要がある。
+    nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+        Task { @MainActor in
+            if !flag { self.triggerError("録音が正常に完了しませんでした。") }
+        }
     }
 }
 

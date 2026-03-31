@@ -227,6 +227,16 @@ private final class RescueCenterViewModel: NSObject {
     var cancelAllDone = false
     var showCancelConfirm = false
 
+    // レビュー指摘: 完了後3秒でフラグをリセットするTaskをプロパティに保持。
+    // ビュー破棄後も走り続けないよう deinit でキャンセルする。
+    private var syncResetTask: Task<Void, Never>?
+    private var cancelResetTask: Task<Void, Never>?
+
+    deinit {
+        syncResetTask?.cancel()
+        cancelResetTask?.cancel()
+    }
+
     // MARK: - 音量テスト
 
     func testVolume() {
@@ -266,9 +276,12 @@ private final class RescueCenterViewModel: NSObject {
         await engine.performFullSync()
         isSyncing = false
         syncDone = true
-        // 3秒後にリセット
-        try? await Task.sleep(for: .seconds(3))
-        syncDone = false
+        syncResetTask?.cancel()
+        syncResetTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            syncDone = false
+        }
     }
 
     // MARK: - 全アラーム緊急停止
@@ -303,9 +316,12 @@ private final class RescueCenterViewModel: NSObject {
         // WidgetKit更新
         WidgetCenter.shared.reloadAllTimelines()
 
-        // 3秒後にリセット
-        try? await Task.sleep(for: .seconds(3))
-        cancelAllDone = false
+        cancelResetTask?.cancel()
+        cancelResetTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            cancelAllDone = false
+        }
     }
 }
 

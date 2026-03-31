@@ -209,7 +209,9 @@ struct AdvancedSettingsView: View {
         .task {
             await viewModel.loadCalendars()
             if pairingViewModel == nil {
-                pairingViewModel = await MainActor.run { SOSPairingViewModel(appState: appState) }
+                // レビュー指摘: SwiftUIの.taskはMainActorで実行されるため
+                // await MainActor.run { } は不要かつ無駄な再描画を引き起こす。
+                pairingViewModel = SOSPairingViewModel(appState: appState)
             }
         }
     }

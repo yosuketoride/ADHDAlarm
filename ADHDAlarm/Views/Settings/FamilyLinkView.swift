@@ -2,7 +2,9 @@ import SwiftUI
 
 /// 家族ペアリング設定ビュー（設定画面の詳細設定内に表示）
 struct FamilyLinkView: View {
-    @State private var viewModel: FamilyPairingViewModel
+    // レビュー指摘: State(initialValue:) を init で呼ぶ @State 初期化はアンチパターン。
+    // 親が再描画されても初回の値が永続化されてしまう。プロパティ宣言で直接初期化する。
+    @State private var viewModel = FamilyPairingViewModel()
     @Environment(AppState.self) private var appState
     /// 親として連携するか、子として連携するか
     @State private var selectedRole: Role = .parent
@@ -11,10 +13,6 @@ struct FamilyLinkView: View {
     enum Role: String, CaseIterable {
         case parent = "受け取る（親）"
         case child  = "送る（子）"
-    }
-
-    init(viewModel: FamilyPairingViewModel? = nil) {
-        _viewModel = State(initialValue: viewModel ?? FamilyPairingViewModel())
     }
 
     var body: some View {

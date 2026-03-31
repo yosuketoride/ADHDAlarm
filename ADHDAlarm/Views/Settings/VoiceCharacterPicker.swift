@@ -9,6 +9,8 @@ struct VoiceCharacterPicker: View {
 
     @State private var synthesizer = AVSpeechSynthesizer()
     @State private var playingCharacter: VoiceCharacter?
+    // レビュー指摘: 連続タップ時の競合を防ぐためTaskの参照を保持してキャンセルする
+    @State private var previewTask: Task<Void, Never>?
 
     private let sampleText = "お時間です。準備はよろしいですか？"
 
@@ -109,9 +111,12 @@ struct VoiceCharacterPicker: View {
         playingCharacter = character
         synthesizer.speak(utterance)
 
-        // 再生終了後にフラグをリセット（3秒程度で終わるので余裕を持って5秒後）
-        Task {
+        // レビュー指摘: 連続タップ時に古いTaskが新しい再生状態を上書きする競合を防ぐ。
+        // 前のTaskをキャンセルしてから新しいTaskを起動する。
+        previewTask?.cancel()
+        previewTask = Task {
             try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
             if playingCharacter == character {
                 playingCharacter = nil
             }
