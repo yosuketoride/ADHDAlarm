@@ -154,7 +154,38 @@ struct MicrophoneInputView: View {
 
             Spacer()
 
-            if let parsed = viewModel.parsedInput {
+            // P-1-7: 重複検知ワーニング（ParseConfirmationViewの前に表示）
+            if let warning = viewModel.duplicateWarning {
+                VStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("🦉 もしかして、もう登録されているかも？")
+                            .font(.callout.weight(.bold))
+                            .foregroundStyle(.primary)
+                        Text("「\(warning.existingTitle)」（\(warning.existingDate.japaneseTimeString)）が見つかりました。")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.yellow.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                    HStack(spacing: 12) {
+                        Button("追加しない（安心した！）") {
+                            withAnimation { viewModel.reset() }
+                        }
+                        .buttonStyle(.large(background: .secondary))
+
+                        Button("別の予定として追加") {
+                            viewModel.dismissDuplicateWarning()
+                        }
+                        .buttonStyle(.large(background: Color.owlAmber))
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
+            } else if let parsed = viewModel.parsedInput {
                 ParseConfirmationView(
                     parsed: parsed,
                     isLoading: viewModel.isWritingThrough,

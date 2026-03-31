@@ -28,6 +28,8 @@ final class InputViewModel {
     var selectedRecurrence: RecurrenceRule?
     /// PRO版かつ複数カレンダーがある場合に表示する選択肢
     var availableCalendars: [CalendarInfo] = []
+    /// P-1-7: 重複検知の結果（nil = 重複なし）
+    var duplicateWarning: DuplicateWarning?
     /// 予定単位で選択したカレンダーID（nilならグローバル設定を使用）
     var selectedCalendarID: String?
     /// 確認画面でユーザーが今日/明日を切り替えた日時（nilならparsedInput.fireDateを使用）
@@ -109,7 +111,44 @@ final class InputViewModel {
             selectedPreNotificationMinutesList = appState.preNotificationMinutesList
             // NLParserが解析した繰り返しルールを引き継ぐ
             selectedRecurrence = parsedInput?.recurrenceRule
+            // P-1-7: 重複検知インターセプト
+            checkForDuplicates()
         }
+    }
+
+    // MARK: - 重複検知（P-1-7）
+
+    /// 同一タイトルまたは同一日時（±30分）の既存予定があれば警告をセット
+    private func checkForDuplicates() {
+        guard let parsed = parsedInput else { return }
+        duplicateWarning = nil
+
+        let existingEvents = eventStore.loadAll()
+        let sevenDaysLater = Date().addingTimeInterval(7 * 24 * 3600)
+        let upcoming = existingEvents.filter {
+            $0.fireDate > Date() && $0.fireDate < sevenDaysLater && $0.completionStatus == nil
+        }
+
+        for event in upcoming {
+            // 同一日時（±30分）の判定
+            let timeDiff = abs(event.fireDate.timeIntervalSince(parsed.fireDate))
+            if timeDiff < 30 * 60 {
+                duplicateWarning = DuplicateWarning(existingTitle: event.title, existingDate: event.fireDate)
+                return
+            }
+            // タイトルの部分一致判定
+            let existingLower = event.title.lowercased()
+            let newLower = parsed.title.lowercased()
+            if existingLower.contains(newLower) || newLower.contains(existingLower) {
+                duplicateWarning = DuplicateWarning(existingTitle: event.title, existingDate: event.fireDate)
+                return
+            }
+        }
+    }
+
+    /// 重複警告を無視して登録を続行する
+    func dismissDuplicateWarning() {
+        duplicateWarning = nil
     }
 
     // MARK: - Write-Through（アラーム登録の核心）
@@ -266,5 +305,13 @@ final class InputViewModel {
         selectedPreNotificationMinutesList = appState.preNotificationMinutesList
         selectedRecurrence = nil
         selectedCalendarID = nil
+        duplicateWarning  = nil
     }
+}
+
+// MARK: - 重複警告モデル（P-1-7）
+
+struct DuplicateWarning {
+    let existingTitle: String
+    let existingDate: Date
 }
