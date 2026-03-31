@@ -18,12 +18,20 @@ struct MicGestureModifier: ViewModifier {
                     }
                 }
         } else {
+            // レビュー指摘: DragGesture(minimumDistance: 0) は ScrollView 内でスクロールを
+            // 乗っ取るアンチパターン。onLongPressGesture(minimumDuration: 0) を使うと
+            // OSレベルでスクロールとのジェスチャー競合が正しく処理される。
             content
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in if !vm.isListening { vm.startListening() } }
-                        .onEnded { _ in vm.stopListening() }
-                )
+                .onLongPressGesture(minimumDuration: 0) {
+                    // 長押し完了（指を離した後）: 録音停止
+                    vm.stopListening()
+                } onPressingChanged: { isPressing in
+                    if isPressing {
+                        vm.startListening()
+                    } else {
+                        vm.stopListening()
+                    }
+                }
         }
     }
 }

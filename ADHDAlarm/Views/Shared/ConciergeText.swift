@@ -8,7 +8,8 @@ struct ConciergeText: View {
     var body: some View {
         Text(message)
             .font(font)
-            .foregroundStyle(Color(.secondaryLabel))
+            // レビュー指摘: Color(.secondaryLabel) はUIKit依存。SwiftUIネイティブな .secondary を使う。
+            .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
     }
 }

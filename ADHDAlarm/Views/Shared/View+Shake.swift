@@ -36,12 +36,30 @@ private struct ShakeDetectorRepresentable: UIViewRepresentable {
 
 final class ShakeView: UIView {
     var action: (() -> Void)?
+    // レビュー指摘: becomeFirstResponder をキーボード表示中も呼び続けると
+    // TextField のフォーカスを奪いキーボードが閉じるバグを引き起こす。
+    // キーボード出現/消滅の通知を監視してファーストレスポンダーを一時的に解放する。
+    private var keyboardObservers: [NSObjectProtocol] = []
 
     override var canBecomeFirstResponder: Bool { true }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        becomeFirstResponder()
+        if window != nil {
+            becomeFirstResponder()
+            let showObs = NotificationCenter.default.addObserver(
+                forName: UIResponder.keyboardWillShowNotification,
+                object: nil, queue: .main
+            ) { [weak self] _ in self?.resignFirstResponder() }
+            let hideObs = NotificationCenter.default.addObserver(
+                forName: UIResponder.keyboardWillHideNotification,
+                object: nil, queue: .main
+            ) { [weak self] _ in self?.becomeFirstResponder() }
+            keyboardObservers = [showObs, hideObs]
+        } else {
+            keyboardObservers.forEach { NotificationCenter.default.removeObserver($0) }
+            keyboardObservers = []
+        }
     }
 
     override func motionBegan(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {

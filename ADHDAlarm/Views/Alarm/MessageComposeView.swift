@@ -11,6 +11,13 @@ struct MessageComposeView: UIViewControllerRepresentable {
     var onDismiss: (MessageComposeResult) -> Void
 
     func makeUIViewController(context: Context) -> MFMessageComposeViewController {
+        // レビュー指摘: SMS未設定端末・シミュレーター・iPadでは canSendText() が false になり
+        // 表示すると真っ白フリーズが起きる。呼び出し元で必ず確認すること:
+        //   guard MFMessageComposeViewController.canSendText() else { /* フォールバック */ }
+        assert(
+            MFMessageComposeViewController.canSendText(),
+            "[MessageComposeView] canSendText() が false の状態で表示されました。呼び出し元でチェックしてください。"
+        )
         let vc = MFMessageComposeViewController()
         vc.recipients = recipients
         vc.body = body

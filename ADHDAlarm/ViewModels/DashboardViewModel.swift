@@ -17,7 +17,9 @@ final class DashboardViewModel {
 
     /// 削除待ちアラーム（3秒以内にUndoで復活可能）
     var pendingDelete: AlarmEvent?
-    private var deleteTimer: Timer?
+    // レビュー指摘: Timer を使った単一pendingDeleteでは連続削除時にタイマーが孤立し
+    // 「削除もUndoもされない宙ぶらりん状態」になる。IDごとにTaskを管理するDictに変更。
+    private var deleteTasks: [UUID: Task<Void, Never>] = [:]
 
     var nextAlarm: AlarmEvent? {
         events.filter { $0.fireDate > Date() }.min(by: { $0.fireDate < $1.fireDate })
@@ -104,31 +106,28 @@ final class DashboardViewModel {
 
     /// 予定を削除する（3秒間はUndoで復活可能なソフト削除）
     func deleteEvent(_ alarm: AlarmEvent) async {
-        // 既存の削除待ちがあれば即座に確定させてから新規削除を受け付ける
-        if let pending = pendingDelete {
-            await commitDelete(pending)
-        }
-        deleteTimer?.invalidate()
-
-        // 画面からは即座に除去（Undoで復活するまでは見えない）
+        // 画面からは即座に除去（楽観的UI更新）
         events.removeAll { $0.id == alarm.id }
         pendingDelete = alarm
 
-        // 3秒後に実際の削除処理を実行
-        deleteTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
-            guard let self, let pending = self.pendingDelete, pending.id == alarm.id else { return }
-            Task { await self.commitDelete(pending) }
+        // IDごとにTaskを管理して連続削除の競合を防ぐ
+        deleteTasks[alarm.id]?.cancel()
+        deleteTasks[alarm.id] = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            await commitDelete(alarm)
+            deleteTasks.removeValue(forKey: alarm.id)
+            if pendingDelete?.id == alarm.id { pendingDelete = nil }
         }
     }
 
     /// 削除をキャンセルしてアラームをリストに復活させる
     func undoDelete() {
-        deleteTimer?.invalidate()
-        deleteTimer = nil
-        if let alarm = pendingDelete {
-            events.append(alarm)
-            events.sort { $0.fireDate < $1.fireDate }
-        }
+        guard let alarm = pendingDelete else { return }
+        deleteTasks[alarm.id]?.cancel()
+        deleteTasks.removeValue(forKey: alarm.id)
+        events.append(alarm)
+        events.sort { $0.fireDate < $1.fireDate }
         pendingDelete = nil
     }
 
