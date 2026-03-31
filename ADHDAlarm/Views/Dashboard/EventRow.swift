@@ -7,7 +7,6 @@ struct EventRow: View {
     var showDate: Bool = false
     let onDelete: () -> Void
 
-    @State private var showDeleteConfirm = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -27,14 +26,9 @@ struct EventRow: View {
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
         .opacity(isPast ? 0.7 : 1.0)
-        .confirmationDialog(
-            "「\(alarm.title)」を削除しますか？（iPhoneのカレンダーからも消えます）",
-            isPresented: $showDeleteConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("削除する", role: .destructive) { onDelete() }
-            Button("やめる", role: .cancel) {}
-        }
+        // レビュー指摘: .confirmationDialog を各行に持つとリスト50件で50個のダイアログ定義が
+        // メモリに積まれる。親ビュー(PersonHomeView)に1つだけ配置する設計に変更。
+        // ゴミ箱タップで onDelete() を呼び、親が confirmationDialog を管理する。
     }
 
     // MARK: - 通常レイアウト
@@ -157,7 +151,7 @@ struct EventRow: View {
                     .frame(width: ComponentSize.small, height: ComponentSize.small)
             } else {
                 Button {
-                    showDeleteConfirm = true
+                    onDelete()
                 } label: {
                     Image(systemName: "trash")
                         .font(.callout)

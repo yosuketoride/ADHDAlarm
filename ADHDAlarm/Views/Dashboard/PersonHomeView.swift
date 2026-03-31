@@ -8,6 +8,8 @@ struct PersonHomeView: View {
 
     // フクロウ首傾けアニメ用
     @State private var owlNeckTilt: Double = 0
+    // レビュー指摘: confirmationDialog は親に1つだけ配置する（EventRow側から移動）
+    @State private var eventToDelete: AlarmEvent?
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -79,6 +81,19 @@ struct PersonHomeView: View {
         .animation(.spring(duration: 0.3), value: viewModel.pendingDelete != nil)
         .onShake { viewModel.handleOwlShake() }
         .task { await viewModel.loadEvents() }
+        .confirmationDialog(
+            "「\(eventToDelete?.title ?? "")」を削除しますか？（iPhoneのカレンダーからも消えます）",
+            isPresented: Binding(get: { eventToDelete != nil }, set: { if !$0 { eventToDelete = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("削除する", role: .destructive) {
+                if let alarm = eventToDelete {
+                    Task { await viewModel.deleteEvent(alarm) }
+                }
+                eventToDelete = nil
+            }
+            Button("やめる", role: .cancel) { eventToDelete = nil }
+        }
     }
 
     // MARK: - フクロウセクション
@@ -231,7 +246,7 @@ struct PersonHomeView: View {
                 // 未完了の予定（折りたたみ）
                 ForEach(viewModel.visibleEvents) { alarm in
                     EventRow(alarm: alarm) {
-                        Task { await viewModel.deleteEvent(alarm) }
+                        eventToDelete = alarm
                     }
                     .padding(.horizontal, Spacing.md)
                 }
@@ -313,7 +328,7 @@ struct PersonHomeView: View {
             if !viewModel.completedTodayEvents.isEmpty {
                 ForEach(viewModel.completedTodayEvents) { alarm in
                     EventRow(alarm: alarm) {
-                        Task { await viewModel.deleteEvent(alarm) }
+                        eventToDelete = alarm
                     }
                     .padding(.horizontal, Spacing.md)
                 }
@@ -401,7 +416,7 @@ struct PersonHomeView: View {
 
                 ForEach(viewModel.tomorrowEvents) { alarm in
                     EventRow(alarm: alarm, showDate: true) {
-                        Task { await viewModel.deleteEvent(alarm) }
+                        eventToDelete = alarm
                     }
                     .padding(.horizontal, Spacing.md)
                     .opacity(0.6)

@@ -4,16 +4,18 @@ import SwiftUI
 /// systemBackground の上に薄い色を重ねてダークモード互換を維持する
 struct TimeOfDayBackground: View {
     var body: some View {
-        Color(.systemBackground)
-            .overlay(timeOfDayColor.opacity(timeOfDayOpacity))
-            .animation(.easeInOut(duration: 1.2), value: timeOfDayColor)
+        // レビュー指摘: computed property 内で Date() を呼ぶだけでは SwiftUI は
+        // 再描画トリガーを持たないため、アプリ起動後に時刻をまたいでも背景色が
+        // フリーズしたまま更新されない。TimelineView で 60 秒ごとに強制再評価する。
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            let hour = Calendar.current.component(.hour, from: context.date)
+            Color(.systemBackground)
+                .overlay(timeOfDayColor(for: hour).opacity(timeOfDayOpacity(for: hour)))
+                .animation(.easeInOut(duration: 1.2), value: hour)
+        }
     }
 
-    private var hour: Int {
-        Calendar.current.component(.hour, from: Date())
-    }
-
-    private var timeOfDayColor: Color {
+    private func timeOfDayColor(for hour: Int) -> Color {
         switch hour {
         case 5..<11:  return .morning    // 朝: soft blue
         case 11..<17: return .afternoon  // 昼: pale yellow
@@ -22,7 +24,7 @@ struct TimeOfDayBackground: View {
         }
     }
 
-    private var timeOfDayOpacity: Double {
+    private func timeOfDayOpacity(for hour: Int) -> Double {
         switch hour {
         case 5..<11:  return 0.15
         case 11..<17: return 0.12

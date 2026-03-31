@@ -33,23 +33,31 @@ struct NextAlarmCard: View {
 
     @ViewBuilder
     private var countdownBody: some View {
-        // レビュー指摘: 残り時間の分岐を TimelineView の外で評価すると初回レンダリング時の
-        // 値が固定されてしまい、閾値をまたいでも表示形式が切り替わらない。
-        // context.date を使って毎秒評価することで正しく切り替わるようにする。
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let remaining = alarm.fireDate.timeIntervalSince(context.date)
-            if remaining < 60 {
-                // 残り1分未満: 秒カウントダウン + 強調メッセージ
-                urgentCountdown(remaining: remaining)
-            } else if remaining < 600 {
-                // 残り10分未満: 分＋秒カウントダウン（1秒更新）
-                minuteSecondCountdown(remaining: remaining)
-            } else if remaining < 3600 {
-                // 残り10〜59分: 「あと約○分」（60秒更新でも十分だが統一して1秒で問題なし）
-                approximateMinuteView(remaining: remaining)
+        // レビュー指摘: 残り時間が長い場合でも by:1 で毎秒更新するとバッテリーを無駄消耗する。
+        // 外側の 60 秒 TimelineView で「残り10分未満かどうか」の帯域を判定し、
+        // 10分未満のときだけ内側の 1 秒 TimelineView に切り替える二重構造にする。
+        TimelineView(.periodic(from: .now, by: 60)) { outer in
+            let approx = alarm.fireDate.timeIntervalSince(outer.date)
+            if approx < 600 {
+                // 残り10分未満: 1秒更新（秒単位表示・ADHD向け仕様）
+                TimelineView(.periodic(from: .now, by: 1)) { inner in
+                    let remaining = alarm.fireDate.timeIntervalSince(inner.date)
+                    if remaining < 60 {
+                        urgentCountdown(remaining: remaining)
+                    } else {
+                        minuteSecondCountdown(remaining: remaining)
+                    }
+                }
+            } else if approx < 3600 {
+                // 残り10〜59分: 「あと約○分」（60秒更新）
+                TimelineView(.periodic(from: .now, by: 60)) { inner in
+                    approximateMinuteView(remaining: alarm.fireDate.timeIntervalSince(inner.date))
+                }
             } else {
-                // 残り1時間以上: 「あと約○時間」
-                approximateHourView(remaining: remaining)
+                // 残り1時間以上: 「あと約○時間」（60秒更新）
+                TimelineView(.periodic(from: .now, by: 60)) { inner in
+                    approximateHourView(remaining: alarm.fireDate.timeIntervalSince(inner.date))
+                }
             }
         }
     }

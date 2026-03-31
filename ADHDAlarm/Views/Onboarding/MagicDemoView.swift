@@ -12,7 +12,8 @@ struct MagicDemoView: View {
     @State private var showSoundCheckDialog = false
     @State private var showLowVolumeNote = false
     @State private var showHapticFollowUp = false
-    @State private var timer: Timer?
+    // レビュー指摘: Timer はTask.sleep(async/await)と混在させず Task に統一する
+    @State private var countdownTask: Task<Void, Never>?
     @State private var demoAlarm = AlarmEvent(
         title: "15時からカフェで待ち合わせ",
         fireDate: Date().addingTimeInterval(60),
@@ -20,6 +21,7 @@ struct MagicDemoView: View {
     )
 
     private let voiceGenerator = VoiceFileGenerator()
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(spacing: 0) {
@@ -60,7 +62,7 @@ struct MagicDemoView: View {
             Button("鳴った！") { navigateToWidgetGuide() }
             Button("鳴らなかった") { openNotificationSettings() }
         }
-        .onDisappear { timer?.invalidate() }
+        .onDisappear { countdownTask?.cancel() }
         .task {
             if hapticOnly { await runHapticDemo() }
         }
@@ -210,17 +212,18 @@ struct MagicDemoView: View {
             }
         }
 
-        // カウントダウン開始
+        // カウントダウン開始（Timer→Taskに統一。ビュー破棄時にcountdownTask?.cancel()で停止）
         countdown = 3
         isCounting = true
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { t in
-            if countdown > 1 {
-                countdown -= 1
-            } else {
-                t.invalidate()
-                timer = nil
-                showRinging = true
+        countdownTask?.cancel()
+        countdownTask = Task {
+            for i in stride(from: 3, through: 1, by: -1) {
+                countdown = i
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
             }
+            isCounting = false
+            showRinging = true
         }
     }
 
@@ -246,8 +249,9 @@ struct MagicDemoView: View {
     }
 
     private func openNotificationSettings() {
+        // レビュー指摘: UIApplication.shared.open はUIKit依存。@Environment(\.openURL) を使う。
         if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
-            UIApplication.shared.open(url)
+            openURL(url)
         }
         navigateToWidgetGuide()
     }

@@ -29,6 +29,8 @@ struct RingingView: View {
     @State private var showSuccessBanner = false
     @State private var showErrorBanner = false
     @State private var errorMessage = ""
+    // バナー自動非表示タスク（ビュー破棄時にキャンセルするため参照を保持）
+    @State private var bannerHideTask: Task<Void, Never>?
 
 
     var body: some View {
@@ -120,6 +122,7 @@ struct RingingView: View {
             try? await Task.sleep(for: .seconds(5))
             withAnimation(.easeInOut(duration: 0.4)) { showSkipSection = true }
         }
+        .onDisappear { bannerHideTask?.cancel() }
         .interactiveDismissDisabled()
         .statusBarHidden(true)
         .animation(.spring(duration: 0.4), value: showDismissMessage)
@@ -520,8 +523,12 @@ struct RingingView: View {
     // MARK: - Helper UIs
     
     private func hideBannersAfterDelay() {
-        Task {
+        // レビュー指摘: 非構造化Taskはビュー破棄後も生き続けタスクリークになる。
+        // タスク参照を保持し、直前のタスクをキャンセルしてから新しいタスクを起動する。
+        bannerHideTask?.cancel()
+        bannerHideTask = Task {
             try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
             withAnimation {
                 showSuccessBanner = false
                 showErrorBanner = false
