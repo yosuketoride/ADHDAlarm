@@ -1,12 +1,17 @@
 import Foundation
 
 /// App GroupのJSONからAlarmEventを読み込むWidget専用ヘルパー
+///
+/// ⚠️ P-9-9 App Group Race Condition防止ルール:
+/// Widget Extension は App Group から「読み取りのみ」行うこと。
+/// XP加算等の書き込みはメインアプリ側でのみ行い、Widgetからは絶対に書き込まない。
+/// メインアプリが書き込み後に WidgetCenter.shared.reloadAllTimelines() を呼ぶ。
 enum WidgetDataProvider {
 
     private static let appGroupID = "group.com.yosuke.WasurenboAlarm"
     private static let fileName   = "alarm_events.json"
 
-    /// App Groupコンテナからアラーム一覧を取得する
+    /// App Groupコンテナからアラーム一覧を取得する（読み取りのみ）
     static func loadAll() -> [WidgetAlarmEvent] {
         guard
             let url  = FileManager.default
