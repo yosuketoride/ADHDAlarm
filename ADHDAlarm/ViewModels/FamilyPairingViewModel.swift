@@ -91,16 +91,22 @@ final class FamilyPairingViewModel {
 
     private func startCountdown(linkId: String, code: String) {
         countdownTask?.cancel()
+        // レビュー指摘 #2: Task.sleepでカウントダウンするとバックグラウンド中にサスペンドして
+        // 「UI上は残り4分なのにサーバー側は期限切れ」という最悪UXが起きる。
+        // 目標時刻を固定して差分計算する方式に変更することで、バックグラウンドから戻っても正確な残り時間を表示する。
+        let expireDate = Date().addingTimeInterval(Double(secondsRemaining))
         countdownTask = Task {
-            while secondsRemaining > 0 && !Task.isCancelled {
+            while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
-                secondsRemaining -= 1
+                let remaining = max(0, Int(expireDate.timeIntervalSinceNow))
+                secondsRemaining = remaining
                 if case .waitingForFamily = state {
-                    state = .waitingForFamily(code: code, linkId: linkId, expiresIn: secondsRemaining)
+                    state = .waitingForFamily(code: code, linkId: linkId, expiresIn: remaining)
                 }
-            }
-            if secondsRemaining == 0 {
-                state = .error("コードの有効期限が切れました。もう一度お試しください。")
+                if remaining == 0 {
+                    state = .error("コードの有効期限が切れました。もう一度お試しください。")
+                    break
+                }
             }
         }
     }

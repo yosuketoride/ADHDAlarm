@@ -65,12 +65,15 @@ final class SOSPairingViewModel {
     }
     
     private func startCountdown() {
+        // レビュー指摘 #2: Timer/Task.sleepの引き算はバックグラウンドでサスペンドするため
+        // 目標時刻から逆算する方式に変更。バックグラウンドから戻っても正確な残り時間を表示する。
+        let expireDate = Date().addingTimeInterval(Double(timeRemaining))
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self = self else { return }
-                if self.timeRemaining > 0 {
-                    self.timeRemaining -= 1
-                } else {
+                let remaining = max(0, Int(expireDate.timeIntervalSinceNow))
+                self.timeRemaining = remaining
+                if remaining == 0 {
                     self.countdownTimer?.invalidate()
                     if self.state == .waitingForFamily {
                         self.state = .error("コードの有効期限（10分）が切れました。再発行してください。")

@@ -73,7 +73,9 @@ final class FamilyInputViewModel {
     }
 
     var isReadyToSend: Bool {
-        !trimmedTitle.isEmpty && fireDate > Date()
+        // レビュー指摘 #3: sendState == .sending のガードを追加。
+        // 通信中に連打すると同じ予定が家族に複数届くため、送信中は再送信不可にする。
+        !trimmedTitle.isEmpty && fireDate > Date() && sendState != .sending
     }
 
     // MARK: - 送信

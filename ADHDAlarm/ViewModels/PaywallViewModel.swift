@@ -45,6 +45,9 @@ final class PaywallViewModel {
                 successMessage = "PROプランへのアップグレードが完了しました！"
             }
         } catch {
+            // レビュー指摘 #4: ユーザーが認証画面で「キャンセル」を押した場合も catch に来る。
+            // StoreKit 2 の userCancelled はユーザーの意思的操作なのでエラー表示しない。
+            if case StoreKitError.userCancelled = error { return }
             errorMessage = "購入に失敗しました。しばらくしてからお試しください。"
         }
     }

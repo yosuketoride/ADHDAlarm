@@ -220,6 +220,9 @@ final class PersonHomeViewModel {
         // タイマーを先に止めてから await（タイマー発火との競合を防ぐ）
         deleteTimer?.invalidate()
         deleteTimer = nil
+        // 連続削除対応: 前の pendingDelete が残っている場合は即座にコミット削除する。
+        // これにより「3秒以内に2件削除」しても前のアラームがゾンビ化しない。
+        // 副作用: 2件目の削除操作が来た瞬間に1件目の Undo 猶予が強制終了する（仕様として許容）。
         if let pending = pendingDelete {
             await commitDelete(pending)
         }
