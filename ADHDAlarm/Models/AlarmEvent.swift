@@ -136,4 +136,30 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         isToDo                 = try c.decodeIfPresent(Bool.self,               forKey: .isToDo) ?? false
         undoPendingUntil       = try c.decodeIfPresent(Date.self,               forKey: .undoPendingUntil)
     }
+
+    // encode(to:) を明示実装。init(from:) をカスタム定義した場合、将来のプロパティ追加時に
+    // エンコード側だけ漏れるサイレントバグを防ぐためセットで定義する（レビュー指摘 #4）
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id,                     forKey: .id)
+        try c.encode(title,                  forKey: .title)
+        try c.encode(fireDate,               forKey: .fireDate)
+        try c.encode(preNotificationMinutes, forKey: .preNotificationMinutes)
+        try c.encodeIfPresent(eventKitIdentifier,  forKey: .eventKitIdentifier)
+        try c.encodeIfPresent(alarmKitIdentifier,  forKey: .alarmKitIdentifier)
+        try c.encode(alarmKitIdentifiers,          forKey: .alarmKitIdentifiers)
+        try c.encode(alarmKitMinutesMap,            forKey: .alarmKitMinutesMap)
+        try c.encodeIfPresent(voiceFileName,        forKey: .voiceFileName)
+        try c.encodeIfPresent(calendarIdentifier,   forKey: .calendarIdentifier)
+        try c.encode(voiceCharacter,                forKey: .voiceCharacter)
+        try c.encode(createdAt,                     forKey: .createdAt)
+        try c.encodeIfPresent(recurrenceRule,        forKey: .recurrenceRule)
+        try c.encodeIfPresent(recurrenceGroupID,     forKey: .recurrenceGroupID)
+        try c.encodeIfPresent(remoteEventId,         forKey: .remoteEventId)
+        try c.encodeIfPresent(eventEmoji,            forKey: .eventEmoji)
+        try c.encodeIfPresent(completionStatus,      forKey: .completionStatus)
+        try c.encode(snoozeCount,                    forKey: .snoozeCount)
+        try c.encode(isToDo,                         forKey: .isToDo)
+        try c.encodeIfPresent(undoPendingUntil,      forKey: .undoPendingUntil)
+    }
 }

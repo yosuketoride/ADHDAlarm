@@ -33,7 +33,13 @@ enum Constants {
 
     // MARK: - Supabase (SOS LINE連携用)
     enum Supabase {
-        // TODO: 実際のSupabaseプロジェクトURLとAnon Keyに置き換えること
+        // ⚠️ セキュリティ注意（レビュー指摘）:
+        // Supabase Anon Key はクライアント公開前提のキーだが、ソースコードへの直書きは
+        // リポジトリ公開時に Bot にスクレイピングされるリスクがある。
+        // リリース前に Secrets.xcconfig（.gitignore 済み）へ移行すること。
+        //   手順: Xcode > Project > Info > Configurations に xcconfig を追加し、
+        //         SUPABASE_URL / SUPABASE_ANON_KEY をビルド変数として定義する。
+        // ⚠️ Supabase ダッシュボードで全テーブルの RLS が有効になっていることも必ず確認。
         static let projectURL = "https://frvrvuwuottwphzkvxss.supabase.co"
         static let anonKey    = "sb_publishable_So0dQ0oVEycAnA4gzYaP1A_FXghS77I"
     }

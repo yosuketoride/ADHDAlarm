@@ -4,8 +4,26 @@ import ActivityKit
 import AppIntents
 import UserNotifications
 
+// MARK: - AppDelegate（レビュー指摘 #2）
+// UNUserNotificationCenter.delegate は App.init() ではなく AppDelegate で設定する。
+// SwiftUI の App 構造体の init は Scene 再構築で複数回呼ばれる可能性があるため。
+private final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = ForegroundNotificationDelegate.shared
+        // P-9-6: データモデルのマイグレーション（新フィールド追加時に既存データを補完）
+        DataMigrationService.migrateIfNeeded()
+        return true
+    }
+}
+
 @main
 struct ADHDAlarmApp: App {
+    // AppDelegate を SwiftUI ライフサイクルに接続
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     @State private var appState  = AppState()
     @State private var appRouter = AppRouter()
     @Environment(\.scenePhase) private var scenePhase
@@ -14,12 +32,11 @@ struct ADHDAlarmApp: App {
     private let permissionsService = PermissionsService()
     @State private var storeKit    = StoreKitService()
 
-    init() {
-        // フォアグラウンド中も通知を表示するためにデリゲートを設定
-        UNUserNotificationCenter.current().delegate = ForegroundNotificationDelegate.shared
-        // P-9-6: データモデルのマイグレーション（新フィールド追加時に既存データを補完）
-        DataMigrationService.migrateIfNeeded()
-    }
+    // P-5-4: scenePhase .active の多重発火を防ぐデバウンス用タイムスタンプ
+    // コントロールセンター開閉などで .active が連打されても最低60秒は再同期しない
+    @State private var lastSyncTimestamp: Date = .distantPast
+
+    init() {}
 
     var body: some Scene {
         WindowGroup {
@@ -38,6 +55,10 @@ struct ADHDAlarmApp: App {
             if newPhase == .active {
                 permissionsService.refreshStatuses()
                 checkBatteryLevel()
+                // P-5-4: 前回同期から60秒未満ならスキップ（多重発火防止）
+                let now = Date()
+                guard now.timeIntervalSince(lastSyncTimestamp) >= 60 else { return }
+                lastSyncTimestamp = now
                 Task {
                     await syncEngine.performFullSync()
                     let newCount = await syncEngine.syncRemoteEvents()
