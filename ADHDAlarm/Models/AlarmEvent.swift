@@ -46,6 +46,9 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
     var completionStatus: CompletionStatus?
     /// スヌーズを押した回数（最大3回でボタン非表示、P-2-2/P-9-15）
     var snoozeCount: Int
+    /// 時間指定なし（ToDo）タスクかどうか（P-1-11）
+    /// trueの場合アラーム発火なし・ホーム最上部に常駐
+    var isToDo: Bool
 
     init(
         id: UUID = UUID(),
@@ -65,7 +68,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         remoteEventId: String? = nil,
         eventEmoji: String? = nil,
         completionStatus: CompletionStatus? = nil,
-        snoozeCount: Int = 0
+        snoozeCount: Int = 0,
+        isToDo: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -85,6 +89,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         self.eventEmoji = eventEmoji
         self.completionStatus = completionStatus
         self.snoozeCount = snoozeCount
+        self.isToDo = isToDo
     }
 
     // MARK: - Codable（後方互換）
@@ -99,6 +104,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         case eventEmoji
         case completionStatus
         case snoozeCount
+        case isToDo
     }
 
     init(from decoder: Decoder) throws {
@@ -121,5 +127,6 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         eventEmoji             = try c.decodeIfPresent(String.self,            forKey: .eventEmoji)
         completionStatus       = try c.decodeIfPresent(CompletionStatus.self,  forKey: .completionStatus)
         snoozeCount            = try c.decodeIfPresent(Int.self,                forKey: .snoozeCount) ?? 0
+        isToDo                 = try c.decodeIfPresent(Bool.self,               forKey: .isToDo) ?? false
     }
 }

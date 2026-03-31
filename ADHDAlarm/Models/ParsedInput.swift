@@ -10,4 +10,6 @@ struct ParsedInput: Equatable {
     var recurrenceRule: RecurrenceRule? = nil
     /// NLParserが日付を明示的に検出したか（falseなら時間のみの発話 → 確認カードで今日/明日トグルを表示）
     var hasExplicitDate: Bool = false
+    /// 時間指定なし（ToDo）タスクかどうか（P-1-11）
+    var isToDo: Bool = false
 }

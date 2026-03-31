@@ -8,75 +8,17 @@ struct EventRow: View {
     let onDelete: () -> Void
 
     @State private var showDeleteConfirm = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        HStack(spacing: Spacing.md) {
-            // 絵文字アイコン（左端・28pt相当）
-            Text(alarm.eventEmoji ?? "📌")
-                .font(.system(size: IconSize.lg))
-                .opacity(isPast ? 0.4 : 1.0)
-                .frame(width: IconSize.xl, alignment: .center)
+        // P-1-12: accessibility3以上ではVStackレイアウトに切り替え
+        let isExtremeType = dynamicTypeSize >= .accessibility3
 
-            // 時刻
-            VStack(alignment: .center, spacing: 2) {
-                if showDate {
-                    Text(alarm.fireDate.japaneseDateString)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-                Text(alarm.fireDate.japaneseTimeString)
-                    .font(.title3.weight(.bold))
-                    .monospacedDigit()
-                    .foregroundStyle(isPast ? .secondary : .primary)
-            }
-            .frame(width: 56)
-
-            // タイトル + サブ情報
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(alarm.title)
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(isPast ? .secondary : .primary)
-                    .lineLimit(2)
-                    .strikethrough(isPast, color: .secondary)
-
-                if !isPast {
-                    let values = Array(alarm.alarmKitMinutesMap.values)
-                    let minutes = values.isEmpty ? [alarm.preNotificationMinutes] : values.sorted(by: >)
-                    let timingLabel = minutes.map { $0 == 0 ? "ちょうど" : "\($0)分前" }.joined(separator: "・")
-                    Label(timingLabel, systemImage: "bell.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if let rule = alarm.recurrenceRule {
-                    Label(rule.shortDisplayName, systemImage: "repeat")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else if isPast {
-                    Text("お疲れ様でした！")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer()
-
-            if isPast {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(Color.statusSuccess.opacity(0.7))
-                    .frame(width: ComponentSize.small, height: ComponentSize.small)
+        Group {
+            if isExtremeType {
+                largeTypeLayout
             } else {
-                Button {
-                    showDeleteConfirm = true
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.callout)
-                        .foregroundStyle(Color.statusDanger.opacity(0.7))
-                        .frame(width: ComponentSize.small, height: ComponentSize.small)
-                }
+                normalLayout
             }
         }
         .padding(.vertical, Spacing.sm)
@@ -95,7 +37,137 @@ struct EventRow: View {
         }
     }
 
+    // MARK: - 通常レイアウト
+
+    private var normalLayout: some View {
+        HStack(spacing: Spacing.md) {
+            // 絵文字アイコン（左端・28pt相当）
+            Text(alarm.eventEmoji ?? "📌")
+                .font(.system(size: IconSize.lg))
+                .opacity(isPast ? 0.4 : 1.0)
+                .frame(width: IconSize.xl, alignment: .center)
+
+            // 時刻（ToDoは「いつでも」表示）
+            VStack(alignment: .center, spacing: 2) {
+                if showDate {
+                    Text(alarm.fireDate.japaneseDateString)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                if alarm.isToDo {
+                    Text("いつでも")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(alarm.fireDate.japaneseTimeString)
+                        .font(.title3.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(isPast ? .secondary : .primary)
+                }
+            }
+            .frame(width: 56)
+
+            // タイトル + サブ情報
+            titleAndSubInfo
+
+            Spacer()
+
+            actionButton
+        }
+    }
+
+    // MARK: - 巨大テキストレイアウト（P-1-12: accessibility3以上）
+
+    private var largeTypeLayout: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.sm) {
+                Text(alarm.eventEmoji ?? "📌")
+                    .font(.system(size: IconSize.xl))
+                    .opacity(isPast ? 0.4 : 1.0)
+
+                if alarm.isToDo {
+                    Text("いつでも")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(alarm.fireDate.japaneseTimeString)
+                        .font(.title3.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(isPast ? .secondary : .primary)
+                }
+                Spacer()
+                actionButton
+            }
+            titleAndSubInfo
+        }
+    }
+
+    // MARK: - 共通パーツ
+
+    private var titleAndSubInfo: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(spacing: 4) {
+                Text(alarm.title)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(isPast ? .secondary : .primary)
+                    .lineLimit(2)
+                    .strikethrough(isPast, color: .secondary)
+                // ToDoバッジ（P-1-11）
+                if alarm.isToDo && !isPast {
+                    Text("ToDo")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.owlAmber)
+                        .clipShape(Capsule())
+                }
+            }
+
+            if !isPast && !alarm.isToDo {
+                let values = Array(alarm.alarmKitMinutesMap.values)
+                let minutes = values.isEmpty ? [alarm.preNotificationMinutes] : values.sorted(by: >)
+                let timingLabel = minutes.map { $0 == 0 ? "ちょうど" : "\($0)分前" }.joined(separator: "・")
+                Label(timingLabel, systemImage: "bell.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let rule = alarm.recurrenceRule {
+                Label(rule.shortDisplayName, systemImage: "repeat")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if isPast {
+                Text("お疲れ様でした！")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var actionButton: some View {
+        Group {
+            if isPast {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.statusSuccess.opacity(0.7))
+                    .frame(width: ComponentSize.small, height: ComponentSize.small)
+            } else {
+                Button {
+                    showDeleteConfirm = true
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.callout)
+                        .foregroundStyle(Color.statusDanger.opacity(0.7))
+                        .frame(width: ComponentSize.small, height: ComponentSize.small)
+                }
+            }
+        }
+    }
+
     private var isPast: Bool {
-        alarm.fireDate < Date()
+        alarm.completionStatus != nil || (!alarm.isToDo && alarm.fireDate < Date())
     }
 }

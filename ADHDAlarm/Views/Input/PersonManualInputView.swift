@@ -14,6 +14,8 @@ struct PersonManualInputView: View {
     @State private var customTitle = ""
     /// 選択中の時刻プリセット
     @State private var selectedTime: TimePreset?
+    /// 「時間は決めない（ToDo）」モードか否か（P-1-11）
+    @State private var isToDoMode = false
     /// 「細かく設定」モードか否か
     @State private var showDatePicker = false
     /// DatePickerで選んだ日時
@@ -46,12 +48,13 @@ struct PersonManualInputView: View {
     }
 
     private var fireDateResult: Date? {
+        if isToDoMode { return Date() }  // ToDo: 発火日時は形式上今日（アラーム不発火）
         if showDatePicker { return pickerDate }
         return selectedTime.map { computeDate(for: $0) }
     }
 
     private var canConfirm: Bool {
-        !titleText.isEmpty && fireDateResult != nil
+        !titleText.isEmpty && (isToDoMode || fireDateResult != nil)
     }
 
     // MARK: - ビュー本体
@@ -176,24 +179,47 @@ struct PersonManualInputView: View {
                 timeButton(.relative(30))
                 timeButton(.relative(60))
             }
-            // 細かく設定
-            Button {
-                withAnimation(.spring(duration: 0.2)) {
-                    showDatePicker.toggle()
-                    if showDatePicker {
-                        selectedTime = nil
+            // 細かく設定 / 時間は決めない
+            HStack(spacing: 8) {
+                Button {
+                    withAnimation(.spring(duration: 0.2)) {
+                        showDatePicker.toggle()
+                        if showDatePicker {
+                            selectedTime = nil
+                            isToDoMode = false
+                        }
                     }
+                } label: {
+                    Text(showDatePicker ? "閉じる" : "⚙️ 細かく設定")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(showDatePicker ? .white : .secondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                        .background(showDatePicker ? Color.blue : Color(.tertiarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-            } label: {
-                Label(showDatePicker ? "閉じる" : "⚙️ 細かく設定", systemImage: "")
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 44)
-                    .background(Color(.tertiarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                .buttonStyle(.plain)
+
+                // P-1-11: 時間は決めない（ToDo）
+                Button {
+                    withAnimation(.spring(duration: 0.2)) {
+                        isToDoMode.toggle()
+                        if isToDoMode {
+                            selectedTime = nil
+                            showDatePicker = false
+                        }
+                    }
+                } label: {
+                    Text(isToDoMode ? "✅ 時間なし" : "⏱ 時間は決めない")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(isToDoMode ? .white : .secondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                        .background(isToDoMode ? Color.owlAmber : Color(.tertiarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -258,7 +284,8 @@ struct PersonManualInputView: View {
             let parsed = ParsedInput(
                 title: titleText,
                 fireDate: fireDateResult!,
-                hasExplicitDate: true
+                hasExplicitDate: true,
+                isToDo: isToDoMode
             )
             viewModel.parsedInput = parsed
             // 設定済みの事前通知タイミングを引き継ぐ

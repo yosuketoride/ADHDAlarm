@@ -157,7 +157,8 @@ final class InputViewModel {
                 calendarIdentifier: calendarID,
                 voiceCharacter: appState.voiceCharacter,
                 recurrenceRule: recurrence,
-                recurrenceGroupID: groupID
+                recurrenceGroupID: groupID,
+                isToDo: parsed.isToDo
             )
 
             // Step 1: 音声ファイル（.caf）を生成してLibrary/Soundsに保存（失敗してもスキップして続行）
@@ -171,26 +172,29 @@ final class InputViewModel {
             }
 
             // Step 2: AlarmKitアラームを登録（最重要ステップ。失敗時はEventKitに書かず重複を防ぐ）
-            do {
-                var scheduledIDs: [UUID] = []
-                var minutesMap: [String: Int] = [:]
-                for minutes in selectedPreNotificationMinutesList.sorted(by: >) {
-                    var tempAlarm = alarm
-                    tempAlarm.preNotificationMinutes = minutes
-                    // アラームのみモードではAlarmKitに音声ファイルを渡さない
-                    if appState.notificationType != .alarmAndVoice {
-                        tempAlarm.voiceFileName = nil
+            // P-1-11: ToDoタスクはアラーム発火不要のためAlarmKit登録をスキップ
+            if !alarm.isToDo {
+                do {
+                    var scheduledIDs: [UUID] = []
+                    var minutesMap: [String: Int] = [:]
+                    for minutes in selectedPreNotificationMinutesList.sorted(by: >) {
+                        var tempAlarm = alarm
+                        tempAlarm.preNotificationMinutes = minutes
+                        // アラームのみモードではAlarmKitに音声ファイルを渡さない
+                        if appState.notificationType != .alarmAndVoice {
+                            tempAlarm.voiceFileName = nil
+                        }
+                        let akID = try await alarmScheduler.schedule(tempAlarm)
+                        scheduledIDs.append(akID)
+                        minutesMap[akID.uuidString] = minutes
                     }
-                    let akID = try await alarmScheduler.schedule(tempAlarm)
-                    scheduledIDs.append(akID)
-                    minutesMap[akID.uuidString] = minutes
+                    alarm.alarmKitIdentifiers = scheduledIDs
+                    alarm.alarmKitIdentifier = scheduledIDs.first
+                    alarm.alarmKitMinutesMap = minutesMap
+                } catch {
+                    // AlarmKit登録失敗 → EventKit書込をスキップしてループを継続
+                    continue
                 }
-                alarm.alarmKitIdentifiers = scheduledIDs
-                alarm.alarmKitIdentifier = scheduledIDs.first
-                alarm.alarmKitMinutesMap = minutesMap
-            } catch {
-                // AlarmKit登録失敗 → EventKit書込をスキップしてループを継続
-                continue
             }
 
             // Step 3: EventKitに予定を書き込む（AlarmKit成功後のみ。カレンダー権限なし時はスキップ）
