@@ -149,11 +149,44 @@ struct PersonHomeView: View {
                     viewModel.showSettings = true
                 }
 
-            // あいさつ文
+            // 吹き出しあいさつ（フクロウの下に三角ポインタ付きバブル）
+            greetingBubble
+        }
+    }
+
+    // MARK: - 吹き出しあいさつ
+
+    private var greetingBubble: some View {
+        VStack(spacing: 0) {
+            // フクロウを指す上向き三角
+            BubbleTail()
+                .fill(Color(.secondarySystemBackground))
+                .frame(width: 22, height: 11)
+                .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: -1)
+            // 本文バブル
             Text(viewModel.greeting)
-                .font(.title3.weight(.semibold))
+                .font(.callout.weight(.semibold))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, Spacing.xl)
+                .foregroundStyle(.primary)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, Spacing.sm)
+                .frame(maxWidth: 300)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
+                .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
+        }
+    }
+
+    // MARK: - 吹き出し三角シェイプ（上向き）
+
+    private struct BubbleTail: Shape {
+        func path(in rect: CGRect) -> Path {
+            var p = Path()
+            p.move(to: CGPoint(x: rect.midX, y: rect.minY))   // 頂点
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY)) // 右下
+            p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY)) // 左下
+            p.closeSubpath()
+            return p
         }
     }
 
