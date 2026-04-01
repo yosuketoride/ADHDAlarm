@@ -275,8 +275,9 @@ struct PersonHomeView: View {
             }
         }
         .padding(Spacing.md)
-        .background(.regularMaterial)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
+        .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
     }
 
     // MARK: - 予定リストセクション
