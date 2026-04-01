@@ -152,13 +152,7 @@ struct PersonHomeView: View {
     // MARK: - フクロウセクション
 
     private var owlSection: some View {
-        // 吹き出し（左）＋ フクロウ（右）を横並びに配置
-        HStack(alignment: .center, spacing: Spacing.sm) {
-            // 左: 吹き出し（フクロウの左上あたり）
-            greetingBubble
-                .frame(maxWidth: .infinity, alignment: .trailing)
-
-            // 右: フクロウ本体
+        ZStack(alignment: .top) {
             owlImage
                 .frame(width: 110, height: 110)
                 .rotationEffect(.degrees(owlNeckTilt))
@@ -167,9 +161,12 @@ struct PersonHomeView: View {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     viewModel.showSettings = true
                 }
-                // ⚙️ボタンと重ならないよう右端に余白
-                .padding(.trailing, Spacing.xl + Spacing.lg)
+
+            greetingBubble
+                .offset(x: -54, y: 6)
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: 138)
         .padding(.horizontal, Spacing.lg)
     }
 
@@ -179,19 +176,22 @@ struct PersonHomeView: View {
         HStack(spacing: 0) {
             // 本文バブル（青背景・白文字）
             Text(viewModel.greeting)
-                .font(.callout.weight(.semibold))
+                .font(.caption.weight(.semibold))
                 .multilineTextAlignment(.leading)
                 .foregroundStyle(.white)
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, Spacing.sm)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xs)
                 .background(Color.statusPending)
                 .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
                 .shadow(color: Color.statusPending.opacity(0.3), radius: 6, x: 0, y: 3)
+                .frame(maxWidth: 164, alignment: .leading)
 
             // 右向き三角（フクロウを指す）
             BubbleTailRight()
                 .fill(Color.statusPending)
-                .frame(width: 10, height: 18)
+                .frame(width: 8, height: 14)
         }
     }
 

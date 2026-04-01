@@ -166,11 +166,7 @@ struct EventRow: View {
                 Label(rule.shortDisplayName, systemImage: "repeat")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else if isPast {
-                Text("お疲れ様でした！")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
+            } else if !isPast {
                 // 操作ヒント（長押し完了 / スワイプ削除）
                 Text("長押しで完了 ・ 左スワイプで削除")
                     .font(.caption2)
