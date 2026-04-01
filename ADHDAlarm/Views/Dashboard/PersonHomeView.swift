@@ -12,6 +12,7 @@ struct PersonHomeView: View {
     @State private var owlNeckTilt: Double = 0
     // レビュー指摘: confirmationDialog は親に1つだけ配置する（EventRow側から移動）
     @State private var eventToDelete: AlarmEvent?
+    @State private var eventToActOn: AlarmEvent?
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -114,10 +115,15 @@ struct PersonHomeView: View {
                 undoBanner
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .padding(.bottom, ComponentSize.fab + Spacing.xl)
+            } else if viewModel.pendingComplete != nil {
+                completeUndoBanner
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .padding(.bottom, ComponentSize.fab + Spacing.xl)
             }
         }
         .animation(.spring(duration: 0.3), value: viewModel.confirmationMessage != nil)
         .animation(.spring(duration: 0.3), value: viewModel.pendingDelete != nil)
+        .animation(.spring(duration: 0.3), value: viewModel.pendingComplete != nil)
         .onShake { viewModel.handleOwlShake() }
         .task {
             viewModel.bindAppStateIfNeeded(appState)
@@ -146,6 +152,36 @@ struct PersonHomeView: View {
                 }
             }
             Button("やめる", role: .cancel) { eventToDelete = nil }
+        }
+        .confirmationDialog(
+            actionDialogTitle,
+            isPresented: Binding(get: { eventToActOn != nil }, set: { if !$0 { eventToActOn = nil } }),
+            titleVisibility: .visible
+        ) {
+            if let alarm = eventToActOn {
+                if alarm.completionStatus == nil {
+                    Button("完了にする") {
+                        Task { await viewModel.completeEvent(alarm) }
+                        eventToActOn = nil
+                    }
+                }
+                if alarm.recurrenceGroupID != nil {
+                    Button("今回のみ削除する", role: .destructive) {
+                        Task { await viewModel.deleteEvent(alarm) }
+                        eventToActOn = nil
+                    }
+                    Button("繰り返しを全部削除する", role: .destructive) {
+                        Task { await viewModel.deleteRecurringSeries(alarm) }
+                        eventToActOn = nil
+                    }
+                } else {
+                    Button("削除する", role: .destructive) {
+                        Task { await viewModel.deleteEvent(alarm) }
+                        eventToActOn = nil
+                    }
+                }
+            }
+            Button("やめる", role: .cancel) { eventToActOn = nil }
         }
     }
 
@@ -316,8 +352,8 @@ struct PersonHomeView: View {
                         onDelete: {
                             eventToDelete = alarm
                         },
-                        onComplete: {
-                            Task { await viewModel.completeEvent(alarm) }
+                        onOpenActions: {
+                            eventToActOn = alarm
                         }
                     )
                     .padding(.horizontal, Spacing.md)
@@ -454,8 +490,8 @@ struct PersonHomeView: View {
                         onDelete: {
                             eventToDelete = alarm
                         },
-                        onComplete: {
-                            Task { await viewModel.completeEvent(alarm) }
+                        onOpenActions: {
+                            eventToActOn = alarm
                         }
                     )
                     .padding(.horizontal, Spacing.md)
@@ -611,6 +647,26 @@ struct PersonHomeView: View {
         .padding(.horizontal, Spacing.lg)
     }
 
+    private var completeUndoBanner: some View {
+        HStack {
+            if let completed = viewModel.pendingComplete {
+                Text("「\(completed.title)」を完了にしました")
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+            }
+            Spacer()
+            Button("もとに戻す") {
+                withAnimation { viewModel.undoComplete() }
+            }
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(Color.owlAmber)
+        }
+        .padding(Spacing.md)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
+        .padding(.horizontal, Spacing.lg)
+    }
+
     // MARK: - フクロウタップハンドラ
 
     private func handleOwlTap() {
@@ -634,5 +690,13 @@ struct PersonHomeView: View {
             return "「\(alarm.title)」は繰り返し予定です。今回だけ削除するか、繰り返しを全部削除するか選んでください。"
         }
         return "「\(alarm.title)」を削除しますか？（iPhoneのカレンダーからも消えます）"
+    }
+
+    private var actionDialogTitle: String {
+        guard let alarm = eventToActOn else { return "予定をどうしますか？" }
+        if alarm.completionStatus != nil {
+            return "「\(alarm.title)」を削除しますか？"
+        }
+        return "「\(alarm.title)」をどうしますか？"
     }
 }

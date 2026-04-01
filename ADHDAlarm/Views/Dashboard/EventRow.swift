@@ -7,7 +7,7 @@ struct EventRow: View {
     let alarm: AlarmEvent
     var showDate: Bool = false
     let onDelete: () -> Void
-    var onComplete: (() -> Void)? = nil
+    var onOpenActions: (() -> Void)? = nil
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -29,31 +29,11 @@ struct EventRow: View {
         .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
         .contentShape(Rectangle())
         .opacity(isPast ? 0.7 : 1.0)
-        // 長押し（1秒）で完了（高齢者向けに確実に反応させる）
+        // 長押しで操作メニューを開く
         .onLongPressGesture(minimumDuration: 1.0) {
-            guard !isPast else { return }
+            guard let onOpenActions else { return }
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            onComplete?()
-        }
-        // スワイプ右: 完了（誤操作防止でアイコン表示のみ）
-        .swipeActions(edge: .leading, allowsFullSwipe: false) {
-            if !isPast {
-                Button {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    onComplete?()
-                } label: {
-                    Label("完了", systemImage: "checkmark.circle.fill")
-                }
-                .tint(Color.statusSuccess)
-            }
-        }
-        // スワイプ左: 削除（confirmationDialogは親で管理）
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) {
-                onDelete()
-            } label: {
-                Label("削除", systemImage: "trash.fill")
-            }
+            onOpenActions()
         }
     }
 
@@ -166,24 +146,24 @@ struct EventRow: View {
                 Label(rule.shortDisplayName, systemImage: "repeat")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else if !isPast {
-                // 操作ヒント（長押し完了 / スワイプ削除）
-                Text("長押しで完了 ・ 左スワイプで削除")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+            } else if isPast {
+                Label("完了済み", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(Color.statusSuccess.opacity(0.9))
             }
         }
     }
 
-    // 完了済みのみチェックマークを表示（未完了はスワイプ/長押しで操作）
-    @ViewBuilder
     private var actionButton: some View {
-        if isPast {
-            Image(systemName: "checkmark.circle.fill")
+        Button(role: .destructive) {
+            onDelete()
+        } label: {
+            Image(systemName: "trash")
                 .font(.title3)
-                .foregroundStyle(Color.statusSuccess.opacity(0.7))
-                .frame(width: 36, height: 36)
+                .foregroundStyle(isPast ? .secondary : Color.statusDanger)
+                .frame(width: 60, height: 60)
         }
+        .buttonStyle(.plain)
     }
 
     private var isPast: Bool {

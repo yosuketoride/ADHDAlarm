@@ -44,7 +44,9 @@ final class PersonHomeViewModel {
     var upcomingEvents: [AlarmEvent] = []  // 明日以降（最大2件表示用）
     var isLoading = false
     var pendingDelete: AlarmEvent?
+    var pendingComplete: AlarmEvent?
     private var deleteTimer: Timer?
+    private var completeTimer: Timer?
 
     // MARK: - UI状態
     var isEventListExpanded = false
@@ -237,6 +239,12 @@ final class PersonHomeViewModel {
     // MARK: - 予定削除（3秒Undo付き）
 
     func deleteEvent(_ alarm: AlarmEvent) async {
+        completeTimer?.invalidate()
+        completeTimer = nil
+        if let pending = pendingComplete {
+            await commitComplete(pending)
+        }
+        pendingComplete = nil
         // タイマーを先に止めてから await（タイマー発火との競合を防ぐ）
         deleteTimer?.invalidate()
         deleteTimer = nil
@@ -267,30 +275,50 @@ final class PersonHomeViewModel {
         pendingDelete = nil
     }
 
-    func completeEvent(_ alarm: AlarmEvent) async {
+    func prepareCompleteEvent(_ alarm: AlarmEvent) async {
         guard alarm.completionStatus == nil else { return }
 
-        var updated = alarm
-        updated.completionStatus = .completed
-        updated.alarmKitIdentifier = nil
-        updated.alarmKitIdentifiers = []
-        updated.alarmKitMinutesMap = [:]
-        eventStore.save(updated)
+        deleteTimer?.invalidate()
+        deleteTimer = nil
+        if let pending = pendingDelete {
+            await commitDelete(pending)
+        }
+        pendingDelete = nil
 
-        let idsToCancel = alarm.alarmKitIdentifiers.isEmpty
-            ? [alarm.alarmKitIdentifier].compactMap { $0 }
-            : alarm.alarmKitIdentifiers
-        if !idsToCancel.isEmpty {
-            try? await AlarmKitScheduler().cancelAll(alarmKitIDs: idsToCancel)
+        completeTimer?.invalidate()
+        completeTimer = nil
+        if let pending = pendingComplete {
+            await commitComplete(pending)
         }
 
-        if let remoteEventId = alarm.remoteEventId {
-            try? await FamilyRemoteService.shared.updateRemoteEventStatus(id: remoteEventId, status: "completed")
+        pendingComplete = alarm
+
+        if let index = events.firstIndex(where: { $0.id == alarm.id }) {
+            var completedPreview = alarm
+            completedPreview.completionStatus = .completed
+            events[index] = completedPreview
+        } else {
+            upcomingEvents.removeAll { $0.id == alarm.id }
         }
 
-        addXP(10)
-        await loadEvents()
-        showConfirmation("「\(alarm.title)」を完了にしたよ")
+        let alarmID = alarm.id
+        completeTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, let pending = self.pendingComplete, pending.id == alarmID else { return }
+                await self.commitComplete(pending)
+            }
+        }
+    }
+
+    func undoComplete() {
+        completeTimer?.invalidate()
+        completeTimer = nil
+        pendingComplete = nil
+        Task { await loadEvents() }
+    }
+
+    func completeEvent(_ alarm: AlarmEvent) async {
+        await prepareCompleteEvent(alarm)
     }
 
     func deleteRecurringSeries(_ alarm: AlarmEvent) async {
@@ -333,6 +361,32 @@ final class PersonHomeViewModel {
         VoiceFileGenerator().deleteAudio(alarmID: alarm.id)
         eventStore.delete(id: alarm.id)
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private func commitComplete(_ alarm: AlarmEvent) async {
+        if alarm.id == pendingComplete?.id { pendingComplete = nil }
+
+        var updated = alarm
+        updated.completionStatus = .completed
+        updated.alarmKitIdentifier = nil
+        updated.alarmKitIdentifiers = []
+        updated.alarmKitMinutesMap = [:]
+
+        let idsToCancel = alarm.alarmKitIdentifiers.isEmpty
+            ? [alarm.alarmKitIdentifier].compactMap { $0 }
+            : alarm.alarmKitIdentifiers
+        if !idsToCancel.isEmpty {
+            try? await AlarmKitScheduler().cancelAll(alarmKitIDs: idsToCancel)
+        }
+
+        if let remoteEventId = alarm.remoteEventId {
+            try? await FamilyRemoteService.shared.updateRemoteEventStatus(id: remoteEventId, status: "completed")
+        }
+
+        eventStore.save(updated)
+        addXP(10)
+        await loadEvents()
+        showConfirmation("「\(alarm.title)」を完了にしたよ")
     }
 
     // MARK: - フクロウ状態更新
