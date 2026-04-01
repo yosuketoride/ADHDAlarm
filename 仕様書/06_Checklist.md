@@ -635,7 +635,16 @@
 
 ### 🗑️ アカウント削除・データ保全（Supabase連携・実機必須）
 
-- [ ] アカウント削除: 設定→「アカウントを削除する」→確認ダイアログ→確定すると Supabase の全ユーザーデータが削除されること
+> **実装方針**: クライアントから直接 `auth.admin.deleteUser` は呼べないため、Supabase Edge Function `delete-account` 経由で削除する。
+> - Edge Function が JWT を受け取り → family_links 無効化 → remote_events 削除 → devices 削除 → Auth ユーザー削除 の順で実行
+> - ローカルの AlarmEvent データ（iPhoneのカレンダー連携）は削除しない
+
+- [ ] アカウント削除: 詳細設定→「アカウントを削除する」→確認ダイアログ→確定すると Supabase の全ユーザーデータが削除されること
+- [ ] アカウント削除: family_links が is_active = false になること（相手側に解除が伝わること）
+- [ ] アカウント削除: remote_events / devices レコードが削除されること
+- [ ] アカウント削除: Supabase Auth ユーザーが削除されること（Edge Function経由）
+- [ ] アカウント削除: 完了後に `appState.familyLinkId = nil` がセットされること
+- [ ] アカウント削除: ローカルの予定データ（AlarmEventStore）は保持されること
 - [ ] アカウント削除: 削除中に `ProgressView + 「削除中...」` オーバーレイが表示され、途中でシートを閉じられないこと
 - [ ] アカウント削除: 完了後にオンボーディング画面（ModeSelectionView）に遷移すること
 - [ ] アカウント削除: Supabase失敗時にエラーが表示され、ローカルデータが保持されること（再試行可能）
