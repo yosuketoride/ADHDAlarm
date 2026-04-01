@@ -359,7 +359,7 @@ final class RingingViewModel: NSObject {
         reverted.undoPendingUntil = Date().addingTimeInterval(5 * 60)
         AlarmEventStore.shared.save(reverted)
         // 再度EKに書き戻す（将来Phase3で実装。現時点はローカル復元のみ）
-        activeAlarm = nil
+        activeAlarm = reverted
     }
 
     // MARK: - プライベートヘルパー

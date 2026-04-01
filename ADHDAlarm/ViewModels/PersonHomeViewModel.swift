@@ -136,7 +136,7 @@ final class PersonHomeViewModel {
     /// 次の予定（カウントダウン用）
     var nextAlarm: AlarmEvent? {
         events
-            .filter { !$0.isToDo && $0.fireDate > Date() }
+            .filter { !$0.isToDo && $0.completionStatus == nil && $0.fireDate > Date() }
             .min(by: { $0.fireDate < $1.fireDate })
     }
 
@@ -223,7 +223,7 @@ final class PersonHomeViewModel {
         var seenGroupIDs = Set<UUID>()
         var result: [AlarmEvent] = []
         for event in allEvents
-            .filter({ !$0.isToDo && $0.fireDate >= startingFrom })
+            .filter({ !$0.isToDo && $0.completionStatus == nil && $0.fireDate >= startingFrom })
             .sorted(by: { $0.fireDate < $1.fireDate }) {
             if let groupID = event.recurrenceGroupID {
                 if seenGroupIDs.contains(groupID) { continue }
@@ -265,6 +265,58 @@ final class PersonHomeViewModel {
             events.sort { $0.fireDate < $1.fireDate }
         }
         pendingDelete = nil
+    }
+
+    func completeEvent(_ alarm: AlarmEvent) async {
+        guard alarm.completionStatus == nil else { return }
+
+        var updated = alarm
+        updated.completionStatus = .completed
+        updated.alarmKitIdentifier = nil
+        updated.alarmKitIdentifiers = []
+        updated.alarmKitMinutesMap = [:]
+        eventStore.save(updated)
+
+        let idsToCancel = alarm.alarmKitIdentifiers.isEmpty
+            ? [alarm.alarmKitIdentifier].compactMap { $0 }
+            : alarm.alarmKitIdentifiers
+        if !idsToCancel.isEmpty {
+            try? await AlarmKitScheduler().cancelAll(alarmKitIDs: idsToCancel)
+        }
+
+        if let remoteEventId = alarm.remoteEventId {
+            try? await FamilyRemoteService.shared.updateRemoteEventStatus(id: remoteEventId, status: "completed")
+        }
+
+        addXP(10)
+        await loadEvents()
+        showConfirmation("「\(alarm.title)」を完了にしたよ")
+    }
+
+    func deleteRecurringSeries(_ alarm: AlarmEvent) async {
+        guard let groupID = alarm.recurrenceGroupID else {
+            await deleteEvent(alarm)
+            return
+        }
+
+        let groupedEvents = eventStore.loadAll().filter { $0.recurrenceGroupID == groupID }
+        for groupedEvent in groupedEvents {
+            if let ekID = groupedEvent.eventKitIdentifier {
+                try? await calendarProvider.deleteEvent(eventKitIdentifier: ekID)
+            }
+            let idsToCancel = groupedEvent.alarmKitIdentifiers.isEmpty
+                ? [groupedEvent.alarmKitIdentifier].compactMap { $0 }
+                : groupedEvent.alarmKitIdentifiers
+            if !idsToCancel.isEmpty {
+                try? await AlarmKitScheduler().cancelAll(alarmKitIDs: idsToCancel)
+            }
+            VoiceFileGenerator().deleteAudio(alarmID: groupedEvent.id)
+            eventStore.delete(id: groupedEvent.id)
+        }
+
+        pendingDelete = nil
+        await loadEvents()
+        showConfirmation("繰り返し予定をまとめて削除したよ")
     }
 
     private func commitDelete(_ alarm: AlarmEvent) async {

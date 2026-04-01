@@ -242,10 +242,14 @@ struct MagicDemoView: View {
             try? await Task.sleep(for: .seconds(1))
             guard !Task.isCancelled else { return }
         }
-        // 振動3回（同一generatorを使い回す）
-        for _ in 0..<3 {
+        // 振動3回（毎回 prepare して取りこぼしを減らす）
+        try? await Task.sleep(for: .milliseconds(120))
+        for index in 0..<3 {
+            generator.prepare()
             generator.impactOccurred()
-            try? await Task.sleep(for: .milliseconds(400))
+            if index < 2 {
+                try? await Task.sleep(for: .milliseconds(550))
+            }
         }
         isCounting = false
         withAnimation { showHapticFollowUp = true }

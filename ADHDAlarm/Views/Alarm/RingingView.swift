@@ -6,6 +6,7 @@ import StoreKit
 struct RingingView: View {
     @State private var viewModel: RingingViewModel
     @Environment(AppState.self) private var appState
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var onDismissed: () -> Void = {}
 
     init(alarm: AlarmEvent, onDismissed: @escaping () -> Void = {}) {
@@ -259,47 +260,95 @@ struct RingingView: View {
             let secondsToEvent = max(0, alarm.fireDate.timeIntervalSince(now))
             let minutesToEvent = Int(ceil(secondsToEvent / 60.0))
 
-            VStack(spacing: 14) {
-                // タイミングバッジ
-                HStack(spacing: Spacing.sm) {
-                    Circle()
-                        .fill(Color(red: 0.95, green: 0.60, blue: 0.15))
-                        .frame(width: 8, height: 8)
-                        .opacity(bubbleBounce ? 1.0 : 0.4)
-                    if alarm.preNotificationMinutes == 0 {
-                        Text("ちょうど今の時間です")
-                    } else if minutesToEvent == 0 {
-                        Text("予定の時間を過ぎました")
-                    } else {
-                        Text("あと\(minutesToEvent)分で予定です")
-                    }
-                }
-                .font(.callout.weight(.bold))
-                .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.0))
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, Spacing.sm)
-                .background(Color(red: 1.0, green: 0.93, blue: 0.72))
-                .clipShape(Capsule())
-
-                // 予定タイトル
-                Text(alarm.title)
-                    .font(.system(.title2, design: .rounded).weight(.black))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(3)
-                    .minimumScaleFactor(0.7)
-                    .padding(.horizontal, 8)
+            if dynamicTypeSize >= .accessibility3 {
+                largeTypeEventCard(alarm: alarm, minutesToEvent: minutesToEvent)
+            } else {
+                standardEventCard(alarm: alarm, minutesToEvent: minutesToEvent)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, Spacing.lg)
-            .padding(.vertical, Spacing.lg)
-            .background(.background, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.7), lineWidth: 1.5)
-            }
-            .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
         }
+    }
+
+    private func standardEventCard(alarm: AlarmEvent, minutesToEvent: Int) -> some View {
+        VStack(spacing: 14) {
+            // タイミングバッジ
+            HStack(spacing: Spacing.sm) {
+                Circle()
+                    .fill(Color(red: 0.95, green: 0.60, blue: 0.15))
+                    .frame(width: 8, height: 8)
+                    .opacity(bubbleBounce ? 1.0 : 0.4)
+                if alarm.preNotificationMinutes == 0 {
+                    Text("ちょうど今の時間です")
+                } else if minutesToEvent == 0 {
+                    Text("予定の時間を過ぎました")
+                } else {
+                    Text("あと\(minutesToEvent)分で予定です")
+                }
+            }
+            .font(.callout.weight(.bold))
+            .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.0))
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(Color(red: 1.0, green: 0.93, blue: 0.72))
+            .clipShape(Capsule())
+
+            // 予定タイトル
+            Text(alarm.title)
+                .font(.system(.title2, design: .rounded).weight(.black))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 8)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.lg)
+        .background(.background, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.7), lineWidth: 1.5)
+        }
+        .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
+    }
+
+    private func largeTypeEventCard(alarm: AlarmEvent, minutesToEvent: Int) -> some View {
+        VStack(spacing: Spacing.md) {
+            if alarm.preNotificationMinutes == 0 {
+                Text("今")
+                    .font(.system(size: 84, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.6)
+            } else {
+                Text("\(max(minutesToEvent, 0))")
+                    .font(.system(size: 88, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.6)
+                Text("分")
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(alarm.preNotificationMinutes == 0 ? "予定の時間です" : "あと\(max(minutesToEvent, 0))分で予定です")
+                .font(.title3.weight(.bold))
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.75)
+
+            Text(alarm.title)
+                .font(.title2.weight(.black))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.lg)
+        .background(.background, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.7), lineWidth: 1.5)
+        }
+        .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
     }
 
     // MARK: - 停止ボタン
@@ -500,11 +549,13 @@ struct RingingView: View {
                     // Undoボタン（P-2-1/P-9-13）
                     if !isUndone {
                         Button {
-                            isUndone = true
                             viewModel.undoCompletion(alarm: pendingAlarm)
-                            Task {
-                                try? await Task.sleep(for: .seconds(0.5))
-                                onDismissed()
+                            pendingAlarm = viewModel.activeAlarm ?? pendingAlarm
+                            isUndone = false
+                            isSkipped = false
+                            showSkipSection = true
+                            withAnimation(.spring(duration: 0.35)) {
+                                showDismissMessage = false
                             }
                         } label: {
                             Text("↩ 間違えたので取り消す")

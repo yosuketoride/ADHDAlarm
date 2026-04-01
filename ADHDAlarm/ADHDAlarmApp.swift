@@ -207,8 +207,9 @@ struct RootView: View {
                     .transition(.opacity)
             }
         }
-        // iPhoneの「テキストサイズ」設定に自動追従。上限はaccessibility1でレイアウト崩壊を防ぐ
-        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+        // iPhoneの「テキストサイズ」設定に自動追従。
+        // RingingView などの実機テストで accessibility3 が必要なため、上限を引き上げる。
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
         // P-9-3: グローバルトースト（バッテリー警告など）
         .overlay(alignment: .top) {
             if let toast = appState.globalToast {

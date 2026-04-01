@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// 予定1件の行表示
 /// 左端に絵文字アイコン・時刻・タイトル・削除ボタンを並べる
@@ -6,6 +7,7 @@ struct EventRow: View {
     let alarm: AlarmEvent
     var showDate: Bool = false
     let onDelete: () -> Void
+    var onComplete: (() -> Void)? = nil
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -27,6 +29,11 @@ struct EventRow: View {
         .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
         .contentShape(Rectangle())
         .opacity(isPast ? 0.7 : 1.0)
+        .onLongPressGesture(minimumDuration: 1.0) {
+            guard !isPast else { return }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            onComplete?()
+        }
         // レビュー指摘: .confirmationDialog を各行に持つとリスト50件で50個のダイアログ定義が
         // メモリに積まれる。親ビュー(PersonHomeView)に1つだけ配置する設計に変更。
         // ゴミ箱タップで onDelete() を呼び、親が confirmationDialog を管理する。

@@ -124,15 +124,26 @@ struct PersonHomeView: View {
             await viewModel.loadEvents()
         }
         .confirmationDialog(
-            "「\(eventToDelete?.title ?? "")」を削除しますか？（iPhoneのカレンダーからも消えます）",
+            deleteDialogTitle,
             isPresented: Binding(get: { eventToDelete != nil }, set: { if !$0 { eventToDelete = nil } }),
             titleVisibility: .visible
         ) {
-            Button("削除する", role: .destructive) {
-                if let alarm = eventToDelete {
+            if let alarm = eventToDelete, alarm.recurrenceGroupID != nil {
+                Button("今回のみ削除する", role: .destructive) {
                     Task { await viewModel.deleteEvent(alarm) }
+                    eventToDelete = nil
                 }
-                eventToDelete = nil
+                Button("繰り返しを全部削除する", role: .destructive) {
+                    Task { await viewModel.deleteRecurringSeries(alarm) }
+                    eventToDelete = nil
+                }
+            } else {
+                Button("削除する", role: .destructive) {
+                    if let alarm = eventToDelete {
+                        Task { await viewModel.deleteEvent(alarm) }
+                    }
+                    eventToDelete = nil
+                }
             }
             Button("やめる", role: .cancel) { eventToDelete = nil }
         }
@@ -300,9 +311,15 @@ struct PersonHomeView: View {
             } else {
                 // 未完了の予定（折りたたみ）
                 ForEach(viewModel.visibleEvents) { alarm in
-                    EventRow(alarm: alarm) {
-                        eventToDelete = alarm
-                    }
+                    EventRow(
+                        alarm: alarm,
+                        onDelete: {
+                            eventToDelete = alarm
+                        },
+                        onComplete: {
+                            Task { await viewModel.completeEvent(alarm) }
+                        }
+                    )
                     .padding(.horizontal, Spacing.md)
                 }
 
@@ -431,9 +448,16 @@ struct PersonHomeView: View {
                     .padding(.top, Spacing.lg)
 
                 ForEach(viewModel.tomorrowEvents) { alarm in
-                    EventRow(alarm: alarm, showDate: true) {
-                        eventToDelete = alarm
-                    }
+                    EventRow(
+                        alarm: alarm,
+                        showDate: true,
+                        onDelete: {
+                            eventToDelete = alarm
+                        },
+                        onComplete: {
+                            Task { await viewModel.completeEvent(alarm) }
+                        }
+                    )
                     .padding(.horizontal, Spacing.md)
                     .opacity(0.6)
                 }
@@ -602,5 +626,13 @@ struct PersonHomeView: View {
             }
         }
         viewModel.handleOwlTap()
+    }
+
+    private var deleteDialogTitle: String {
+        guard let alarm = eventToDelete else { return "予定を削除しますか？" }
+        if alarm.recurrenceGroupID != nil {
+            return "「\(alarm.title)」は繰り返し予定です。今回だけ削除するか、繰り返しを全部削除するか選んでください。"
+        }
+        return "「\(alarm.title)」を削除しますか？（iPhoneのカレンダーからも消えます）"
     }
 }
