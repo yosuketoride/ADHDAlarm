@@ -298,7 +298,12 @@ struct PersonManualInputView: View {
             // 設定済みの事前通知タイミングを引き継ぐ
             viewModel.selectedPreNotificationMinutesList = Set([15])
             viewModel.selectedFireDate = nil
-            dismiss()
+            // Write-Through（カレンダー保存・AlarmKit登録）を実行してからdismiss
+            // Task内でviewModelへの強参照を保持するため、dismiss後も処理が完走する
+            Task { @MainActor in
+                await viewModel.confirmAndSchedule()
+                dismiss()
+            }
         } label: {
             Text(canConfirm ? "🦉 ふくろうにお願いする" : "予定と時間を選んでね")
                 .font(.title3.weight(.bold))
