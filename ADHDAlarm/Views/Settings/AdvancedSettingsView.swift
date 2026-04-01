@@ -7,6 +7,7 @@ struct AdvancedSettingsView: View {
     @State var viewModel: SettingsViewModel
     @Environment(AppState.self) private var appState
     @State private var showPaywall = false
+    @State private var showDeleteAccountConfirm = false
     @State private var pairingViewModel: SOSPairingViewModel?
 
     var body: some View {
@@ -195,11 +196,45 @@ struct AdvancedSettingsView: View {
             } footer: {
                 Text("「ショートカット」アプリに連携すると、寝ている間に自動でお掃除してくれます。")
             }
+
+            // ⚠️ 危険な操作（最下部に配置）
+            Section {
+                Button(role: .destructive) {
+                    showDeleteAccountConfirm = true
+                } label: {
+                    Label("アカウントを削除する", systemImage: "person.crop.circle.badge.minus")
+                }
+            } header: {
+                Text("データの削除")
+            } footer: {
+                Text("家族とのペアリング情報・送受信履歴がすべて削除されます。アラームのローカルデータはiPhoneに残ります。")
+            }
         }
         .navigationTitle("詳細設定")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showPaywall) {
             PaywallView()
+        }
+        .confirmationDialog(
+            "アカウントを削除しますか？",
+            isPresented: $showDeleteAccountConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("削除する", role: .destructive) {
+                Task {
+                    do {
+                        try await FamilyRemoteService.shared.deleteAccount()
+                        appState.familyLinkId = nil
+                        appState.familyChildLinkIds = []
+                        appState.unreadFamilyEventCount = 0
+                    } catch {
+                        // 削除失敗時も画面は維持する
+                    }
+                }
+            }
+            Button("やめる", role: .cancel) {}
+        } message: {
+            Text("この操作は取り消せません。家族との連携が解除されます。")
         }
         .task {
             await viewModel.loadCalendars()

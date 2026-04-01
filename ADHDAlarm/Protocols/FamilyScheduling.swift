@@ -14,6 +14,9 @@ protocol FamilyScheduling: Sendable {
     /// devices.last_seen_at を現在時刻で更新する
     func updateLastSeen() async throws
 
+    /// 匿名アカウントを削除する
+    func deleteAccount() async throws
+
     // MARK: - 家族ペアリング（親側）
 
     /// ペアリングコードを生成して返す（親が最初に実行）

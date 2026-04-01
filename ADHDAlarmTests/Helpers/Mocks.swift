@@ -47,6 +47,10 @@ final class MockFamilyService: FamilyScheduling {
         updatedLastSeen = true
     }
 
+    func deleteAccount() async throws {
+        if shouldThrow { throw MockError.intentional }
+    }
+
     func generateFamilyCode() async throws -> (linkId: String, code: String) {
         if shouldThrow { throw MockError.intentional }
         let result = (linkId: stubLinkId, code: stubCode)

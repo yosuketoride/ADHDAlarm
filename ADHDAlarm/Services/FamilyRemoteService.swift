@@ -76,6 +76,24 @@ final class FamilyRemoteService: FamilyScheduling {
             .execute()
     }
 
+    func deleteAccount() async throws {
+        let session = try await client.auth.session
+
+        struct DeleteResponse: Decodable {
+            let success: Bool
+        }
+
+        let _: DeleteResponse = try await client.functions.invoke(
+            "delete-account",
+            options: FunctionInvokeOptions(
+                headers: ["Authorization": "Bearer \(session.accessToken)"]
+            )
+        )
+
+        try await client.auth.signOut()
+        currentDeviceId = nil
+    }
+
     // MARK: - 家族ペアリング（親側）
 
     func generateFamilyCode() async throws -> (linkId: String, code: String) {
