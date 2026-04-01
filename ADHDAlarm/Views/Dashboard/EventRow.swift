@@ -29,14 +29,32 @@ struct EventRow: View {
         .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
         .contentShape(Rectangle())
         .opacity(isPast ? 0.7 : 1.0)
+        // 長押し（1秒）で完了（高齢者向けに確実に反応させる）
         .onLongPressGesture(minimumDuration: 1.0) {
             guard !isPast else { return }
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             onComplete?()
         }
-        // レビュー指摘: .confirmationDialog を各行に持つとリスト50件で50個のダイアログ定義が
-        // メモリに積まれる。親ビュー(PersonHomeView)に1つだけ配置する設計に変更。
-        // ゴミ箱タップで onDelete() を呼び、親が confirmationDialog を管理する。
+        // スワイプ右: 完了（誤操作防止でアイコン表示のみ）
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            if !isPast {
+                Button {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    onComplete?()
+                } label: {
+                    Label("完了", systemImage: "checkmark.circle.fill")
+                }
+                .tint(Color.statusSuccess)
+            }
+        }
+        // スワイプ左: 削除（confirmationDialogは親で管理）
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("削除", systemImage: "trash.fill")
+            }
+        }
     }
 
     // MARK: - 通常レイアウト
@@ -152,27 +170,23 @@ struct EventRow: View {
                 Text("お疲れ様でした！")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } else {
+                // 操作ヒント（長押し完了 / スワイプ削除）
+                Text("長押しで完了 ・ 左スワイプで削除")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
         }
     }
 
+    // 完了済みのみチェックマークを表示（未完了はスワイプ/長押しで操作）
+    @ViewBuilder
     private var actionButton: some View {
-        Group {
-            if isPast {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(Color.statusSuccess.opacity(0.7))
-                    .frame(width: 60, height: 60)
-            } else {
-                Button {
-                    onDelete()
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.callout)
-                        .foregroundStyle(Color.statusDanger.opacity(0.7))
-                        .frame(width: 60, height: 60)
-                }
-            }
+        if isPast {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title3)
+                .foregroundStyle(Color.statusSuccess.opacity(0.7))
+                .frame(width: 36, height: 36)
         }
     }
 
