@@ -21,6 +21,7 @@ struct FamilySendTab: View {
                     templateSection
                     customTitleSection
                     timingSection
+                    notificationTimingSection
                     summaryCard
                     sendButton
                 }
@@ -193,13 +194,29 @@ struct FamilySendTab: View {
                 .font(.title3.weight(.bold))
             Text("予定時刻: \(viewModel.scheduledDate.naturalJapaneseString)")
                 .font(.callout)
-            Text("通知タイミング: \(appState.preNotificationMinutes == 0 ? "時間ちょうど" : "\(appState.preNotificationMinutes)分前")")
+            Text("通知タイミング: \(viewModel.preNotificationMinutes == 0 ? "時間ちょうど" : "\(viewModel.preNotificationMinutes)分前")")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+    }
+
+    private var notificationTimingSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("アラームを鳴らすタイミング")
+                .font(.headline)
+
+            Picker("通知タイミング", selection: $viewModel.preNotificationMinutes) {
+                Text("時間ちょうど").tag(0)
+                Text("5分前").tag(5)
+                Text("15分前").tag(15)
+                Text("30分前").tag(30)
+            }
+            .pickerStyle(.segmented)
+            .frame(minHeight: 60)
+        }
     }
 
     @ViewBuilder
@@ -255,7 +272,7 @@ struct FamilySendTab: View {
                     .font(.title3.weight(.bold))
                 Text(viewModel.scheduledDate.naturalJapaneseString)
                     .font(.body)
-                Text("通知は\(appState.preNotificationMinutes == 0 ? "時間ちょうど" : "\(appState.preNotificationMinutes)分前")に設定されます。")
+                Text("通知は\(viewModel.preNotificationMinutes == 0 ? "時間ちょうど" : "\(viewModel.preNotificationMinutes)分前")に設定されます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -269,7 +286,7 @@ struct FamilySendTab: View {
                 guard let activeLinkId else { return }
                 viewModel.send(
                     familyLinkId: activeLinkId,
-                    preNotificationMinutes: appState.preNotificationMinutes,
+                    preNotificationMinutes: viewModel.preNotificationMinutes,
                     voiceCharacter: appState.voiceCharacter
                 )
             } label: {
@@ -301,6 +318,7 @@ private final class FamilySendTabViewModel {
     var selectedTemplate: FamilyQuickTemplate? = .medicine
     var customTitle: String = ""
     var selectedTiming: FamilySendTimingOption = .in15Minutes
+    var preNotificationMinutes: Int = 15
     var customDate: Date = Calendar.current.date(byAdding: .hour, value: 2, to: Date()) ?? Date()
     var sendState: SendState = .idle
 
