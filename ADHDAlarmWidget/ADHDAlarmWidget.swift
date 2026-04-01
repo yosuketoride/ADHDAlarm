@@ -89,35 +89,25 @@ struct NextAlarmWidgetView: View {
 
     // Small: 残り時間 + タイトル（高齢者向け大文字）
     private func smallView(alarm: WidgetAlarmEvent) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(getOwlEmoji(for: alarm))
                     .font(.title2)
                 Spacer()
                 Text(alarm.fireDate.remainingString)
-                    .font(.system(.caption, design: .rounded).weight(.bold))
+                    .font(.title2.bold())
                     .foregroundStyle(.blue)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
 
             Text(alarm.title)
                 .font(.system(.title2, design: .rounded).weight(.black))
                 .foregroundStyle(.primary)
-                .minimumScaleFactor(0.5)
                 .lineLimit(2)
+                .minimumScaleFactor(0.7)
 
             Spacer()
-
-            Button(intent: CompleteAlarmIntent(eventID: alarm.id.uuidString)) {
-                Text("完了")
-                    .font(.caption)
-                    .bold()
-                    .frame(maxWidth: .infinity)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color.green)
-            .controlSize(.small)
         }
         .padding(14)
         .containerBackground(.fill.tertiary, for: .widget)
