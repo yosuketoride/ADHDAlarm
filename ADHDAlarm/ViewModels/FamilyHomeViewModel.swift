@@ -46,6 +46,15 @@ final class FamilyHomeViewModel {
 
             // リンク情報からis_premiumを読み込みAppStateに反映（1契約で全員PRO扱い）
             let links = try await service.fetchMyFamilyLinks()
+            // 自分のlinkIdに対応するpairedリンクが存在しない場合は、相手側で解除済みとみなしてローカルを整理する
+            let isStillPaired = links.contains { $0.id == linkId && $0.status == "paired" }
+            if !isStillPaired {
+                appState?.familyChildLinkIds.removeAll { $0 == linkId }
+                sentEvents = []
+                lastSeen = nil
+                sosMessage = nil
+                return
+            }
             applyFamilyPremiumIfNeeded(links: links)
 
             // 予定取得はPROのみ（Freeはダッシュボードに表示しないのでAPIコスト節約）

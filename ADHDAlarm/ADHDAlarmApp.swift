@@ -57,6 +57,15 @@ struct ADHDAlarmApp: App {
                 checkBatteryLevel()
                 if appState.appMode == .person {
                     Task {
+                        if let linkId = appState.familyLinkId {
+                            let links = try? await FamilyRemoteService.shared.fetchMyFamilyLinks()
+                            let isStillPaired = links?.contains { $0.id == linkId && $0.status == "paired" } ?? false
+                            if !isStillPaired {
+                                await MainActor.run {
+                                    appState.familyLinkId = nil
+                                }
+                            }
+                        }
                         try? await FamilyRemoteService.shared.updateLastSeen()
                     }
                 }

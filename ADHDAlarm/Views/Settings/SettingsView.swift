@@ -11,6 +11,8 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
     @State private var showPaywall = false
+    @State private var showOwlNameEditor = false
+    @State private var owlNameDraft = ""
     @State private var isTesting = false
     private let tester = VolumeTestPlayer()
 
@@ -24,12 +26,15 @@ struct SettingsView: View {
                     // ② 音声キャラクターカード（唯一の「楽しい」設定）
                     voiceCharacterCard
 
-                    // ③ PROプランカード（無料ユーザーのみ）
+                    // ③ ふくろうの名前
+                    owlNameCard
+
+                    // ④ PROプランカード（無料ユーザーのみ）
                     if !viewModel.isPro {
                         proCard
                     }
 
-                    // ④ 詳細設定カード（控えめに）
+                    // ⑤ 詳細設定カード（控えめに）
                     advancedCard
 
                     // フッター（プライバシー + バージョン）
@@ -49,6 +54,21 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showPaywall) {
             PaywallView()
+        }
+        .alert("ふくろうの名前を変える", isPresented: $showOwlNameEditor) {
+            TextField("ふくろう", text: $owlNameDraft)
+            Button("キャンセル", role: .cancel) {}
+            Button("保存") {
+                let trimmed = owlNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                appState.owlName = trimmed.isEmpty ? "ふくろう" : trimmed
+            }
+        } message: {
+            Text("8文字までで入力できます。")
+        }
+        .onChange(of: owlNameDraft) { _, newValue in
+            if newValue.count > 8 {
+                owlNameDraft = String(newValue.prefix(8))
+            }
         }
     }
 
@@ -149,7 +169,38 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - ③ PROプランカード（無料ユーザーのみ）
+    // MARK: - ③ ふくろうの名前
+
+    private var owlNameCard: some View {
+        SettingsCard {
+            Button {
+                owlNameDraft = appState.owlName
+                showOwlNameEditor = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "bird.fill")
+                        .font(.title2)
+                        .foregroundStyle(Color.owlAmber)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("ふくろうの名前")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        Text(appState.owlName)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "pencil")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(minHeight: 60)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - ④ PROプランカード（無料ユーザーのみ）
 
     private var proCard: some View {
         SettingsCard {
@@ -175,7 +226,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - ④ 詳細設定カード
+    // MARK: - ⑤ 詳細設定カード
 
     private var advancedCard: some View {
         NavigationLink {
