@@ -92,7 +92,10 @@ struct PersonHomeView: View {
             SettingsView(viewModel: SettingsViewModel(appState: appState))
         }
         // テキスト手動入力シート（P-1-3）
-        .sheet(isPresented: $viewModel.showManualInput) {
+        // onDismiss: confirmAndSchedule()完走後にdismissされるため、ここでloadEventsすれば確実に反映される
+        .sheet(isPresented: $viewModel.showManualInput, onDismiss: {
+            Task { await viewModel.loadEvents() }
+        }) {
             NavigationStack {
                 PersonManualInputView(viewModel: InputViewModel(appState: appState))
                     .navigationTitle("予定を追加")
