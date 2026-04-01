@@ -48,12 +48,7 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.large)
         }
         .sheet(isPresented: $showPaywall) {
-            PaywallView(
-                viewModel: PaywallViewModel(
-                    storeKit: StoreKitService(),
-                    appState: appState
-                )
-            )
+            PaywallView()
         }
     }
 

@@ -108,10 +108,12 @@ struct PreNotificationPicker: View {
         } label: {
             VStack(spacing: 2) {
                 Text(minutes == 60 ? "1" : "\(minutes)")
-                    .font(.system(size: 28, weight: .black, design: .rounded))
+                    .font(.title2.weight(.black))
                     .monospacedDigit()
                 Text(minutes == 0 ? "ジャスト" : minutes == 60 ? "時間前" : "分前")
                     .font(.caption.weight(.medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
             .foregroundStyle(isSelected ? .white : .primary)
             .frame(maxWidth: .infinity)

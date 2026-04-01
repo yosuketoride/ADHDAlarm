@@ -5,7 +5,7 @@ final class SupabaseSOSService: SOSNotifying {
     
     private let client: SupabaseClient
     
-    init() {
+    nonisolated init() {
         self.client = SupabaseClient(
             supabaseURL: URL(string: Constants.Supabase.projectURL)!,
             supabaseKey: Constants.Supabase.anonKey
@@ -45,17 +45,21 @@ final class SupabaseSOSService: SOSNotifying {
 
         return AsyncStream { continuation in
             // Realtimeで監視（メイン手段）
-            let channel = client.realtime.channel("public:line_pairings:id=eq.\(id)")
-            _ = channel.on("postgres_changes", filter: .init(event: "UPDATE", schema: "public", table: "line_pairings", filter: "id=eq.\(id)")) { message in
-                if let record = message.payload["record"] as? [String: Any],
-                   let status = record["status"] as? String {
+            let channel = client.realtimeV2.channel("public:line_pairings:id=eq.\(id)")
+            _ = channel.onPostgresChange(
+                UpdateAction.self,
+                schema: "public",
+                table: "line_pairings",
+                filter: "id=eq.\(id)"
+            ) { action in
+                if let status = action.record["status"]?.stringValue {
                     continuation.yield(status)
                     if status == "paired" || status == "unpaired" {
                         continuation.finish()
                     }
                 }
             }
-            Task { await channel.subscribe() }
+            Task { try? await channel.subscribeWithError() }
 
             // ポーリングによるフォールバック（Realtimeが届かない場合に3秒ごとDBを直接確認）
             let pollingTask = Task {

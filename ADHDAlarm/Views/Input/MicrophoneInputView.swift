@@ -7,14 +7,22 @@ import AVFoundation
 struct MicrophoneInputView: View {
     @State var viewModel: InputViewModel
     @Environment(AppState.self) private var appState
+    @State private var permissionsService = PermissionsService()
     @State private var showTextFallback = false
     @State private var showManualInput = false
+    @State private var showPaywall = false
     @State private var owlBounce = false
+    @State private var permissionRefreshID = 0
 
     /// マイク・音声認識の権限が揃っているか
     private var hasSpeechPermission: Bool {
         SFSpeechRecognizer.authorizationStatus() == .authorized &&
         AVAudioApplication.shared.recordPermission == .granted
+    }
+
+    private var canRequestPermissionsInApp: Bool {
+        SFSpeechRecognizer.authorizationStatus() == .notDetermined ||
+        AVAudioApplication.shared.recordPermission == .undetermined
     }
 
     /// 初期状態（何も起きていない）かどうか
@@ -50,6 +58,9 @@ struct MicrophoneInputView: View {
         .animation(.spring(duration: 0.3), value: isIdle)
         .animation(.spring(duration: 0.3), value: viewModel.parsedInput != nil)
         .animation(.spring(duration: 0.3), value: viewModel.confirmationMessage)
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
+        }
         .onAppear {
             withAnimation(.spring(duration: 0.6, bounce: 0.4).delay(0.3)) {
                 owlBounce = true
@@ -78,7 +89,7 @@ struct MicrophoneInputView: View {
                         Text("なんでも")
                         Text("話しかけてね！")
                     }
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -96,7 +107,9 @@ struct MicrophoneInputView: View {
                     .offset(x: 90, y: -60)
                     .opacity(owlBounce ? 1 : 0)
                 }
-                .frame(height: 150)
+                // 吹き出しが上方向に60pt超える分をフレーム高に含める
+                // （シート半開き時に吹き出しが切れないよう layout space を確保）
+                .frame(height: 220)
 
                 // ガイドテキスト
                 VStack(spacing: 8) {
@@ -179,7 +192,7 @@ struct MicrophoneInputView: View {
                         Button("別の予定として追加") {
                             viewModel.dismissDuplicateWarning()
                         }
-                        .buttonStyle(.large(background: Color.owlAmber))
+                        .buttonStyle(.large(background: Color.owlAmber, foreground: .black))
                     }
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.97)))
@@ -207,7 +220,10 @@ struct MicrophoneInputView: View {
                         get: { viewModel.selectedFireDate },
                         set: { viewModel.selectedFireDate = $0 }
                     ),
-                    isPro: false,
+                    isPro: appState.subscriptionTier == .pro,
+                    onUpgradeTapped: {
+                        showPaywall = true
+                    },
                     onConfirm: {
                         Task { await viewModel.confirmAndSchedule() }
                     },
@@ -298,13 +314,19 @@ struct MicrophoneInputView: View {
                         .foregroundStyle(.secondary)
                     Text("マイクが使えない状態です")
                         .font(.callout.weight(.semibold))
-                    Text("iPhoneの「設定」アプリから、\nこのアプリのマイクをオンにしてくださいね。")
+                    Text(permissionDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                    Button("設定アプリを開く") {
-                        if let url = URL(string: UIApplication.openSettingsURLString) {
-                            UIApplication.shared.open(url)
+                    Button(permissionButtonTitle) {
+                        Task {
+                            if canRequestPermissionsInApp {
+                                await permissionsService.requestSpeech()
+                                await permissionsService.requestMicrophone()
+                                permissionRefreshID += 1
+                            } else if let url = URL(string: UIApplication.openSettingsURLString) {
+                                await UIApplication.shared.open(url)
+                            }
                         }
                     }
                     .buttonStyle(.large(background: .blue))
@@ -368,7 +390,17 @@ struct MicrophoneInputView: View {
             guard !Task.isCancelled else { return }
             withAnimation(.spring(duration: 0.3)) {
                 viewModel.confirmationMessage = nil
+                }
             }
         }
+    private var permissionDescription: String {
+        if canRequestPermissionsInApp {
+            return "最初の1回だけ、音声認識とマイクの許可が必要です。\n下のボタンから、このまま許可できます。"
+        }
+        return "iPhoneの「設定」アプリから、\nこのアプリのマイクと音声認識をオンにしてくださいね。"
+    }
+
+    private var permissionButtonTitle: String {
+        canRequestPermissionsInApp ? "マイクと音声認識を許可する" : "設定アプリを開く"
     }
 }

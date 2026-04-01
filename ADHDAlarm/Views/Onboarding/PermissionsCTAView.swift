@@ -77,7 +77,9 @@ struct PermissionsCTAView: View {
                 }
                 .font(.body)
                 .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
                 .frame(minHeight: ComponentSize.small)
+                .contentShape(Rectangle())
             }
             .padding(.horizontal, Spacing.md)
             .padding(.bottom, Spacing.xl)

@@ -25,6 +25,7 @@ struct EventRow: View {
         .frame(minHeight: ComponentSize.eventRow)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .contentShape(Rectangle())
         .opacity(isPast ? 0.7 : 1.0)
         // レビュー指摘: .confirmationDialog を各行に持つとリスト50件で50個のダイアログ定義が
         // メモリに積まれる。親ビュー(PersonHomeView)に1つだけ配置する設計に変更。
@@ -34,34 +35,39 @@ struct EventRow: View {
     // MARK: - 通常レイアウト
 
     private var normalLayout: some View {
-        HStack(spacing: Spacing.md) {
-            // 絵文字アイコン（左端・28pt相当）
+        HStack(spacing: Spacing.sm) {
+            // 絵文字アイコン（左端・固定20pt・Dynamic Type非スケール）
             Text(alarm.eventEmoji ?? "📌")
-                .font(.system(size: IconSize.lg))
+                .font(.system(size: 20))
                 .opacity(isPast ? 0.4 : 1.0)
-                .frame(width: IconSize.xl, alignment: .center)
+                .frame(width: 24, alignment: .center)
 
             // 時刻（ToDoは「いつでも」表示）
             VStack(alignment: .center, spacing: 2) {
                 if showDate {
-                    Text(alarm.fireDate.japaneseDateString)
+                    Text(alarm.fireDate.japaneseCompactDateString)
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
+                        .allowsTightening(true)
                 }
                 if alarm.isToDo {
                     Text("いつでも")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 } else {
                     Text(alarm.fireDate.japaneseTimeString)
-                        .font(.title3.weight(.bold))
+                        .font(.subheadline.weight(.bold))
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                         .foregroundStyle(isPast ? .secondary : .primary)
                 }
             }
-            .frame(width: 56)
+            .frame(minWidth: showDate ? 54 : 60)
 
             // タイトル + サブ情報
             titleAndSubInfo
@@ -106,8 +112,9 @@ struct EventRow: View {
                 Text(alarm.title)
                     .font(.body.weight(.medium))
                     .foregroundStyle(isPast ? .secondary : .primary)
-                    .lineLimit(2)
+                    .lineLimit(showDate ? 3 : 2)
                     .strikethrough(isPast, color: .secondary)
+                    .layoutPriority(1)
                 // ToDoバッジ（P-1-11/P-9-14）
                 if alarm.isToDo && !isPast {
                     let isCarriedOver = Calendar.current.startOfDay(for: alarm.fireDate) < Calendar.current.startOfDay(for: Date())
@@ -148,7 +155,7 @@ struct EventRow: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title3)
                     .foregroundStyle(Color.statusSuccess.opacity(0.7))
-                    .frame(width: ComponentSize.small, height: ComponentSize.small)
+                    .frame(width: 60, height: 60)
             } else {
                 Button {
                     onDelete()
@@ -156,7 +163,7 @@ struct EventRow: View {
                     Image(systemName: "trash")
                         .font(.callout)
                         .foregroundStyle(Color.statusDanger.opacity(0.7))
-                        .frame(width: ComponentSize.small, height: ComponentSize.small)
+                        .frame(width: 60, height: 60)
                 }
             }
         }

@@ -2,12 +2,15 @@ import Foundation
 import SwiftUI
 import AlarmKit
 import ActivityKit
+import UserNotifications
 
 /// AlarmKitを使ったAlarmScheduling実装
 /// iOS 26 AlarmManager でマナーモードを貫通するアラームをスケジュールする
 final class AlarmKitScheduler: AlarmScheduling {
 
     private let alarmManager = AlarmManager.shared
+
+    nonisolated init() {}
 
     // MARK: - AlarmScheduling
 
@@ -47,18 +50,60 @@ final class AlarmKitScheduler: AlarmScheduling {
         )
 
         _ = try await alarmManager.schedule(id: alarmID, configuration: config)
+
+        // AlarmKit が発行する通知には categoryIdentifier を付与できないため、
+        // 同じ発火時刻にカテゴリ付きのローカル通知を別途スケジュールする。
+        // これによりバナーに「止める / あとで / 今日は休む」ボタンが表示される。
+        await scheduleActionableNotification(for: alarm, alarmID: alarmID, fireDate: safeFireDate)
+
         return alarmID
+    }
+
+    /// アクションボタン付きローカル通知を AlarmKit と同じ発火時刻で登録する
+    private func scheduleActionableNotification(
+        for alarm: AlarmEvent,
+        alarmID: UUID,
+        fireDate: Date
+    ) async {
+        let content = UNMutableNotificationContent()
+        content.title = alarm.title
+        content.body = alarm.preNotificationMinutes == 0
+            ? "時間になりました"
+            : "あと\(alarm.preNotificationMinutes)分です"
+        content.sound = .default
+        content.categoryIdentifier = Constants.Notification.alarmCategoryID
+        // アクション処理側でアラームを特定するためにAlarmKit IDを埋め込む
+        content.userInfo = [ForegroundNotificationDelegate.alarmKitIDKey: alarmID.uuidString]
+
+        let triggerDate = Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second],
+            from: fireDate
+        )
+        let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDate, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: "alarm-action-\(alarmID.uuidString)",
+            content: content,
+            trigger: trigger
+        )
+        try? await UNUserNotificationCenter.current().add(request)
     }
 
     /// アラームをキャンセルする
     func cancel(alarmKitID: UUID) async throws {
-        try await alarmManager.cancel(id: alarmKitID)  // AlarmKit APIはasync
+        try alarmManager.cancel(id: alarmKitID)
+        // 対応するアクション付きローカル通知も削除する
+        UNUserNotificationCenter.current().removePendingNotificationRequests(
+            withIdentifiers: ["alarm-action-\(alarmKitID.uuidString)"]
+        )
     }
 
     /// 複数のアラームを一括キャンセル
     func cancelAll(alarmKitIDs: [UUID]) async throws {
         for id in alarmKitIDs {
-            try await alarmManager.cancel(id: id)  // AlarmKit APIはasync
+            try alarmManager.cancel(id: id)
+            UNUserNotificationCenter.current().removePendingNotificationRequests(
+                withIdentifiers: ["alarm-action-\(id.uuidString)"]
+            )
         }
     }
 

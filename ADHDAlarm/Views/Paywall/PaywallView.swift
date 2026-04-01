@@ -70,11 +70,18 @@ fileprivate struct PaywallVariant {
 // MARK: - PaywallView
 
 struct PaywallView: View {
-    @State var viewModel: PaywallViewModel
+    @Environment(StoreKitService.self) private var storeKit
+    @Environment(AppState.self) private var appState
+    @State private var viewModel: PaywallViewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var variant: PaywallVariant = .elderlyFamily
     @State private var selectedProductID: String? = nil
+
+    @MainActor
+    init(viewModel: PaywallViewModel? = nil) {
+        _viewModel = State(initialValue: viewModel ?? PaywallViewModel())
+    }
 
     var body: some View {
         ScrollView {
@@ -96,6 +103,7 @@ struct PaywallView: View {
             }
         }
         .task {
+            viewModel.bindIfNeeded(storeKit: storeKit, appState: appState)
             await viewModel.loadIfNeeded()
             // 年額 → 月額 → 買い切りの優先順でデフォルト選択
             if selectedProductID == nil {
@@ -247,8 +255,16 @@ struct PaywallView: View {
             HStack {
                 Text("機能").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer()
-                Text("無料").font(.caption.weight(.semibold)).foregroundStyle(.secondary).frame(width: 52)
-                Text("PRO").font(.caption.weight(.bold)).foregroundStyle(.blue).frame(width: 52)
+                Text("無料")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .minimumScaleFactor(0.75)
+                    .frame(width: 52)
+                Text("PRO")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.blue)
+                    .minimumScaleFactor(0.75)
+                    .frame(width: 52)
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
             .background(Color.secondary.opacity(0.08))
@@ -266,8 +282,11 @@ struct PaywallView: View {
     }
 
     private func comparisonRow(_ name: String, free: Bool, pro: Bool) -> some View {
-        HStack {
-            Text(name).font(.caption).fixedSize(horizontal: false, vertical: true)
+        HStack(alignment: .top) {
+            Text(name)
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
             Spacer()
             Image(systemName: free ? "checkmark" : "minus")
                 .font(.caption.weight(.semibold))
@@ -574,19 +593,17 @@ struct PaywallView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
         }
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                viewModel.successMessage = nil
-                dismiss()
-            }
+        .task {
+            try? await Task.sleep(for: .seconds(2.5))
+            guard !Task.isCancelled else { return }
+            viewModel.successMessage = nil
+            dismiss()
         }
     }
 
     // MARK: - デバッグ: PRO強制有効化
 
     #if DEBUG
-    @Environment(AppState.self) private var appState
-
     private var debugSection: some View {
         VStack(spacing: 8) {
             Divider()

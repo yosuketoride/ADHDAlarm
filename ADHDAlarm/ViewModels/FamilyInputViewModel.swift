@@ -40,9 +40,9 @@ final class FamilyInputViewModel {
 
     private let service: FamilyScheduling
 
-    init(familyLinkId: String, service: FamilyScheduling = FamilyRemoteService.shared) {
+    init(familyLinkId: String, service: FamilyScheduling? = nil) {
         self.familyLinkId = familyLinkId
-        self.service = service
+        self.service = service ?? FamilyRemoteService.shared
     }
 
     // MARK: - テンプレート選択

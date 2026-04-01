@@ -7,6 +7,7 @@ import Foundation
 enum CompletionStatus: String, Codable {
     case completed  // ユーザーが「とめる」を押した
     case skipped    // ユーザーが「スキップ」を選んだ
+    case missed     // P-5-1: 15分以上遅延して届いたリモート予定（AlarmKit未登録のまま保存）
 }
 
 /// アプリのコアドメインモデル。
@@ -53,7 +54,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
     /// この時刻までは家族側からのcomplete上書きをブロックする
     var undoPendingUntil: Date?
 
-    init(
+    nonisolated init(
         id: UUID = UUID(),
         title: String,
         fireDate: Date,
@@ -113,7 +114,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         case undoPendingUntil
     }
 
-    init(from decoder: Decoder) throws {
+    nonisolated init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id                     = try c.decode(UUID.self,   forKey: .id)
         title                  = try c.decode(String.self, forKey: .title)
@@ -139,7 +140,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
 
     // encode(to:) を明示実装。init(from:) をカスタム定義した場合、将来のプロパティ追加時に
     // エンコード側だけ漏れるサイレントバグを防ぐためセットで定義する（レビュー指摘 #4）
-    func encode(to encoder: Encoder) throws {
+    nonisolated func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id,                     forKey: .id)
         try c.encode(title,                  forKey: .title)

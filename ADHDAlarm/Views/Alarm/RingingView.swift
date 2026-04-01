@@ -87,6 +87,7 @@ struct RingingView: View {
         }
         .onAppear {
             viewModel.activeAlarm = pendingAlarm
+            viewModel.bindAppStateIfNeeded(appState)
             viewModel.configure(
                 notificationType: appState.notificationType,
                 audioOutputMode: appState.audioOutputMode,
@@ -122,6 +123,25 @@ struct RingingView: View {
             try? await Task.sleep(for: .seconds(5))
             withAnimation(.easeInOut(duration: 0.4)) { showSkipSection = true }
         }
+        // バナーのボタンから届いたアクションを処理する
+        .onReceive(NotificationCenter.default.publisher(
+            for: ForegroundNotificationDelegate.alarmActionNotification
+        )) { notification in
+            guard let userInfo = notification.userInfo,
+                  let actionID = userInfo[ForegroundNotificationDelegate.alarmActionIdentifierKey] as? String
+            else { return }
+            switch actionID {
+            case Constants.Notification.actionDismiss:
+                // .foreground オプション付きのためアプリが前面に来る。ユーザーが手動で止める想定
+                break
+            case Constants.Notification.actionSnooze:
+                viewModel.snooze()
+            case Constants.Notification.actionSkip:
+                viewModel.skip()
+            default:
+                break
+            }
+        }
         .onDisappear { bannerHideTask?.cancel() }
         .interactiveDismissDisabled()
         .statusBarHidden(true)
@@ -138,7 +158,7 @@ struct RingingView: View {
             VStack(spacing: 0) {
                 speechBubble
                     .offset(y: bubbleBounce ? -6 : 0)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, Spacing.md)
                 owlWithRipple
             }
             .scaleEffect(appeared ? 1.0 : 0.8)
@@ -150,7 +170,7 @@ struct RingingView: View {
             TimelineView(.periodic(from: .now, by: 1.0)) { context in
                 eventCard(at: context.date)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, Spacing.lg)
             .scaleEffect(appeared ? 1.0 : 0.9)
             .opacity(appeared ? 1.0 : 0)
 
@@ -185,8 +205,10 @@ struct RingingView: View {
                         .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(Color(red: 0.95, green: 0.60, blue: 0.15))
                     Text("時間です！")
-                        .font(.system(size: 38, weight: .black, design: .rounded))
+                        .font(.largeTitle.weight(.black))
                         .foregroundStyle(.primary)
+                        .minimumScaleFactor(0.75)
+                        .lineLimit(1)
                 }
                 .padding(.horizontal, 28)
                 .padding(.vertical, 20)
@@ -239,7 +261,7 @@ struct RingingView: View {
 
             VStack(spacing: 14) {
                 // タイミングバッジ
-                HStack(spacing: 8) {
+                HStack(spacing: Spacing.sm) {
                     Circle()
                         .fill(Color(red: 0.95, green: 0.60, blue: 0.15))
                         .frame(width: 8, height: 8)
@@ -254,8 +276,8 @@ struct RingingView: View {
                 }
                 .font(.callout.weight(.bold))
                 .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.0))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.sm)
                 .background(Color(red: 1.0, green: 0.93, blue: 0.72))
                 .clipShape(Capsule())
 
@@ -269,9 +291,9 @@ struct RingingView: View {
                     .padding(.horizontal, 8)
             }
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 24)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.lg)
+            .background(.background, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .strokeBorder(Color.white.opacity(0.7), lineWidth: 1.5)
@@ -301,7 +323,9 @@ struct RingingView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 30, weight: .bold))
                 Text("とめる")
-                    .font(.system(size: 26, weight: .black, design: .rounded))
+                    .font(.title2.weight(.black))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
@@ -346,7 +370,7 @@ struct RingingView: View {
                     viewModel.snooze()
                     onDismissed()
                 } label: {
-                    HStack(spacing: 10) {
+                    HStack(spacing: Spacing.md) {
                         Text("⏱️")
                         VStack(alignment: .leading, spacing: 2) {
                             Text(snoozeCount == 2
@@ -362,10 +386,10 @@ struct RingingView: View {
                     }
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, Spacing.md)
                     .frame(minHeight: ComponentSize.small)
                     .background(Color(.secondarySystemBackground).opacity(0.8))
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
                 }
                 .buttonStyle(.plain)
             } else {
@@ -420,13 +444,14 @@ struct RingingView: View {
                     // オレンジ吹き出し
                     VStack(alignment: .leading, spacing: 2) {
                         Text("おつかれさまです！")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.caption.weight(.bold))
+                            .minimumScaleFactor(0.75)
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(Color(red: 0.95, green: 0.60, blue: 0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
                     .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
                     .overlay(alignment: .bottomLeading) {
                         Image(systemName: "triangle.fill")
@@ -441,9 +466,9 @@ struct RingingView: View {
                 .padding(.trailing, 80)
 
                 // メッセージカード
-                VStack(spacing: 16) {
+                VStack(spacing: Spacing.md) {
                     // メインメッセージ
-                    VStack(spacing: 10) {
+                    VStack(spacing: Spacing.md) {
                         Text(isSkipped ? "ゆっくり休んでね" : "よくできました！")
                             .font(.system(size: 32, weight: .black, design: .rounded))
                             .foregroundStyle(.primary)
@@ -459,15 +484,15 @@ struct RingingView: View {
 
                     // XPバッジ（完了時のみ、P-2-1）
                     if !isSkipped {
-                        HStack(spacing: 8) {
+                        HStack(spacing: Spacing.sm) {
                             Image(systemName: "star.fill")
                                 .foregroundStyle(.yellow)
                             Text("+10ポイント！")
                                 .font(.callout.weight(.bold))
                                 .foregroundStyle(Color.owlAmber)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.vertical, Spacing.sm)
                         .background(Color.owlAmber.opacity(0.12))
                         .clipShape(Capsule())
                     }
@@ -496,24 +521,24 @@ struct RingingView: View {
                     } label: {
                         Text("閉じる")
                             .font(.callout.weight(.semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.black)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
                             .background(Color.owlAmber)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, 28)
                 .frame(maxWidth: .infinity)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .background(.background, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
                         .strokeBorder(Color.white.opacity(0.7), lineWidth: 1.5)
                 }
                 .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
-                .padding(.horizontal, 24)
+                .padding(.horizontal, Spacing.lg)
             }
 
             Spacer()
@@ -537,7 +562,7 @@ struct RingingView: View {
     }
     
     private func sosBanner(isSuccess: Bool, message: String) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: CornerRadius.md) {
             Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                 .foregroundColor(isSuccess ? .green : .orange)
                 .font(.title3)
@@ -546,12 +571,12 @@ struct RingingView: View {
                 .foregroundColor(.primary)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Spacing.md)
         .padding(.vertical, 14)
         .background(.thickMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
-        .padding(.horizontal, 24)
+        .padding(.horizontal, Spacing.lg)
     }
 }
 

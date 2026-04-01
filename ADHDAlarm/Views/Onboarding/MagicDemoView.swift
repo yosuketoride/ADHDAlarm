@@ -102,7 +102,9 @@ struct MagicDemoView: View {
                 Button("あとで試す →") { navigateToWidgetGuide() }
                     .font(.body)
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
                     .frame(minHeight: ComponentSize.small)
+                    .contentShape(Rectangle())
             }
             .padding(.horizontal, Spacing.md)
             .padding(.bottom, Spacing.xl)
@@ -160,7 +162,7 @@ struct MagicDemoView: View {
 
             Spacer()
 
-            Button("わかった！") { navigateToWidgetGuide() }
+            Button("わかった！🦉") { navigateToWidgetGuide() }
                 .frame(maxWidth: .infinity)
                 .frame(height: ComponentSize.primary)
                 .background(Color.owlAmber)
@@ -229,15 +231,20 @@ struct MagicDemoView: View {
 
     /// Hapticのみのデモ（出力デバイスなし or hapticOnly=true）
     private func runHapticDemo() async {
+        // prepare() を先に呼んでTaptic Engineを起動状態にする（呼ばないと最初の振動が不発になる）
+        let generator = UIImpactFeedbackGenerator(style: .heavy)
+        generator.prepare()
+
         countdown = 3
         isCounting = true
         for i in stride(from: 3, through: 1, by: -1) {
             countdown = i
             try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
         }
-        // 振動3回
+        // 振動3回（同一generatorを使い回す）
         for _ in 0..<3 {
-            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            generator.impactOccurred()
             try? await Task.sleep(for: .milliseconds(400))
         }
         isCounting = false

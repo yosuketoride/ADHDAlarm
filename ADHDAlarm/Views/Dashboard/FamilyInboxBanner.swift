@@ -30,6 +30,7 @@ struct FamilyInboxBanner: View {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundStyle(.secondary)
                     .font(.title3)
+                    .frame(width: 60, height: 60)
             }
         }
         .padding(14)

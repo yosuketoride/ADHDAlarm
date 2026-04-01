@@ -10,7 +10,7 @@ struct FamilyInputView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: Spacing.lg) {
 
                     // MARK: テンプレートボタン群
                     templateSection
@@ -30,7 +30,7 @@ struct FamilyInputView: View {
                     // MARK: 送信ボタン
                     sendButton
                 }
-                .padding()
+                .padding(Spacing.md)
             }
             .navigationTitle("予定を送る")
             .navigationBarTitleDisplayMode(.inline)
@@ -59,12 +59,12 @@ struct FamilyInputView: View {
     // MARK: - テンプレートセクション
 
     private var templateSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             Text("よく使う予定")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Spacing.md) {
                 ForEach(EventTemplate.allCases, id: \.self) { template in
                     templateButton(template)
                 }
@@ -81,19 +81,21 @@ struct FamilyInputView: View {
                 viewModel.selectTemplate(template)
             }
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.sm) {
                 Text(template.icon)
                     .font(.title3)
                 Text(template.defaultTitle ?? template.rawValue)
                     .font(.callout.weight(.medium))
                     .foregroundStyle(isSelected ? .white : .primary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer()
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.vertical, CornerRadius.md)
             .background(isSelected ? Color.blue : Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
         }
     }
 
@@ -189,7 +191,7 @@ struct FamilyInputView: View {
                 .padding()
 
         case .error(let message):
-            VStack(spacing: 8) {
+            VStack(spacing: Spacing.sm) {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .font(.callout)
@@ -209,7 +211,7 @@ struct FamilyInputView: View {
             Image(systemName: "heart.fill")
                 .font(.system(size: 40))
                 .foregroundStyle(.pink)
-                .padding(.top, 24)
+                .padding(.top, Spacing.lg)
 
             Text("予定の確認")
                 .font(.headline)
@@ -220,7 +222,7 @@ struct FamilyInputView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
 
-            VStack(spacing: 10) {
+            VStack(spacing: Spacing.md) {
                 Button {
                     showConfirmation = false
                     viewModel.send()
@@ -237,7 +239,7 @@ struct FamilyInputView: View {
                 .frame(maxWidth: .infinity)
             }
             .padding(.horizontal)
-            .padding(.bottom, 24)
+            .padding(.bottom, Spacing.lg)
         }
         .presentationDetents([.medium])
     }

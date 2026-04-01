@@ -48,15 +48,17 @@ struct ParseConfirmationView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
 
                 // ── ヘッダー: 日時・タイトル・今日/明日トグル ──
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
                     // 日時 + 今日/明日トグル（時間のみ発話時のみ）
-                    HStack(alignment: .center, spacing: 10) {
+                    HStack(alignment: .top, spacing: Spacing.md) {
                         Text(displayFireDate.naturalJapaneseString)
                             .font(.title2.weight(.bold))
                             .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .layoutPriority(1)
 
                         // 日付を明示しなかった発話の場合のみトグルを表示
                         if !parsed.hasExplicitDate {
@@ -83,7 +85,7 @@ struct ParseConfirmationView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 // ── ボタン群（常に見える位置に配置）──
-                VStack(spacing: 12) {
+                VStack(spacing: CornerRadius.md) {
                     // エラーメッセージ（セット失敗時）
                     if let error = errorMessage {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -104,8 +106,8 @@ struct ParseConfirmationView: View {
                                 Image(systemName: "alarm.fill")
                                     .font(.title3)
                                 Text("セットする")
-                                    .minimumScaleFactor(0.6)
                                     .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
                             }
                         }
                     }
@@ -120,7 +122,7 @@ struct ParseConfirmationView: View {
 
                 // ── 詳細設定（折りたたみ・ボタンの下に配置）──
                 DisclosureGroup(isExpanded: $isDetailExpanded) {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: Spacing.md) {
                         // 繰り返しルール変更ピッカー
                         VStack(alignment: .leading, spacing: 6) {
                             Text("繰り返し")
@@ -143,6 +145,33 @@ struct ParseConfirmationView: View {
                                 .pickerStyle(.menu)
                                 .tint(.primary)
                             }
+                        } else if !isPro && availableCalendars.count >= 2 {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("カレンダー")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                                Button {
+                                    onUpgradeTapped()
+                                } label: {
+                                    HStack(spacing: Spacing.sm) {
+                                        Image(systemName: "star.fill")
+                                            .foregroundStyle(.orange)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("カレンダーを自由に選ぶ")
+                                                .font(.callout.weight(.medium))
+                                                .foregroundStyle(.primary)
+                                            Text("PROで使える機能です")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, CornerRadius.md)
+                                    .padding(.vertical, 10)
+                                    .background(Color(.tertiarySystemBackground), in: RoundedRectangle(cornerRadius: CornerRadius.md))
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
 
                         // 事前通知タイミング選択
@@ -152,17 +181,16 @@ struct ParseConfirmationView: View {
                             onUpgradeTapped: onUpgradeTapped
                         )
                     }
-                    .padding(.top, 8)
+                    .padding(.top, Spacing.sm)
                 } label: {
                     Label("詳細設定", systemImage: "slider.horizontal.3")
                         .font(.callout.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(24)
+            .padding(Spacing.lg)
         }
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
         .onAppear {
             // NLParserが繰り返しを検出した場合は詳細設定を自動展開
             if parsed.recurrenceRule != nil {
@@ -222,7 +250,7 @@ private struct RecurrencePicker: View {
     ]
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.sm) {
                 ForEach(options, id: \.0) { label, rule in
                     let isSelected = isMatch(rule, selection)
                     Button {

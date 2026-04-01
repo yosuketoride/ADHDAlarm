@@ -1,10 +1,12 @@
 import SwiftUI
+import UIKit
 
 /// 当事者モードのホーム画面
 /// タブレス・1画面集約・ストレス排除設計
 struct PersonHomeView: View {
     @State private var viewModel = PersonHomeViewModel()
     @Environment(AppState.self) private var appState
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     // フクロウ首傾けアニメ用
     @State private var owlNeckTilt: Double = 0
@@ -37,6 +39,17 @@ struct PersonHomeView: View {
                 .padding(.trailing, Spacing.md)
                 .padding(.bottom, Spacing.md)
         }
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        viewModel.updateScreenHeightIfNeeded(proxy.size.height)
+                    }
+                    .onChange(of: proxy.size.height) { _, newHeight in
+                        viewModel.updateScreenHeightIfNeeded(newHeight)
+                    }
+            }
+        }
         // Toast（シェイク等の通知）
         .overlay(alignment: .top) {
             if let msg = viewModel.confirmationMessage {
@@ -48,7 +61,7 @@ struct PersonHomeView: View {
         // マイク入力シート
         .sheet(isPresented: $viewModel.showMicSheet) {
             MicrophoneInputView(viewModel: InputViewModel(appState: appState))
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
         // 設定シート
@@ -80,7 +93,10 @@ struct PersonHomeView: View {
         .animation(.spring(duration: 0.3), value: viewModel.confirmationMessage != nil)
         .animation(.spring(duration: 0.3), value: viewModel.pendingDelete != nil)
         .onShake { viewModel.handleOwlShake() }
-        .task { await viewModel.loadEvents() }
+        .task {
+            viewModel.bindAppStateIfNeeded(appState)
+            await viewModel.loadEvents()
+        }
         .confirmationDialog(
             "「\(eventToDelete?.title ?? "")」を削除しますか？（iPhoneのカレンダーからも消えます）",
             isPresented: Binding(get: { eventToDelete != nil }, set: { if !$0 { eventToDelete = nil } }),
@@ -99,41 +115,39 @@ struct PersonHomeView: View {
     // MARK: - フクロウセクション
 
     private var owlSection: some View {
-        VStack(spacing: Spacing.md) {
-            ZStack(alignment: .topTrailing) {
-                // フクロウ本体
-                owlImage
-                    .frame(width: 120, height: 120)
-                    .rotationEffect(.degrees(owlNeckTilt))
-                    .onTapGesture { handleOwlTap() }
-                    .onLongPressGesture(minimumDuration: 0.8) {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        viewModel.showSettings = true
-                    }
-
-                // ⚙️ ボタン（右上）
-                HStack(spacing: Spacing.xs) {
-                    // 🔄 手動同期ボタン（P-1-9）
-                    Button {
-                        Task { await viewModel.performManualSync() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: IconSize.sm))
-                            .foregroundStyle(.secondary)
-                            .frame(width: ComponentSize.small, height: ComponentSize.small)
-                    }
-                    Button {
-                        viewModel.showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: IconSize.md))
-                            .foregroundStyle(.secondary)
-                            .frame(width: ComponentSize.small, height: ComponentSize.small)
-                    }
+        VStack(spacing: Spacing.sm) {
+            // 操作ボタン行（右端固定）
+            HStack {
+                Spacer()
+                // 🔄 手動同期ボタン（P-1-9）
+                Button {
+                    Task { await viewModel.performManualSync() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: IconSize.sm))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 60, height: 60)
                 }
-                .offset(x: Spacing.lg, y: -Spacing.sm)
+                Button {
+                    viewModel.showSettings = true
+                } label: {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: IconSize.md))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 60, height: 60)
+                }
             }
-            .padding(.trailing, Spacing.xl)
+            .padding(.horizontal, Spacing.lg)
+
+            // フクロウ本体
+            owlImage
+                .frame(width: 120, height: 120)
+                .rotationEffect(.degrees(owlNeckTilt))
+                .onTapGesture { handleOwlTap() }
+                .onLongPressGesture(minimumDuration: 0.8) {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    viewModel.showSettings = true
+                }
 
             // あいさつ文
             Text(viewModel.greeting)
@@ -145,9 +159,9 @@ struct PersonHomeView: View {
 
     @ViewBuilder
     private var owlImage: some View {
-        // TODO: Phase 3 でふくろう進化ステージのアセット（owl_stage0〜3）に切り替える
-        // 現在は OwlIcon アセットを状態に応じて変化させる
-        let imageName = "OwlIcon"
+        // XPに応じてふくろうのステージアセットを切り替える（owl_stage0〜3）
+        // アセットが存在しない場合は OwlIcon にフォールバック
+        let imageName = UIImage(named: viewModel.owlImageName) != nil ? viewModel.owlImageName : "OwlIcon"
         Image(imageName)
             .resizable()
             .scaledToFit()
@@ -296,25 +310,11 @@ struct PersonHomeView: View {
 
                 // P-1-4: 未完了が2件以下のときは追加CTAを表示
                 if viewModel.visibleEvents.count <= 2 {
-                    HStack(spacing: Spacing.md) {
-                        Button {
-                            viewModel.showMicSheet = true
-                        } label: {
-                            Text("🎤 予定を追加")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        Text("｜").foregroundStyle(.tertiary).font(.footnote)
-                        Button {
-                            viewModel.showManualInput = true
-                        } label: {
-                            Text("✏️ テキストで追加")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    shortcutButtonsRow(
+                        voiceLabel: "🎤 予定を追加",
+                        textLabel: "✏️ テキストで追加",
+                        font: .footnote
+                    )
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, Spacing.lg)
                     .padding(.top, Spacing.xs)
@@ -348,36 +348,11 @@ struct PersonHomeView: View {
                 .padding(.horizontal, Spacing.xl)
 
             // CTA（P-1-4: マイクとテキスト両方表示）
-            HStack(spacing: Spacing.md) {
-                Button {
-                    viewModel.showMicSheet = true
-                } label: {
-                    HStack(spacing: Spacing.xs) {
-                        Text(info.ctaLabel)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .buttonStyle(.plain)
-                .frame(minHeight: ComponentSize.small)
-
-                Text("｜")
-                    .foregroundStyle(.tertiary)
-
-                // テキストで追加（P-1-4）
-                Button {
-                    viewModel.showManualInput = true
-                } label: {
-                    Text("✏️ テキストで追加")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .frame(minHeight: ComponentSize.small)
-            }
+            shortcutButtonsRow(
+                voiceLabel: info.ctaLabel,
+                textLabel: "✏️ テキストで追加",
+                font: .subheadline
+            )
 
             // デイリーミニタスク（P-1-5）: 全完了時のみ
             if viewModel.completedTodayEvents.count > 0 && !viewModel.isMiniTaskCompletedToday {
@@ -408,7 +383,7 @@ struct PersonHomeView: View {
     private var tomorrowSection: some View {
         if !viewModel.tomorrowEvents.isEmpty {
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text("─── ここから明日 ───")
+                Text("─── ここから明日以降 ───")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, Spacing.lg)
@@ -446,15 +421,93 @@ struct PersonHomeView: View {
             VStack(spacing: Spacing.xs) {
                 Image(systemName: "mic.fill")
                     .font(.system(size: IconSize.md, weight: .bold))
-                Text("予定を追加")
-                    .font(.caption2.weight(.semibold))
+                if !shouldUseCompactFABLabel {
+                    Text("予定を追加")
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
+                        .multilineTextAlignment(.center)
+                }
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(.black)
             .frame(width: ComponentSize.fab, height: ComponentSize.fab)
             .background(Color.owlAmber)
             .clipShape(RoundedRectangle(cornerRadius: CornerRadius.fab))
+            .contentShape(Circle())
             .shadow(color: Color.owlAmber.opacity(0.4), radius: 8, y: 4)
         }
+        .accessibilityLabel("予定を追加")
+    }
+
+    private var shouldStackShortcutButtons: Bool {
+        dynamicTypeSize >= .xxxLarge
+    }
+
+    private var shouldUseCompactFABLabel: Bool {
+        dynamicTypeSize >= .xLarge
+    }
+
+    @ViewBuilder
+    private func shortcutButtonsRow(
+        voiceLabel: String,
+        textLabel: String,
+        font: Font
+    ) -> some View {
+        if shouldStackShortcutButtons {
+            VStack(spacing: Spacing.sm) {
+                shortcutButton(title: voiceLabel, font: font) {
+                    viewModel.showMicSheet = true
+                }
+                shortcutButton(title: textLabel, font: font) {
+                    viewModel.showManualInput = true
+                }
+            }
+        } else {
+            HStack(spacing: Spacing.md) {
+                shortcutButton(title: voiceLabel, font: font) {
+                    viewModel.showMicSheet = true
+                }
+
+                Text("｜")
+                    .font(font)
+                    .foregroundStyle(.tertiary)
+
+                shortcutButton(title: textLabel, font: font) {
+                    viewModel.showManualInput = true
+                }
+            }
+        }
+    }
+
+    private func shortcutButton(
+        title: String,
+        font: Font,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: Spacing.xs) {
+                Text(title)
+                    .font(font)
+                    .fontWeight(.semibold)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .layoutPriority(1)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.owlAmber)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, Spacing.md)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: ComponentSize.small)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: CornerRadius.md))
+            .overlay {
+                RoundedRectangle(cornerRadius: CornerRadius.md)
+                    .stroke(Color.owlAmber.opacity(0.18), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - トーストバナー

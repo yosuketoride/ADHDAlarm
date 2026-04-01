@@ -6,19 +6,19 @@ struct FamilyLinkView: View {
     // 親が再描画されても初回の値が永続化されてしまう。プロパティ宣言で直接初期化する。
     @State private var viewModel = FamilyPairingViewModel()
     @Environment(AppState.self) private var appState
-    /// 親として連携するか、子として連携するか
+    /// この端末で予定を受け取るか、送るか
     @State private var selectedRole: Role = .parent
     @State private var showFamilyInput = false
 
     enum Role: String, CaseIterable {
-        case parent = "受け取る（親）"
-        case child  = "送る（子）"
+        case parent = "予定を受け取る"
+        case child  = "予定を送る"
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: Spacing.lg) {
 
                     // ヘッダー説明
                     headerSection
@@ -74,7 +74,7 @@ struct FamilyLinkView: View {
                         }
                     }
                 }
-                .padding()
+                .padding(Spacing.md)
             }
             .navigationTitle("家族と連携する")
             .navigationBarTitleDisplayMode(.inline)
@@ -102,9 +102,9 @@ struct FamilyLinkView: View {
     // MARK: - サブビュー
 
     private var headerSection: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Spacing.md) {
             Image(systemName: "person.2.fill")
-                .font(.system(size: 48))
+                .font(.system(size: IconSize.xl))
                 .foregroundStyle(.blue)
             Text("家族と予定を共有する")
                 .font(.title3.weight(.bold))
@@ -112,12 +112,16 @@ struct FamilyLinkView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+            Text("この画面では、この端末で予定を受け取る設定と、別の端末へ予定を送る設定の両方ができます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
         .padding(.top, 8)
     }
 
     private var rolePicker: some View {
-        Picker("役割", selection: $selectedRole) {
+        Picker("連携方法", selection: $selectedRole) {
             ForEach(Role.allCases, id: \.self) {
                 Text($0.rawValue).tag($0)
             }
@@ -127,18 +131,18 @@ struct FamilyLinkView: View {
     }
 
     private var parentStartSection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Spacing.md) {
             VStack(alignment: .leading, spacing: 6) {
-                Label("コードを子に教える", systemImage: "number.square.fill")
+                Label("コードを相手に伝える", systemImage: "number.square.fill")
                     .font(.headline)
-                Text("「受け取る側（親）」でコードを生成して、子に伝えてください。子が入力するとつながります。")
+                Text("この端末でコードを生成して、予定を送りたい相手に伝えてください。相手が入力すると連携できます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
+            .padding(Spacing.md)
             .background(Color.blue.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
 
             Button {
                 viewModel.generateCode()
@@ -151,26 +155,26 @@ struct FamilyLinkView: View {
     }
 
     private var childInputSection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Spacing.md) {
             VStack(alignment: .leading, spacing: 6) {
-                Label("親から教えてもらったコードを入力", systemImage: "keyboard")
+                Label("受け取ったコードを入力", systemImage: "keyboard")
                     .font(.headline)
-                Text("親のスマホに表示された6桁のコードを入力してください。")
+                Text("相手の端末に表示された6桁のコードを入力してください。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
+            .padding(Spacing.md)
             .background(Color.green.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
 
             TextField("6桁のコードを入力", text: $viewModel.inputCode)
                 .keyboardType(.numberPad)
                 .font(.system(.title2, design: .monospaced))
                 .multilineTextAlignment(.center)
-                .padding()
+                .padding(Spacing.md)
                 .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
 
             Button {
                 viewModel.joinWithCode()
@@ -184,7 +188,7 @@ struct FamilyLinkView: View {
     }
 
     private func waitingSection(code: String, seconds: Int) -> some View {
-        VStack(spacing: 20) {
+        VStack(spacing: Spacing.lg) {
             Text("このコードを家族に伝えてください")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -194,9 +198,9 @@ struct FamilyLinkView: View {
                 .font(.system(size: 52, weight: .bold, design: .monospaced))
                 .tracking(8)
                 .foregroundStyle(.blue)
-                .padding()
+                .padding(Spacing.md)
                 .background(Color.blue.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
 
             // 残り時間
             Label(
@@ -213,13 +217,13 @@ struct FamilyLinkView: View {
             }
             .buttonStyle(.bordered)
         }
-        .padding()
+        .padding(Spacing.md)
         .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
     }
 
     private func linkedSection(linkId: String) -> some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Spacing.md) {
             HStack(spacing: 12) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.title2)
@@ -227,7 +231,7 @@ struct FamilyLinkView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("家族と連携済み")
                         .font(.headline)
-                    Text("家族から予定が届くと、アラームが自動でセットされます。")
+                    Text("相手から予定が届くと、アラームが自動でセットされます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -247,7 +251,7 @@ struct FamilyLinkView: View {
     }
 
     private func errorSection(message: String) -> some View {
-        VStack(spacing: 12) {
+        VStack(spacing: CornerRadius.md) {
             Label(message, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
                 .font(.callout)
@@ -259,21 +263,21 @@ struct FamilyLinkView: View {
             }
             .buttonStyle(.bordered)
         }
-        .padding()
+        .padding(Spacing.md)
     }
 
     // MARK: - 子として連携済み（送る側）
 
     private var childLinksSection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Spacing.md) {
             HStack(spacing: 12) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.title2)
                     .foregroundStyle(.blue)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("連携済み（送る側）")
+                    Text("予定を送れる状態です")
                         .font(.headline)
-                    Text("家族の代わりに予定を登録できます。")
+                    Text("この端末から相手の予定を登録できます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

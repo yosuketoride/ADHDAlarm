@@ -7,6 +7,8 @@ final class AppleCalendarProvider: CalendarProviding {
 
     private let eventStore = EKEventStore()
 
+    nonisolated init() {}
+
     // MARK: - CalendarProviding
 
     /// アプリが作成した予定をすべて取得する（マーカーで識別）

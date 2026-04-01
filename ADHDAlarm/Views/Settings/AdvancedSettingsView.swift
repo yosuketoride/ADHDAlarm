@@ -145,7 +145,7 @@ struct AdvancedSettingsView: View {
             Section {
                 if viewModel.isPro {
                     NavigationLink {
-                        FamilyLinkView()
+                        PersonFamilyLinkView()
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "person.2.fill")
@@ -199,12 +199,7 @@ struct AdvancedSettingsView: View {
         .navigationTitle("詳細設定")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showPaywall) {
-            PaywallView(
-                viewModel: PaywallViewModel(
-                    storeKit: StoreKitService(),
-                    appState: appState
-                )
-            )
+            PaywallView()
         }
         .task {
             await viewModel.loadCalendars()

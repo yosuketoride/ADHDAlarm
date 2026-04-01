@@ -86,7 +86,9 @@ struct VisualTimerWidgetView: View {
             }
             Text(alarm.title)
                 .font(.system(.callout, design: .rounded).weight(.bold))
-                .lineLimit(1)
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
+                .layoutPriority(1)
         }
         .containerBackground(.clear, for: .widget)
     }

@@ -4,6 +4,30 @@ import Foundation
 /// V1スコープ: 単発予定のみ（繰り返しなし）、日本語のみ
 final class NLParserService: NLParsing {
 
+    /// 予定タイトルから絵文字を推定する
+    func inferEmoji(from title: String) -> String? {
+        let mappings: [(keywords: [String], emoji: String)] = [
+            (["薬", "服薬", "飲む", "錠"], "💊"),
+            (["病院", "診察", "クリニック", "医者"], "🏥"),
+            (["ご飯", "食事", "昼", "朝", "夜", "夕"], "🍴"),
+            (["運動", "散歩", "ウォーキング", "体操"], "🚶"),
+            (["電話", "連絡", "コール"], "📞"),
+            (["美容院", "カット", "髪"], "💇"),
+            (["買い物", "スーパー", "コンビニ"], "🛒"),
+            (["ゴミ", "ごみ", "資源"], "🗑️"),
+            (["掃除", "片付け"], "🧹"),
+            (["寝る", "就寝", "お昼寝"], "😴"),
+        ]
+
+        let normalized = title.lowercased()
+        for (keywords, emoji) in mappings {
+            if keywords.contains(where: { normalized.contains($0.lowercased()) }) {
+                return emoji
+            }
+        }
+        return nil
+    }
+
     /// 日時だけを抽出する（タイトルが無くても成功する）
     /// Siri の2ステップ対話で "dateText" だけを渡す場合に使う
     func parseDate(text: String) -> Date? {
@@ -17,7 +41,7 @@ final class NLParserService: NLParsing {
         guard !workText.isEmpty else { return nil }
 
         // 1. 繰り返しルールを抽出する（繰り返し語句を消費してタイトルから除去）
-        var (recurrenceRule, recurrenceConsumed) = extractRecurrence(from: workText)
+        let (recurrenceRule, recurrenceConsumed) = extractRecurrence(from: workText)
         var textAfterRecurrence = workText
         if let range = recurrenceConsumed {
             textAfterRecurrence.removeSubrange(range)

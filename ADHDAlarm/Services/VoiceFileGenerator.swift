@@ -5,6 +5,8 @@ import AVFoundation
 /// 生成したファイルはLibrary/Sounds/WasurebuAlarms/{alarmID}.cafに保存する
 final class VoiceFileGenerator: VoiceSynthesizing {
 
+    nonisolated init() {}
+
     // MARK: - VoiceSynthesizing
 
     /// テキストを音声ファイル(.caf)として生成し、保存先URLを返す
@@ -64,7 +66,7 @@ final class VoiceFileGenerator: VoiceSynthesizing {
 
     /// アラームの読み上げテキストを生成する
     /// 例: 「お時間です。あと15分でカフェのご予定ですよ。」
-    static func speechText(for alarm: AlarmEvent) -> String {
+    nonisolated static func speechText(for alarm: AlarmEvent) -> String {
         let minutesText = alarm.preNotificationMinutes == 0
             ? "になりました"
             : "まであと\(alarm.preNotificationMinutes)分です"

@@ -7,15 +7,15 @@ protocol VoiceSynthesizing {
     ///   - text: 読み上げテキスト（例: 「お時間です。あと15分でカフェのご予定ですよ。」）
     ///   - character: 音声キャラクター
     ///   - alarmID: ファイル名に使用するID
-    func generateAudio(text: String, character: VoiceCharacter, alarmID: UUID, eventTitle: String) async throws -> URL
+    nonisolated func generateAudio(text: String, character: VoiceCharacter, alarmID: UUID, eventTitle: String) async throws -> URL
 
     /// 生成済み音声ファイルを削除する（アラーム削除時のクリーンアップ）
-    func deleteAudio(alarmID: UUID)
+    nonisolated func deleteAudio(alarmID: UUID)
 }
 
 extension VoiceSynthesizing {
     /// eventTitle省略時のデフォルト実装（既存の呼び出し元との互換性維持）
-    func generateAudio(text: String, character: VoiceCharacter, alarmID: UUID) async throws -> URL {
+    nonisolated func generateAudio(text: String, character: VoiceCharacter, alarmID: UUID) async throws -> URL {
         try await generateAudio(text: text, character: character, alarmID: alarmID, eventTitle: "")
     }
 }

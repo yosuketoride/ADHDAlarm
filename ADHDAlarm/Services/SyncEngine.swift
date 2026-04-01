@@ -21,17 +21,17 @@ actor SyncEngine {
     private let familyService: FamilyScheduling?
 
     init(
-        calendarProvider: CalendarProviding  = AppleCalendarProvider(),
-        alarmScheduler: AlarmScheduling      = AlarmKitScheduler(),
-        voiceGenerator: VoiceSynthesizing    = VoiceFileGenerator(),
-        eventStore: AlarmEventStore          = .shared,
-        familyService: FamilyScheduling?     = FamilyRemoteService.shared
+        calendarProvider: CalendarProviding? = nil,
+        alarmScheduler: AlarmScheduling? = nil,
+        voiceGenerator: VoiceSynthesizing? = nil,
+        eventStore: AlarmEventStore? = nil,
+        familyService: FamilyScheduling? = nil
     ) {
-        self.calendarProvider = calendarProvider
-        self.alarmScheduler   = alarmScheduler
-        self.voiceGenerator   = voiceGenerator
-        self.eventStore       = eventStore
-        self.familyService    = familyService
+        self.calendarProvider = calendarProvider ?? AppleCalendarProvider()
+        self.alarmScheduler   = alarmScheduler ?? AlarmKitScheduler()
+        self.voiceGenerator   = voiceGenerator ?? VoiceFileGenerator()
+        self.eventStore       = eventStore ?? .shared
+        self.familyService    = familyService ?? FamilyRemoteService.shared
     }
 
     // MARK: - フル同期（メインエントリーポイント）
@@ -40,16 +40,16 @@ actor SyncEngine {
     /// アプリのフォアグラウンド復帰時に必ず呼ぶ
     func performFullSync() async {
         // P-9-14: 日付変更時のToDoタスク持ち越し・完了済みアラームのクリーンアップ
-        performDailyReset()
+        await performDailyReset()
 
         // カレンダー権限がない場合はスキップ
         // 権限なしでfetchAppEventsが空を返すと、全ローカルイベントが誤削除される
         let authStatus = EKEventStore.authorizationStatus(for: .event)
-        guard authStatus == .fullAccess || authStatus == .authorized else { return }
+        guard authStatus == .fullAccess else { return }
 
         // 1. 現在の状態を収集する
         let ekEvents      = (try? await calendarProvider.fetchAppEvents()) ?? []
-        let localMappings = eventStore.loadAll()
+        let localMappings = await MainActor.run { eventStore.loadAll() }
 
         // EventKitが空なのにローカルにイベントがある場合はスキップ
         // （EventKitキャッシュ未更新 or 一時的な読み取り失敗の可能性があり、誤削除を防ぐ）
@@ -148,7 +148,8 @@ actor SyncEngine {
             if let newAlarmKitID = try? await alarmScheduler.schedule(updated) {
                 updated.alarmKitIdentifier = newAlarmKitID
             }
-            eventStore.save(updated)
+            let finalUpdated = updated
+            await MainActor.run { eventStore.save(finalUpdated) }
 
         case .orphanedAlarm(let alarm):
             // EventKitから削除済み → 全アラームキャンセル + 音声ファイル削除 + ローカル削除
@@ -160,7 +161,7 @@ actor SyncEngine {
                 try? await alarmScheduler.cancelAll(alarmKitIDs: idsToCancel)
             }
             voiceGenerator.deleteAudio(alarmID: alarm.id)
-            eventStore.delete(id: alarm.id)
+            await MainActor.run { eventStore.delete(id: alarm.id) }
 
         case .orphanedEvent(let ekEvent):
             // AlarmKitからアラームが消えている（通常は起こらないが念のため再登録）
@@ -176,7 +177,8 @@ actor SyncEngine {
             }
             if let newAlarmKitID = try? await alarmScheduler.schedule(alarm) {
                 alarm.alarmKitIdentifier = newAlarmKitID
-                eventStore.save(alarm)
+                let finalAlarm = alarm
+                await MainActor.run { eventStore.save(finalAlarm) }
             }
         }
     }
@@ -225,12 +227,32 @@ actor SyncEngine {
     /// - Returns: 取り込み成功かどうか（重複スキップ時はfalse）
     private func integrateRemoteEvent(_ record: RemoteEventRecord, service: FamilyScheduling) async -> Bool {
         // 既に同期済みのイベントはスキップ（重複防止）
-        guard eventStore.find(remoteEventId: record.id) == nil else {
+        let existingEvent = await MainActor.run { eventStore.find(remoteEventId: record.id) }
+        guard existingEvent == nil else {
             print("[SyncEngine] \(record.title) は既に同期済みのためスキップ")
             return false
         }
 
         print("[SyncEngine] 取り込み開始: \(record.title) / \(record.fireDate)")
+
+        // P-5-1: TTL判定（遅延アラーム防止）
+        // 現在時刻より15分以上過去の予定はAlarmKitに登録せず、missedとしてローカル保存のみ行う
+        let ttlThreshold: TimeInterval = 15 * 60
+        if record.fireDate.timeIntervalSinceNow < -ttlThreshold {
+            print("[SyncEngine] P-5-1: \(record.title) は15分以上過去のためmissedとして保存")
+            var missedAlarm = AlarmEvent(
+                title: record.title,
+                fireDate: record.fireDate,
+                preNotificationMinutes: record.preNotificationMinutes,
+                voiceCharacter: VoiceCharacter(rawValue: record.voiceCharacter) ?? .femaleConcierge,
+                remoteEventId: record.id
+            )
+            missedAlarm.completionStatus = .missed
+            let finalMissedAlarm = missedAlarm
+            await MainActor.run { eventStore.save(finalMissedAlarm) }
+            try? await service.markEventSynced(id: record.id)
+            return true
+        }
 
         // RemoteEventRecordをAlarmEventに変換
         var alarm = AlarmEvent(
@@ -271,7 +293,8 @@ actor SyncEngine {
         }
 
         // ローカルストアに保存
-        eventStore.save(alarm)
+        let finalAlarm = alarm
+        await MainActor.run { eventStore.save(finalAlarm) }
         print("[SyncEngine] ローカル保存完了")
 
         // Supabaseのステータスを同期済みに更新
@@ -291,7 +314,8 @@ actor SyncEngine {
     /// キャンセルされたリモート予定をロールバックする（AlarmKit削除 + EventKit削除 + ローカル削除）
     private func rollbackRemoteEvent(_ record: RemoteEventRecord, service: FamilyScheduling) async {
         // ローカルのAlarmEventを検索
-        guard let alarm = eventStore.find(remoteEventId: record.id) else {
+        let localAlarm: AlarmEvent? = await MainActor.run { eventStore.find(remoteEventId: record.id) }
+        guard let alarm = localAlarm else {
             // ローカルにない場合でも rolled_back にマークしておく（再ロールバック防止）
             try? await service.markEventRolledBack(id: record.id)
             return
@@ -313,7 +337,7 @@ actor SyncEngine {
         voiceGenerator.deleteAudio(alarmID: alarm.id)
 
         // ローカルストアから削除
-        eventStore.delete(id: alarm.id)
+        await MainActor.run { eventStore.delete(id: alarm.id) }
 
         // Supabaseのステータスをrolled_backに更新
         try? await service.markEventRolledBack(id: record.id)
@@ -353,7 +377,7 @@ actor SyncEngine {
     /// - 完了済みToDoを削除（達成済みのため）
     /// - 未完了ToDoは持ち越し（startOfDayを今日に更新してリスト先頭に残す）
     /// - 通常の完了済みアラームの古いものをクリーンアップ
-    private func performDailyReset() {
+    private func performDailyReset() async {
         let defaults = UserDefaults.standard
         let lastResetKey = "lastDailyResetDate"
         let lastReset = defaults.object(forKey: lastResetKey) as? Date ?? .distantPast
@@ -362,21 +386,21 @@ actor SyncEngine {
         guard !Calendar.current.isDateInToday(lastReset) else { return }
         defaults.set(Date(), forKey: lastResetKey)
 
-        let allEvents = eventStore.loadAll()
+        let allEvents = await MainActor.run { eventStore.loadAll() }
         let today = Calendar.current.startOfDay(for: Date())
 
         for event in allEvents {
             if event.isToDo {
                 if event.completionStatus == .completed {
                     // 完了済みToDoは削除
-                    eventStore.delete(id: event.id)
+                    await MainActor.run { eventStore.delete(id: event.id) }
                 }
                 // 未完了ToDoは何もしない（持ち越し = 削除しない）
             } else {
                 // 通常アラーム: 3日以上前の完了済みアラームを削除してストレージを節約
                 let threeDaysAgo = Calendar.current.date(byAdding: .day, value: -3, to: today) ?? today
                 if event.completionStatus != nil && event.fireDate < threeDaysAgo {
-                    eventStore.delete(id: event.id)
+                    await MainActor.run { eventStore.delete(id: event.id) }
                 }
             }
         }

@@ -40,8 +40,8 @@ enum Constants {
         //   手順: Xcode > Project > Info > Configurations に xcconfig を追加し、
         //         SUPABASE_URL / SUPABASE_ANON_KEY をビルド変数として定義する。
         // ⚠️ Supabase ダッシュボードで全テーブルの RLS が有効になっていることも必ず確認。
-        static let projectURL = "https://frvrvuwuottwphzkvxss.supabase.co"
-        static let anonKey    = "sb_publishable_So0dQ0oVEycAnA4gzYaP1A_FXghS77I"
+        nonisolated static let projectURL = "https://frvrvuwuottwphzkvxss.supabase.co"
+        nonisolated static let anonKey    = "sb_publishable_So0dQ0oVEycAnA4gzYaP1A_FXghS77I"
     }
 
     // MARK: - App Group
@@ -67,6 +67,18 @@ enum Constants {
         static let terms   = "https://yosuketoride.github.io/ADHDAlarm/terms"
         /// プライバシーポリシーページのURL
         static let privacy = "https://yosuketoride.github.io/ADHDAlarm/privacy"
+    }
+
+    // MARK: - 通知アクション（バナーの「止める / あとで / 今日は休む」ボタン）
+    enum Notification {
+        /// アラームカテゴリID（UNNotificationCategory に登録する識別子）
+        static let alarmCategoryID = "ALARM_CATEGORY"
+        /// 「止める」アクションID
+        static let actionDismiss   = "ALARM_DISMISS"
+        /// 「あとで（30分後）」アクションID
+        static let actionSnooze    = "ALARM_SNOOZE"
+        /// 「今日は休む」アクションID
+        static let actionSkip      = "ALARM_SKIP"
     }
 
     // MARK: - StoreKit

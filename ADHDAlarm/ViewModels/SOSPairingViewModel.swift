@@ -31,8 +31,8 @@ final class SOSPairingViewModel {
     // アプリ全体のステートにアクセスしてペアリングIDを保存/削除するため
     nonisolated private let appState: AppState
     
-    init(sosService: SOSNotifying = SupabaseSOSService(), appState: AppState) {
-        self.sosService = sosService
+    init(sosService: SOSNotifying? = nil, appState: AppState) {
+        self.sosService = sosService ?? SupabaseSOSService()
         self.appState = appState
         
         // 既にペアリング設定がある場合は状態を復元
@@ -69,7 +69,7 @@ final class SOSPairingViewModel {
         // 目標時刻から逆算する方式に変更。バックグラウンドから戻っても正確な残り時間を表示する。
         let expireDate = Date().addingTimeInterval(Double(timeRemaining))
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 let remaining = max(0, Int(expireDate.timeIntervalSinceNow))
                 self.timeRemaining = remaining

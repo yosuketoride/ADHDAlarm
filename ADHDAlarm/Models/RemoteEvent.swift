@@ -62,6 +62,8 @@ struct FamilyLinkRecord: Decodable, Identifiable, Sendable {
     let status: String
     let expiresAt: Date
     let createdAt: Date
+    /// ペア内いずれかがPROを契約した場合にtrue（1契約で家族全員PRO扱い）
+    let isPremium: Bool
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -71,6 +73,20 @@ struct FamilyLinkRecord: Decodable, Identifiable, Sendable {
         case status
         case expiresAt      = "expires_at"
         case createdAt      = "created_at"
+        case isPremium      = "is_premium"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id            = try c.decode(String.self, forKey: .id)
+        parentDeviceId = try c.decode(String.self, forKey: .parentDeviceId)
+        childDeviceId  = try c.decodeIfPresent(String.self, forKey: .childDeviceId)
+        displayName    = try c.decodeIfPresent(String.self, forKey: .displayName)
+        status         = try c.decode(String.self, forKey: .status)
+        expiresAt      = try c.decode(Date.self, forKey: .expiresAt)
+        createdAt      = try c.decode(Date.self, forKey: .createdAt)
+        // is_premium カラムが未追加のDBでも後方互換（nilはfalse扱い）
+        isPremium      = (try? c.decodeIfPresent(Bool.self, forKey: .isPremium)) ?? false
     }
 
     /// 自分が親かどうか

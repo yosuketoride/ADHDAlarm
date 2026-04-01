@@ -4,12 +4,12 @@ import Foundation
 /// 家族リモートスケジュール設定のSupabase実装
 final class FamilyRemoteService: FamilyScheduling {
 
-    static let shared = FamilyRemoteService()
+    nonisolated static let shared = FamilyRemoteService()
 
     private let client = SupabaseClientFactory.shared
     private(set) var currentDeviceId: String?
 
-    private init() {}
+    nonisolated private init() {}
 
     // MARK: - デバイス登録・認証
 
@@ -67,6 +67,15 @@ final class FamilyRemoteService: FamilyScheduling {
             .execute()
     }
 
+    func updateLastSeen() async throws {
+        let deviceId = try await ensureDeviceRegistered()
+        try await client
+            .from("devices")
+            .update(["last_seen_at": ISO8601DateFormatter().string(from: Date())])
+            .eq("id", value: deviceId)
+            .execute()
+    }
+
     // MARK: - 家族ペアリング（親側）
 
     func generateFamilyCode() async throws -> (linkId: String, code: String) {
@@ -101,20 +110,21 @@ final class FamilyRemoteService: FamilyScheduling {
         struct StatusRecord: Decodable { let status: String }
 
         return AsyncStream { continuation in
-            let channel = client.realtime.channel("public:family_links:id=eq.\(linkId)")
-            _ = channel.on("postgres_changes", filter: .init(
-                event: "UPDATE", schema: "public", table: "family_links",
+            let channel = client.realtimeV2.channel("public:family_links:id=eq.\(linkId)")
+            _ = channel.onPostgresChange(
+                UpdateAction.self,
+                schema: "public",
+                table: "family_links",
                 filter: "id=eq.\(linkId)"
-            )) { message in
-                if let record = message.payload["record"] as? [String: Any],
-                   let status = record["status"] as? String {
+            ) { action in
+                if let status = action.record["status"]?.stringValue {
                     continuation.yield(status)
                     if status == "paired" || status == "unpaired" {
                         continuation.finish()
                     }
                 }
             }
-            Task { await channel.subscribe() }
+            Task { try? await channel.subscribeWithError() }
 
             // ポーリングによるフォールバック
             let pollingTask = Task {
@@ -187,13 +197,14 @@ final class FamilyRemoteService: FamilyScheduling {
     func createRemoteEvent(_ event: RemoteEventPayload) async throws {
         let deviceId = try await ensureDeviceRegistered()
 
-        // 送信先（親）のdevice_idをfamily_linksから取得
+        // ペアの相手側デバイスを family_links から取得する
         struct LinkRecord: Decodable {
             let parent_device_id: String
+            let child_device_id: String?
         }
         let links: [LinkRecord] = try await client
             .from("family_links")
-            .select("parent_device_id")
+            .select("parent_device_id, child_device_id")
             .eq("id", value: event.familyLinkId)
             .eq("status", value: "paired")
             .limit(1)
@@ -201,6 +212,18 @@ final class FamilyRemoteService: FamilyScheduling {
             .value
 
         guard let link = links.first else {
+            throw FamilyError.notPaired
+        }
+
+        // 自分が親でも子でも、必ず「相手側」にだけ予定を送る。
+        let targetDeviceId: String?
+        if link.parent_device_id == deviceId {
+            targetDeviceId = link.child_device_id
+        } else {
+            targetDeviceId = link.parent_device_id
+        }
+
+        guard let targetDeviceId, targetDeviceId != deviceId else {
             throw FamilyError.notPaired
         }
 
@@ -220,7 +243,7 @@ final class FamilyRemoteService: FamilyScheduling {
             .insert(EventRow(
                 family_link_id: event.familyLinkId,
                 creator_device_id: deviceId,
-                target_device_id: link.parent_device_id,
+                target_device_id: targetDeviceId,
                 title: event.title,
                 fire_date: formatter.string(from: event.fireDate),
                 pre_notification_minutes: event.preNotificationMinutes,
@@ -248,6 +271,42 @@ final class FamilyRemoteService: FamilyScheduling {
             .order("created_at", ascending: false)
             .execute()
             .value
+    }
+
+    func fetchLastSeen(linkId: String) async throws -> Date? {
+        struct LinkRecord: Decodable {
+            let parentDeviceId: String
+
+            enum CodingKeys: String, CodingKey {
+                case parentDeviceId = "parent_device_id"
+            }
+        }
+        let links: [LinkRecord] = try await client
+            .from("family_links")
+            .select("parent_device_id")
+            .eq("id", value: linkId)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let parentId = links.first?.parentDeviceId else { return nil }
+
+        struct DeviceRecord: Decodable {
+            let lastSeenAt: Date?
+
+            enum CodingKeys: String, CodingKey {
+                case lastSeenAt = "last_seen_at"
+            }
+        }
+        let devices: [DeviceRecord] = try await client
+            .from("devices")
+            .select("last_seen_at")
+            .eq("id", value: parentId)
+            .limit(1)
+            .execute()
+            .value
+
+        return devices.first?.lastSeenAt
     }
 
     // MARK: - リモート予定（親側）
@@ -291,24 +350,32 @@ final class FamilyRemoteService: FamilyScheduling {
             .execute()
     }
 
+    func updateRemoteEventStatus(id: String, status: String) async throws {
+        try await client
+            .from("remote_events")
+            .update(["status": status])
+            .eq("id", value: id)
+            .execute()
+    }
+
     func listenToNewEvents() -> AsyncStream<RemoteEventRecord> {
         AsyncStream { continuation in
             guard let deviceId = currentDeviceId else {
                 continuation.finish()
                 return
             }
-            let channel = client.realtime.channel("public:remote_events:target=\(deviceId)")
-            _ = channel.on("postgres_changes", filter: .init(
-                event: "INSERT", schema: "public", table: "remote_events",
+            let channel = client.realtimeV2.channel("public:remote_events:target=\(deviceId)")
+            _ = channel.onPostgresChange(
+                InsertAction.self,
+                schema: "public",
+                table: "remote_events",
                 filter: "target_device_id=eq.\(deviceId)"
-            )) { message in
-                if let record = message.payload["record"] as? [String: Any],
-                   let jsonData = try? JSONSerialization.data(withJSONObject: record),
-                   let event = try? JSONDecoder().decode(RemoteEventRecord.self, from: jsonData) {
+            ) { action in
+                if let event = try? action.decodeRecord(as: RemoteEventRecord.self, decoder: JSONDecoder()) {
                     continuation.yield(event)
                 }
             }
-            Task { await channel.subscribe() }
+            Task { try? await channel.subscribeWithError() }
             continuation.onTermination = { @Sendable _ in
                 Task { await channel.unsubscribe() }
             }
@@ -324,6 +391,19 @@ final class FamilyRemoteService: FamilyScheduling {
             .eq("status", value: "paired")
             .execute()
             .value
+    }
+
+    // MARK: - PRO状態伝播
+
+    func updatePremiumStatus(isPro: Bool) async throws {
+        let deviceId = try await ensureDeviceRegistered()
+        // 自分が親・子のどちらとして参加しているリンクもすべて更新する
+        try await client
+            .from("family_links")
+            .update(["is_premium": isPro])
+            .or("parent_device_id.eq.\(deviceId),child_device_id.eq.\(deviceId)")
+            .eq("status", value: "paired")
+            .execute()
     }
 
 }

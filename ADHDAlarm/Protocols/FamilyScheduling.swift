@@ -11,6 +11,9 @@ protocol FamilyScheduling: Sendable {
     /// APNsデバイストークンをSupabaseに保存（UPSERT）
     func updateDeviceToken(_ token: String) async throws
 
+    /// devices.last_seen_at を現在時刻で更新する
+    func updateLastSeen() async throws
+
     // MARK: - 家族ペアリング（親側）
 
     /// ペアリングコードを生成して返す（親が最初に実行）
@@ -38,6 +41,9 @@ protocol FamilyScheduling: Sendable {
     /// 子が送信した予定の一覧を取得する
     func fetchSentEvents(linkId: String) async throws -> [RemoteEventRecord]
 
+    /// 見守り対象の最終確認時刻を取得する
+    func fetchLastSeen(linkId: String) async throws -> Date?
+
     // MARK: - リモート予定（親側）
 
     /// 未同期の予定を取得する（pending）
@@ -52,6 +58,9 @@ protocol FamilyScheduling: Sendable {
     /// 予定をロールバック済みにマークする
     func markEventRolledBack(id: String) async throws
 
+    /// 本人側の反応結果を remote_events.status に反映する
+    func updateRemoteEventStatus(id: String, status: String) async throws
+
     /// 新しい予定の到着をリアルタイムで監視する
     func listenToNewEvents() -> AsyncStream<RemoteEventRecord>
 
@@ -62,4 +71,10 @@ protocol FamilyScheduling: Sendable {
 
     /// 自分がペアリング済みの家族リンク一覧を取得する
     func fetchMyFamilyLinks() async throws -> [FamilyLinkRecord]
+
+    // MARK: - PRO状態伝播
+
+    /// 自分が関与するすべてのfamily_linksのis_premiumを更新する
+    /// （1契約で家族全員PRO扱いにするための伝播処理）
+    func updatePremiumStatus(isPro: Bool) async throws
 }

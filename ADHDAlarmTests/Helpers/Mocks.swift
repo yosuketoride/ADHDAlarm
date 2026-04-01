@@ -11,6 +11,7 @@ final class MockFamilyService: FamilyScheduling {
     // 記録
     var registeredDevices: [String] = []
     var updatedTokens: [String] = []
+    var updatedLastSeen = false
     var generatedCodes: [(linkId: String, code: String)] = []
     var joinedCodes: [String] = []
     var unlinkedIds: [String] = []
@@ -18,6 +19,7 @@ final class MockFamilyService: FamilyScheduling {
     var cancelledEventIds: [String] = []
     var syncedEventIds: [String] = []
     var rolledBackEventIds: [String] = []
+    var updatedRemoteStatuses: [(id: String, status: String)] = []
 
     // スタブ返り値
     var stubLinkId = "mock-link-id"
@@ -25,6 +27,7 @@ final class MockFamilyService: FamilyScheduling {
     var stubPendingEvents: [RemoteEventRecord] = []
     var stubCancelledEvents: [RemoteEventRecord] = []
     var stubSentEvents: [RemoteEventRecord] = []
+    var stubLastSeen: Date? = nil
     var stubFamilyLinks: [FamilyLinkRecord] = []
     var statusStream: AsyncStream<String> = AsyncStream { $0.finish() }
 
@@ -37,6 +40,11 @@ final class MockFamilyService: FamilyScheduling {
     func updateDeviceToken(_ token: String) async throws {
         if shouldThrow { throw MockError.intentional }
         updatedTokens.append(token)
+    }
+
+    func updateLastSeen() async throws {
+        if shouldThrow { throw MockError.intentional }
+        updatedLastSeen = true
     }
 
     func generateFamilyCode() async throws -> (linkId: String, code: String) {
@@ -74,6 +82,11 @@ final class MockFamilyService: FamilyScheduling {
         return stubSentEvents
     }
 
+    func fetchLastSeen(linkId: String) async throws -> Date? {
+        if shouldThrow { throw MockError.intentional }
+        return stubLastSeen
+    }
+
     func fetchPendingEvents() async throws -> [RemoteEventRecord] {
         if shouldThrow { throw MockError.intentional }
         return stubPendingEvents
@@ -94,6 +107,11 @@ final class MockFamilyService: FamilyScheduling {
         rolledBackEventIds.append(id)
     }
 
+    func updateRemoteEventStatus(id: String, status: String) async throws {
+        if shouldThrow { throw MockError.intentional }
+        updatedRemoteStatuses.append((id: id, status: status))
+    }
+
     func listenToNewEvents() -> AsyncStream<RemoteEventRecord> {
         AsyncStream { $0.finish() }
     }
@@ -101,6 +119,13 @@ final class MockFamilyService: FamilyScheduling {
     func fetchMyFamilyLinks() async throws -> [FamilyLinkRecord] {
         if shouldThrow { throw MockError.intentional }
         return stubFamilyLinks
+    }
+
+    var updatedPremiumStatuses: [Bool] = []
+
+    func updatePremiumStatus(isPro: Bool) async throws {
+        if shouldThrow { throw MockError.intentional }
+        updatedPremiumStatuses.append(isPro)
     }
 }
 
@@ -296,4 +321,3 @@ final class MockSOSService: SOSNotifying {
         sentSOSMinutes = minutes
     }
 }
-

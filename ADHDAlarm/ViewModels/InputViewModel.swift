@@ -176,7 +176,9 @@ final class InputViewModel {
         let groupID: UUID? = recurrence != nil ? UUID() : nil
 
         // ユーザーが今日/明日トグルで選択した日時を優先、なければNLParser解析結果を使用
-        let resolvedFireDate = selectedFireDate ?? parsed.fireDate
+        let resolvedFireDate = parsed.isToDo
+            ? Calendar.current.startOfDay(for: selectedFireDate ?? parsed.fireDate)
+            : (selectedFireDate ?? parsed.fireDate)
 
         // 登録する発火日時のリスト（単発なら1件、繰り返しならN件）
         let fireDates: [Date]
@@ -197,6 +199,7 @@ final class InputViewModel {
                 voiceCharacter: appState.voiceCharacter,
                 recurrenceRule: recurrence,
                 recurrenceGroupID: groupID,
+                eventEmoji: nlParser.inferEmoji(from: parsed.title),
                 isToDo: parsed.isToDo
             )
 

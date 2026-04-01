@@ -19,6 +19,7 @@ final class SpeechRecognitionService {
                 try setupAudioSession()
                 let request = SFSpeechAudioBufferRecognitionRequest()
                 request.shouldReportPartialResults = true
+                request.requiresOnDeviceRecognition = true
                 self.recognitionRequest = request
 
                 recognitionTask = recognizer?.recognitionTask(with: request) { result, error in

@@ -108,10 +108,12 @@ struct NextAlarmWidgetView: View {
             Spacer()
 
             Button(intent: CompleteAlarmIntent(eventID: alarm.id.uuidString)) {
-                Text("✓ 完了にする")
+                Text("完了")
                     .font(.caption)
                     .bold()
                     .frame(maxWidth: .infinity)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
             .buttonStyle(.borderedProminent)
             .tint(Color.green)
@@ -132,7 +134,8 @@ struct NextAlarmWidgetView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(alarm.fireDate.widgetTimeString)
-                        .font(.system(size: 28, weight: .black, design: .rounded))
+                        .font(.title.weight(.black))
+                        .monospacedDigit()
                         .foregroundStyle(.primary)
                         .minimumScaleFactor(0.6)
                     
@@ -155,10 +158,12 @@ struct NextAlarmWidgetView: View {
                 Spacer(minLength: 0)
 
                 Button(intent: CompleteAlarmIntent(eventID: alarm.id.uuidString)) {
-                    Text("✓ 完了にする")
+                    Text("完了")
                         .font(.caption)
                         .bold()
                         .frame(maxWidth: .infinity)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color.green)
@@ -276,7 +281,7 @@ struct NextAlarmWidgetView: View {
                 Text(alarm.fireDate.widgetTimeString)
                     .font(.system(.callout, design: .rounded).weight(.semibold))
                     .foregroundStyle(isPast ? AnyShapeStyle(.secondary) : AnyShapeStyle(.blue))
-                    .frame(width: 44, alignment: .trailing)
+                    .frame(minWidth: 44, alignment: .trailing)
                 // 完了インジケーター
                 Image(systemName: isPast ? "checkmark.circle.fill" : "circle")
                     .font(.caption)
@@ -286,7 +291,9 @@ struct NextAlarmWidgetView: View {
                     .font(.callout)
                     .foregroundStyle(isPast ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                     .strikethrough(isPast, color: .secondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                    .layoutPriority(1)
                 Spacer()
             }
             .padding(.horizontal, 14)

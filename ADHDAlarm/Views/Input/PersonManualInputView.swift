@@ -48,7 +48,10 @@ struct PersonManualInputView: View {
     }
 
     private var fireDateResult: Date? {
-        if isToDoMode { return Date() }  // ToDo: 発火日時は形式上今日（アラーム不発火）
+        if isToDoMode {
+            // ToDoは「時刻なし」なので、表示や翌日判定に引きずられないよう日付の先頭にそろえる。
+            return Calendar.current.startOfDay(for: Date())
+        }
         if showDatePicker { return pickerDate }
         return selectedTime.map { computeDate(for: $0) }
     }
@@ -134,8 +137,9 @@ struct PersonManualInputView: View {
                 Text(template.title)
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(isSelected ? .white : .primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: 72)
@@ -237,11 +241,14 @@ struct PersonManualInputView: View {
                 Text(preset.label)
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(isSelected ? .white : .primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(timeDescription(for: preset))
                     .font(.caption2)
                     .foregroundStyle(isSelected ? .white.opacity(0.8) : .secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: 72)
@@ -295,7 +302,7 @@ struct PersonManualInputView: View {
         } label: {
             Text(canConfirm ? "🦉 ふくろうにお願いする" : "予定と時間を選んでね")
                 .font(.title3.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(canConfirm ? .black : .white)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 60)
                 .background(canConfirm ? Color.owlAmber : Color.gray.opacity(0.4))

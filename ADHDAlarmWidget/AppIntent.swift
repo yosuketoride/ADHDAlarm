@@ -49,6 +49,8 @@ struct CompleteAlarmIntent: AppIntent {
                     defaults.set(todayXP + 10, forKey: "owl_xp_today")
                 }
             }
+
+            WidgetCenter.shared.reloadAllTimelines()
         }
         
         return .result()

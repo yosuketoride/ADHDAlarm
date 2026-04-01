@@ -9,6 +9,14 @@ extension Date {
         return formatter.string(from: self)
     }
 
+    /// 省スペース用の日付表示（例: 3月20日）
+    var japaneseCompactDateString: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "M月d日"
+        return formatter.string(from: self)
+    }
+
     /// 日本語の時刻表示（例: 15:00）
     var japaneseTimeString: String {
         let formatter = DateFormatter()

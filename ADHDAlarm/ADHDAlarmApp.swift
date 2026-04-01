@@ -55,6 +55,11 @@ struct ADHDAlarmApp: App {
             if newPhase == .active {
                 permissionsService.refreshStatuses()
                 checkBatteryLevel()
+                if appState.appMode == .person {
+                    Task {
+                        try? await FamilyRemoteService.shared.updateLastSeen()
+                    }
+                }
                 // P-5-4: 前回同期から60秒未満ならスキップ（多重発火防止）
                 let now = Date()
                 guard now.timeIntervalSince(lastSyncTimestamp) >= 60 else { return }
@@ -81,6 +86,35 @@ struct ADHDAlarmApp: App {
         // 通知権限をリクエスト（家族機能のお知らせ・事前通知に使用）
         // 既に許可済みの場合はダイアログが出ない
         await permissionsService.requestNotification()
+        // アラームバナーに「止める / あとで / 今日は休む」ボタンを登録する
+        registerAlarmNotificationCategory()
+    }
+
+    /// UNNotificationCategoryを登録してバナーにアクションボタンを追加する
+    /// ※ AlarmKitが発行する通知にcategoryIdentifierが設定されていれば、このカテゴリのボタンが表示される
+    private func registerAlarmNotificationCategory() {
+        let dismiss = UNNotificationAction(
+            identifier: Constants.Notification.actionDismiss,
+            title: "止める",
+            options: [.foreground]  // アプリを前面に出してRingingViewで視覚的に停止確認できるようにする
+        )
+        let snooze = UNNotificationAction(
+            identifier: Constants.Notification.actionSnooze,
+            title: "あとで（30分後）",
+            options: []  // バックグラウンドで再スケジュール処理する
+        )
+        let skip = UNNotificationAction(
+            identifier: Constants.Notification.actionSkip,
+            title: "今日は休む",
+            options: [.destructive]  // 赤色で「取り消せない操作」であることをユーザーに示す
+        )
+        let category = UNNotificationCategory(
+            identifier: Constants.Notification.alarmCategoryID,
+            actions: [dismiss, snooze, skip],
+            intentIdentifiers: [],
+            options: []
+        )
+        UNUserNotificationCenter.current().setNotificationCategories([category])
     }
 
     // MARK: - バッテリー残量チェック（P-9-3）
@@ -187,6 +221,12 @@ struct RootView: View {
             }
         }
         .animation(.spring(duration: 0.3), value: appState.globalToast != nil)
+        // バナーの「止める / あとで / 今日は休む」ボタン処理
+        .onReceive(NotificationCenter.default.publisher(
+            for: ForegroundNotificationDelegate.alarmActionNotification
+        )) { notification in
+            handleAlarmAction(from: notification, router: router)
+        }
         // AlarmKit発火時にフルスクリーンでRingingViewを表示
         .fullScreenCover(item: Binding(
             get: { router.ringingAlarm },
@@ -195,6 +235,91 @@ struct RootView: View {
             RingingView(alarm: alarm) {
                 router.ringingAlarm = nil
             }
+        }
+    }
+
+    // MARK: - バナーアクション処理
+
+    /// 通知バナーのボタンが押されたときの処理
+    /// - 止める: アラームをdismiss（RingingViewが開いていればそちらで処理、なければ直接停止）
+    /// - あとで: 30分後にスヌーズ登録してdismiss
+    /// - 今日は休む: スキップとしてdismiss
+    private func handleAlarmAction(from notification: Foundation.Notification, router: AppRouter) {
+        guard let userInfo = notification.userInfo,
+              let actionID = userInfo[ForegroundNotificationDelegate.alarmActionIdentifierKey] as? String
+        else { return }
+
+        // RingingView が既に開いている場合は AppRouter 経由で処理する
+        // （RingingView 自身が dismiss/snooze/skip を持っているため）
+        if router.ringingAlarm != nil {
+            switch actionID {
+            case Constants.Notification.actionDismiss:
+                // .foreground オプションでアプリが前面に来るため、ユーザーが手動で止める
+                break
+            case Constants.Notification.actionSnooze:
+                router.pendingAlarmAction = .snooze
+            case Constants.Notification.actionSkip:
+                router.pendingAlarmAction = .skip
+            default:
+                break
+            }
+            return
+        }
+
+        // RingingView が閉じている状態（バックグラウンドや別画面）での処理
+        // AlarmEventStore から対象アラームを特定してアクションを実行する
+        let alarmKitIDString = userInfo[ForegroundNotificationDelegate.alarmKitIDKey] as? String ?? ""
+        guard let alarmKitUUID = UUID(uuidString: alarmKitIDString),
+              let alarm = AlarmEventStore.shared.find(alarmKitID: alarmKitUUID)
+        else {
+            // 対象アラームが見つからない場合は止めるのみ（安全側に倒す）
+            return
+        }
+
+        switch actionID {
+        case Constants.Notification.actionDismiss:
+            // アプリが前面に来るので RingingView を表示して視覚的に停止できるようにする
+            router.ringingAlarm = alarm
+        case Constants.Notification.actionSnooze:
+            // バックグラウンドでスヌーズ登録：30分後に再アラーム
+            Task { @MainActor in
+                var snoozed = alarm
+                snoozed.snoozeCount = alarm.snoozeCount + 1
+                AlarmEventStore.shared.save(snoozed)
+                let snoozeDate = Date().addingTimeInterval(30 * 60)
+                let snoozeAlarm = AlarmEvent(
+                    id: alarm.id,
+                    title: alarm.title,
+                    fireDate: snoozeDate,
+                    preNotificationMinutes: 0,
+                    voiceFileName: alarm.voiceFileName,
+                    voiceCharacter: alarm.voiceCharacter,
+                    remoteEventId: alarm.remoteEventId
+                )
+                if let alarmKitID = alarm.alarmKitIdentifier {
+                    try? await AlarmKitScheduler().cancel(alarmKitID: alarmKitID)
+                }
+                if let newID = try? await AlarmKitScheduler().schedule(snoozeAlarm) {
+                    var final = snoozeAlarm
+                    final.alarmKitIdentifier = newID
+                    AlarmEventStore.shared.save(final)
+                }
+            }
+        case Constants.Notification.actionSkip:
+            // バックグラウンドでスキップ記録
+            Task { @MainActor in
+                var skipped = alarm
+                skipped.completionStatus = .skipped
+                AlarmEventStore.shared.save(skipped)
+                if let alarmKitID = alarm.alarmKitIdentifier {
+                    try? await AlarmKitScheduler().cancel(alarmKitID: alarmKitID)
+                }
+                if let ekID = alarm.eventKitIdentifier {
+                    try? await AppleCalendarProvider().deleteEvent(eventKitIdentifier: ekID)
+                }
+            }
+        default:
+            break
         }
     }
 

@@ -46,7 +46,7 @@ final class ReviewManager {
                 .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene
             else { return }
 
-            SKStoreReviewController.requestReview(in: scene)
+            AppStore.requestReview(in: scene)
             UserDefaults.standard.set(Date(), forKey: dateKey)
         }
     }

@@ -28,21 +28,28 @@ final class RingingViewModel: NSObject {
     private var sosEscalationMinutes: Int = 5
     
     private let sosService: SOSNotifying
+    private var appState: AppState?
 
     init(
-        scheduler: AlarmScheduling = AlarmKitScheduler(),
-        voiceGenerator: VoiceSynthesizing = VoiceFileGenerator(),
-        calendarProvider: CalendarProviding = AppleCalendarProvider(),
+        scheduler: AlarmScheduling? = nil,
+        voiceGenerator: VoiceSynthesizing? = nil,
+        calendarProvider: CalendarProviding? = nil,
         notificationType: NotificationType = .alarmAndVoice,
         audioOutputMode: AudioOutputMode = .automatic,
-        sosService: SOSNotifying = SupabaseSOSService()
+        sosService: SOSNotifying? = nil
     ) {
-        self.scheduler = scheduler
-        self.voiceGenerator = voiceGenerator
-        self.calendarProvider = calendarProvider
+        self.scheduler = scheduler ?? AlarmKitScheduler()
+        self.voiceGenerator = voiceGenerator ?? VoiceFileGenerator()
+        self.calendarProvider = calendarProvider ?? AppleCalendarProvider()
         self.notificationType = notificationType
         self.audioOutputMode = audioOutputMode
-        self.sosService = sosService
+        self.sosService = sosService ?? SupabaseSOSService()
+    }
+
+    func bindAppStateIfNeeded(_ appState: AppState) {
+        if self.appState == nil {
+            self.appState = appState
+        }
     }
 
     // MARK: - 設定反映
@@ -253,6 +260,7 @@ final class RingingViewModel: NSObject {
         }
         // completionStatus を .completed に更新して永続化
         recordCompletion(for: alarm, status: .completed)
+        syncReactionToRemote(alarm: alarm, status: "completed")
         addXP(10)
         stopAudioPlayback()
         Task {
@@ -278,6 +286,7 @@ final class RingingViewModel: NSObject {
         var updated = alarm
         updated.snoozeCount = alarm.snoozeCount + 1
         AlarmEventStore.shared.save(updated)
+        syncReactionToRemote(alarm: alarm, status: "snoozed")
         stopAudioPlayback()
         let snoozeDate = Date().addingTimeInterval(30 * 60)
         // 新しいアラームイベントとして30分後に再登録する
@@ -325,6 +334,7 @@ final class RingingViewModel: NSObject {
             return
         }
         recordCompletion(for: alarm, status: .skipped)
+        syncReactionToRemote(alarm: alarm, status: "skipped")
         addXP(3)
         stopAudioPlayback()
         Task {
@@ -360,7 +370,16 @@ final class RingingViewModel: NSObject {
         AlarmEventStore.shared.save(updated)
     }
 
+    /// 家族から届いた予定に対する反応を Supabase に反映する
+    private func syncReactionToRemote(alarm: AlarmEvent, status: String) {
+        guard let remoteId = alarm.remoteEventId else { return }
+        Task {
+            try? await FamilyRemoteService.shared.updateRemoteEventStatus(id: remoteId, status: status)
+        }
+    }
+
     private func addXP(_ amount: Int) {
+        guard let appState else { return }
         let cap = 50
         let defaults = UserDefaults.standard
         // 日付が変わっていたら今日のXPをリセット
@@ -370,10 +389,9 @@ final class RingingViewModel: NSObject {
             dailyAdded = 0
             defaults.set(0, forKey: Constants.Keys.owlXPToday)
         }
-        let current = defaults.integer(forKey: Constants.Keys.owlXP)
         let actual = min(amount, cap - dailyAdded)
         guard actual > 0 else { return }
-        defaults.set(current + actual, forKey: Constants.Keys.owlXP)
+        appState.owlXP += actual
         defaults.set(dailyAdded + actual, forKey: Constants.Keys.owlXPToday)
         defaults.set(Date(), forKey: Constants.Keys.owlXPLastDate)
     }
@@ -459,10 +477,15 @@ final class RingingViewModel: NSObject {
 
 extension RingingViewModel: AVAudioPlayerDelegate {
     /// 音声ファイル再生終了 → 5秒後にビープ→ナレーションを繰り返す
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        guard let alarm = activeAlarm else { return }
-        repeatTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
-            self?.playBeepThenNarration(alarm: alarm)
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor [weak self] in
+            guard let self, let alarm = self.activeAlarm else { return }
+            self.repeatTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.playBeepThenNarration(alarm: alarm)
+                }
+            }
         }
     }
 }
@@ -471,10 +494,15 @@ extension RingingViewModel: AVAudioPlayerDelegate {
 
 extension RingingViewModel: AVSpeechSynthesizerDelegate {
     /// 読み上げ終了 → 5秒後にビープ→ナレーションを繰り返す
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        guard let alarm = activeAlarm else { return }
-        repeatTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
-            self?.playBeepThenNarration(alarm: alarm)
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor [weak self] in
+            guard let self, let alarm = self.activeAlarm else { return }
+            self.repeatTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.playBeepThenNarration(alarm: alarm)
+                }
+            }
         }
     }
 }

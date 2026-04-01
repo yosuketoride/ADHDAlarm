@@ -5,7 +5,7 @@ import WidgetKit
 /// App Groupコンテナに保存してウィジェットとも共有する
 final class AlarmEventStore {
 
-    static let shared = AlarmEventStore()
+    nonisolated static let shared = AlarmEventStore()
 
     private let storageKey = Constants.Keys.alarmEventMappings
 
@@ -17,6 +17,8 @@ final class AlarmEventStore {
     // SyncEngineループ内で複数件保存しても、Widgetへのリクエストを1秒後の1回にまとめる。
     // WidgetKitのクオータ枯渇とWatchdog Timeoutを防ぐ。
     private var widgetReloadTask: Task<Void, Never>?
+
+    nonisolated private init() {}
 
     /// 保存先URL
     /// Phase 6でWidgetターゲットを追加しApp Groupエンタイトルメントを設定したら

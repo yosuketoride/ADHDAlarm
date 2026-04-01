@@ -26,8 +26,8 @@ final class FamilyPairingViewModel {
     private var listeningTask: Task<Void, Never>?
     private let service: FamilyScheduling
 
-    init(service: FamilyScheduling = FamilyRemoteService.shared) {
-        self.service = service
+    init(service: FamilyScheduling? = nil) {
+        self.service = service ?? FamilyRemoteService.shared
     }
 
     // MARK: - 親側: コード生成

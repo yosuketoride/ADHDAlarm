@@ -65,13 +65,26 @@ final class PersonHomeViewModel {
     // MARK: - 依存
     private let calendarProvider: CalendarProviding
     private let eventStore: AlarmEventStore
+    private var appState: AppState?
+    private var screenHeight: CGFloat = 0
 
     init(
-        calendarProvider: CalendarProviding = AppleCalendarProvider(),
-        eventStore: AlarmEventStore = .shared
+        calendarProvider: CalendarProviding? = nil,
+        eventStore: AlarmEventStore? = nil
     ) {
-        self.calendarProvider = calendarProvider
-        self.eventStore = eventStore
+        self.calendarProvider = calendarProvider ?? AppleCalendarProvider()
+        self.eventStore = eventStore ?? .shared
+    }
+
+    func bindAppStateIfNeeded(_ appState: AppState) {
+        if self.appState == nil {
+            self.appState = appState
+        }
+    }
+
+    func updateScreenHeightIfNeeded(_ height: CGFloat) {
+        guard height > 0 else { return }
+        screenHeight = height
     }
 
     // MARK: - 計算プロパティ: 予定リスト
@@ -81,7 +94,7 @@ final class PersonHomeViewModel {
         let sizeCategory = UIApplication.shared.preferredContentSizeCategory
         let isExtremeSize = sizeCategory >= .accessibilityLarge
         if isExtremeSize {
-            let availableHeight = UIScreen.main.bounds.height * 0.5
+            let availableHeight = (screenHeight > 0 ? screenHeight : 812) * 0.5
             return max(1, Int(availableHeight / ComponentSize.eventRow))
         }
         return 3
@@ -122,7 +135,9 @@ final class PersonHomeViewModel {
 
     /// 次の予定（カウントダウン用）
     var nextAlarm: AlarmEvent? {
-        events.filter { $0.fireDate > Date() }.min(by: { $0.fireDate < $1.fireDate })
+        events
+            .filter { !$0.isToDo && $0.fireDate > Date() }
+            .min(by: { $0.fireDate < $1.fireDate })
     }
 
     // MARK: - 計算プロパティ: 空状態メッセージ
@@ -133,14 +148,14 @@ final class PersonHomeViewModel {
         let skipped = events.filter { $0.completionStatus == .skipped }.count
 
         if total == 0 {
-            return ("🌸 今日はのんびり過ごしてね", "🎤 何か予定を追加してみよう")
+            return ("🌸 今日はのんびり過ごしてね", "🎤 予定を追加する")
         } else if skipped > 0 {
             // スキップを先に評価（全完了でもスキップが含まれる場合はこちら優先）
-            return ("🍵 今日は無理せず休もう。明日は明日の風が吹くよ 🦉", "🦉 体調が戻ったら声で教えてね")
+            return ("🍵 今日は無理せず休もう。明日は明日の風が吹くよ 🦉", "🦉 体調が戻ったら教えてね")
         } else if completed == total {
-            return ("🎉 お疲れ様！全部終わったよ！ふくろうも誇らしいよ", "🌙 明日の予定を追加しておく？")
+            return ("🎉 お疲れ様！全部終わったよ！ふくろうも誇らしいよ", "🌙 明日の予定も追加する？")
         }
-        return ("🌸 今日はのんびり過ごしてね", "🎤 何か予定を追加してみよう")
+        return ("🌸 今日はのんびり過ごしてね", "🎤 予定を追加する")
     }
 
     // MARK: - 計算プロパティ: あいさつ
@@ -204,7 +219,9 @@ final class PersonHomeViewModel {
     private func deduplicatedUpcoming(from allEvents: [AlarmEvent], startingFrom: Date) -> [AlarmEvent] {
         var seenGroupIDs = Set<UUID>()
         var result: [AlarmEvent] = []
-        for event in allEvents.filter({ $0.fireDate >= startingFrom }).sorted(by: { $0.fireDate < $1.fireDate }) {
+        for event in allEvents
+            .filter({ !$0.isToDo && $0.fireDate >= startingFrom })
+            .sorted(by: { $0.fireDate < $1.fireDate }) {
             if let groupID = event.recurrenceGroupID {
                 if seenGroupIDs.contains(groupID) { continue }
                 seenGroupIDs.insert(groupID)
@@ -228,9 +245,12 @@ final class PersonHomeViewModel {
         }
         events.removeAll { $0.id == alarm.id }
         pendingDelete = alarm
+        let alarmID = alarm.id
         deleteTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
-            guard let self, let pending = self.pendingDelete, pending.id == alarm.id else { return }
-            Task { await self.commitDelete(pending) }
+            Task { @MainActor [weak self] in
+                guard let self, let pending = self.pendingDelete, pending.id == alarmID else { return }
+                await self.commitDelete(pending)
+            }
         }
     }
 
@@ -333,7 +353,19 @@ final class PersonHomeViewModel {
 
     // MARK: - XP管理
 
+    /// XP量に応じたふくろうアセット名（owl_stage0〜3）
+    /// アセットが存在しない場合は "OwlIcon" にフォールバックする
+    var owlImageName: String {
+        switch appState?.owlXP ?? 0 {
+        case 0..<100:    return "owl_stage0"
+        case 100..<500:  return "owl_stage1"
+        case 500..<1000: return "owl_stage2"
+        default:         return "owl_stage3"
+        }
+    }
+
     func addXP(_ amount: Int) {
+        guard let appState else { return }
         let cap = 50
         let defaults = UserDefaults.standard
         // 日付が変わっていたら今日のXPをリセット
@@ -343,10 +375,9 @@ final class PersonHomeViewModel {
             dailyAdded = 0
             defaults.set(0, forKey: Constants.Keys.owlXPToday)
         }
-        let current = defaults.integer(forKey: Constants.Keys.owlXP)
         let actual = min(amount, cap - dailyAdded)
         guard actual > 0 else { return }
-        defaults.set(current + actual, forKey: Constants.Keys.owlXP)
+        appState.owlXP += actual
         defaults.set(dailyAdded + actual, forKey: Constants.Keys.owlXPToday)
         defaults.set(Date(), forKey: Constants.Keys.owlXPLastDate)
     }
