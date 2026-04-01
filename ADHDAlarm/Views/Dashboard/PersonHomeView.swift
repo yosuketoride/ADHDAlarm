@@ -23,7 +23,7 @@ struct PersonHomeView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
                     owlSection
-                        .padding(.top, Spacing.lg)
+                        .padding(.top, Spacing.xs)
                     countdownSection
                     eventListSection
                         .padding(.top, Spacing.lg)
@@ -57,6 +57,29 @@ struct PersonHomeView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .padding(.top, Spacing.md)
             }
+        }
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 0) {
+                Button {
+                    Task { await viewModel.performManualSync() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: IconSize.sm))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 60, height: 60)
+                }
+
+                Button {
+                    viewModel.showSettings = true
+                } label: {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: IconSize.md))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 60, height: 60)
+                }
+            }
+            .padding(.top, Spacing.sm)
+            .padding(.trailing, Spacing.lg)
         }
         // マイク入力シート
         .sheet(isPresented: $viewModel.showMicSheet) {
@@ -115,30 +138,7 @@ struct PersonHomeView: View {
     // MARK: - フクロウセクション
 
     private var owlSection: some View {
-        VStack(spacing: Spacing.sm) {
-            // 操作ボタン行（右端固定）
-            HStack {
-                Spacer()
-                // 🔄 手動同期ボタン（P-1-9）
-                Button {
-                    Task { await viewModel.performManualSync() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: IconSize.sm))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 60, height: 60)
-                }
-                Button {
-                    viewModel.showSettings = true
-                } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: IconSize.md))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 60, height: 60)
-                }
-            }
-            .padding(.horizontal, Spacing.lg)
-
+        VStack(spacing: Spacing.xs) {
             // フクロウ本体
             owlImage
                 .frame(width: 120, height: 120)
