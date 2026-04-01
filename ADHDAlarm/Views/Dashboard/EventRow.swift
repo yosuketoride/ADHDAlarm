@@ -11,12 +11,13 @@ struct EventRow: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    var body: some View {
-        // P-1-12: accessibility3以上ではVStackレイアウトに切り替え
-        let isExtremeType = dynamicTypeSize >= .accessibility3
+    private var usesStackedLayout: Bool {
+        dynamicTypeSize >= .accessibility1
+    }
 
+    var body: some View {
         Group {
-            if isExtremeType {
+            if usesStackedLayout {
                 largeTypeLayout
             } else {
                 normalLayout
@@ -25,8 +26,7 @@ struct EventRow: View {
         .padding(.vertical, Spacing.sm)
         .padding(.horizontal, Spacing.md)
         .frame(minHeight: ComponentSize.eventRow)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .background(cardBackground)
         .contentShape(Rectangle())
         .opacity(isPast ? 0.7 : 1.0)
         // 長押しで操作メニューを開く
@@ -74,8 +74,10 @@ struct EventRow: View {
             }
             .frame(minWidth: showDate ? 54 : 60)
 
-            // タイトル + サブ情報
-            titleAndSubInfo
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                titleText
+                metadataRow
+            }
 
             Spacer()
 
@@ -86,53 +88,70 @@ struct EventRow: View {
     // MARK: - 巨大テキストレイアウト（P-1-12: accessibility3以上）
 
     private var largeTypeLayout: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(spacing: Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(alignment: .top, spacing: Spacing.sm) {
                 Text(alarm.eventEmoji ?? "📌")
                     .font(.system(size: IconSize.xl))
                     .opacity(isPast ? 0.4 : 1.0)
 
-                if alarm.isToDo {
-                    Text("いつでも")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text(alarm.fireDate.japaneseTimeString)
-                        .font(.title3.weight(.bold))
-                        .monospacedDigit()
-                        .foregroundStyle(isPast ? .secondary : .primary)
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    if showDate {
+                        Text(alarm.fireDate.japaneseCompactDateString)
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    if alarm.isToDo {
+                        Text("いつでも")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(alarm.fireDate.japaneseTimeString)
+                            .font(.title3.weight(.bold))
+                            .monospacedDigit()
+                            .foregroundStyle(isPast ? .secondary : .primary)
+                    }
                 }
                 Spacer()
                 actionButton
             }
-            titleAndSubInfo
+
+            Text(alarm.title)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(isPast ? .secondary : .primary)
+                .strikethrough(isPast, color: .secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            metadataRow
         }
     }
 
     // MARK: - 共通パーツ
 
-    private var titleAndSubInfo: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            HStack(spacing: 4) {
-                Text(alarm.title)
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(isPast ? .secondary : .primary)
-                    .lineLimit(showDate ? 3 : 2)
-                    .strikethrough(isPast, color: .secondary)
-                    .layoutPriority(1)
-                // ToDoバッジ（P-1-11/P-9-14）
-                if alarm.isToDo && !isPast {
-                    let isCarriedOver = Calendar.current.startOfDay(for: alarm.fireDate) < Calendar.current.startOfDay(for: Date())
-                    Text(isCarriedOver ? "🔁 昨日から" : "ToDo")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(isCarriedOver ? Color.secondary : Color.owlAmber)
-                        .clipShape(Capsule())
-                }
+    private var titleText: some View {
+        HStack(alignment: .top, spacing: 4) {
+            Text(alarm.title)
+                .font(.body.weight(.medium))
+                .foregroundStyle(isPast ? .secondary : .primary)
+                .lineLimit(showDate ? 3 : 2)
+                .strikethrough(isPast, color: .secondary)
+                .layoutPriority(1)
+                .fixedSize(horizontal: false, vertical: true)
+            if alarm.isToDo && !isPast {
+                let isCarriedOver = Calendar.current.startOfDay(for: alarm.fireDate) < Calendar.current.startOfDay(for: Date())
+                Text(isCarriedOver ? "🔁 昨日から" : "ToDo")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(isCarriedOver ? Color.secondary : Color.owlAmber)
+                    .clipShape(Capsule())
             }
+        }
+    }
 
+    @ViewBuilder
+    private var metadataRow: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             if !isPast && !alarm.isToDo {
                 let values = Array(alarm.alarmKitMinutesMap.values)
                 let minutes = values.isEmpty ? [alarm.preNotificationMinutes] : values.sorted(by: >)
@@ -164,6 +183,20 @@ struct EventRow: View {
                 .frame(width: 60, height: 60)
         }
         .buttonStyle(.plain)
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: CornerRadius.lg)
+            .fill(.ultraThinMaterial)
+            .overlay {
+                RoundedRectangle(cornerRadius: CornerRadius.lg)
+                    .fill(Color.white.opacity(0.34))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: CornerRadius.lg)
+                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 6)
     }
 
     private var isPast: Bool {

@@ -10,6 +10,7 @@ struct PersonHomeView: View {
 
     // フクロウ首傾けアニメ用
     @State private var owlNeckTilt: Double = 0
+    @State private var owlFloatOffset: CGFloat = -6
     // レビュー指摘: confirmationDialog は親に1つだけ配置する（EventRow側から移動）
     @State private var eventToDelete: AlarmEvent?
     @State private var eventToActOn: AlarmEvent?
@@ -125,6 +126,11 @@ struct PersonHomeView: View {
         .animation(.spring(duration: 0.3), value: viewModel.pendingDelete != nil)
         .animation(.spring(duration: 0.3), value: viewModel.pendingComplete != nil)
         .onShake { viewModel.handleOwlShake() }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) {
+                owlFloatOffset = 6
+            }
+        }
         .task {
             viewModel.bindAppStateIfNeeded(appState)
             await viewModel.loadEvents()
@@ -190,7 +196,8 @@ struct PersonHomeView: View {
     private var owlSection: some View {
         ZStack(alignment: .top) {
             owlImage
-                .frame(width: 110, height: 110)
+                .frame(width: 118, height: 118)
+                .offset(y: owlFloatOffset)
                 .rotationEffect(.degrees(owlNeckTilt))
                 .onTapGesture { handleOwlTap() }
                 .onLongPressGesture(minimumDuration: 0.8) {
@@ -198,47 +205,49 @@ struct PersonHomeView: View {
                     viewModel.showSettings = true
                 }
 
-            greetingBubble
-                .offset(x: -54, y: 6)
+            HStack(alignment: .top, spacing: Spacing.sm) {
+                greetingBubble
+                    .padding(.top, Spacing.sm)
+                Spacer(minLength: 120)
+            }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 138)
+        .frame(height: 152)
         .padding(.horizontal, Spacing.lg)
     }
 
-    // MARK: - 吹き出しあいさつ（青・白文字・右向きテール）
+    // MARK: - 吹き出しあいさつ（青・白文字・右下テール）
 
     private var greetingBubble: some View {
-        HStack(spacing: 0) {
-            // 本文バブル（青背景・白文字）
+        VStack(alignment: .trailing, spacing: 0) {
             Text(viewModel.greeting)
                 .font(.caption.weight(.semibold))
                 .multilineTextAlignment(.leading)
                 .foregroundStyle(.white)
                 .lineLimit(2)
-                .minimumScaleFactor(0.8)
+                .minimumScaleFactor(0.82)
                 .padding(.horizontal, Spacing.sm)
                 .padding(.vertical, Spacing.xs)
                 .background(Color.statusPending)
                 .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
-                .shadow(color: Color.statusPending.opacity(0.3), radius: 6, x: 0, y: 3)
-                .frame(maxWidth: 164, alignment: .leading)
+                .shadow(color: Color.statusPending.opacity(0.25), radius: 6, x: 0, y: 3)
+                .frame(maxWidth: 168, alignment: .leading)
 
-            // 右向き三角（フクロウを指す）
-            BubbleTailRight()
+            BubbleTailDownRight()
                 .fill(Color.statusPending)
-                .frame(width: 8, height: 14)
+                .frame(width: 14, height: 12)
+                .padding(.trailing, Spacing.lg)
         }
     }
 
-    // MARK: - 吹き出し三角シェイプ（右向き）
+    // MARK: - 吹き出し三角シェイプ（右下向き）
 
-    private struct BubbleTailRight: Shape {
+    private struct BubbleTailDownRight: Shape {
         func path(in rect: CGRect) -> Path {
             var p = Path()
-            p.move(to: CGPoint(x: rect.minX, y: rect.minY))    // 左上
-            p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY)) // 右中央（先端）
-            p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY)) // 左下
+            p.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+            p.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
             p.closeSubpath()
             return p
         }
@@ -263,71 +272,53 @@ struct PersonHomeView: View {
     private var countdownSection: some View {
         if let next = viewModel.nextAlarm {
             let minutes = next.fireDate.timeIntervalSinceNow / 60
-            VStack(spacing: Spacing.sm) {
-                if minutes < 60 {
-                    // 60分未満: 円形カウントダウン
-                    circularCountdown(minutes: Int(minutes), alarm: next)
-                } else {
-                    // 60分以上: シンプルテキスト表示
-                    nextEventText(alarm: next)
-                }
-            }
+            nextAlarmCard(alarm: next, minutes: Int(minutes))
             .padding(.top, Spacing.lg)
             .padding(.horizontal, Spacing.lg)
         }
     }
 
-    private func circularCountdown(minutes: Int, alarm: AlarmEvent) -> some View {
-        VStack(spacing: Spacing.sm) {
-            ZStack {
-                // 背景リング
-                Circle()
-                    .stroke(Color.secondary.opacity(0.2), lineWidth: 8)
-                    .frame(width: 120, height: 120)
-                // 進捗リング（10分未満: 赤+パルス）
-                Circle()
-                    .trim(from: 0, to: min(1.0, CGFloat(minutes) / 60.0))
-                    .stroke(
-                        minutes < 10 ? Color.statusDanger : Color.owlAmber,
-                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-                    .frame(width: 120, height: 120)
-                    .animation(.easeInOut(duration: 1.0), value: minutes)
-                // 中央テキスト
-                VStack(spacing: 2) {
-                    Text("あと")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("\(minutes)分")
-                        .font(.title2.bold())
-                        .foregroundStyle(minutes < 10 ? Color.statusDanger : Color.primary)
-                        .monospacedDigit()
+    private func nextAlarmCard(alarm: AlarmEvent, minutes: Int) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(alignment: .center, spacing: Spacing.sm) {
+                Text(alarm.eventEmoji ?? "📌")
+                    .font(.system(size: IconSize.lg))
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text(nextAlarmTimingText(minutes: minutes, alarm: alarm))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(minutes < 10 ? Color.statusDanger : .secondary)
+                    Text(alarm.title)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                Spacer()
             }
-            Text(alarm.title)
-                .font(.callout.weight(.medium))
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.center)
-        }
-    }
 
-    private func nextEventText(alarm: AlarmEvent) -> some View {
-        HStack(spacing: Spacing.sm) {
-            Text(alarm.eventEmoji ?? "📌")
-                .font(.system(size: IconSize.lg))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("次は")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("\(alarm.fireDate.japaneseTimeString) \(alarm.title)")
-                    .font(.body.weight(.medium))
+            if minutes < 10 {
+                Capsule()
+                    .fill(Color.statusDanger.opacity(0.18))
+                    .overlay(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.statusDanger.opacity(0.55))
+                            .frame(maxWidth: max(24, 220 * CGFloat(max(0, minutes)) / 10.0))
+                    }
+                    .frame(height: 6)
+            } else {
+                Capsule()
+                    .fill(Color.owlAmber.opacity(0.18))
+                    .frame(height: 4)
             }
         }
         .padding(Spacing.md)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
-        .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+        .background(glassCardBackground(accent: minutes < 10 ? Color.statusDanger : Color.owlAmber))
+    }
+
+    private func nextAlarmTimingText(minutes: Int, alarm: AlarmEvent) -> String {
+        if minutes < 1 {
+            return "まもなく \(alarm.fireDate.japaneseTimeString)"
+        }
+        return "あと約\(minutes)分 • \(alarm.fireDate.japaneseTimeString)"
     }
 
     // MARK: - 予定リストセクション
@@ -404,15 +395,17 @@ struct PersonHomeView: View {
 
                 // P-1-4: 未完了が2件以下のときは追加CTAを表示
                 if viewModel.visibleEvents.count <= 2 {
-                    shortcutButtonsRow(
-                        voiceLabel: "🎤 予定を追加",
-                        textLabel: "✏️ テキストで追加",
-                        font: .footnote
-                    )
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.xs)
-                    .frame(minHeight: 44)
+                    if !shouldHideInlineShortcutButtons {
+                        shortcutButtonsRow(
+                            voiceLabel: "🎤 予定を追加",
+                            textLabel: "✏️ テキストで追加",
+                            font: .footnote
+                        )
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.top, Spacing.xs)
+                        .frame(minHeight: 44)
+                    }
                 }
 
             }
@@ -441,12 +434,13 @@ struct PersonHomeView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, Spacing.xl)
 
-            // CTA（P-1-4: マイクとテキスト両方表示）
-            shortcutButtonsRow(
-                voiceLabel: info.ctaLabel,
-                textLabel: "✏️ テキストで追加",
-                font: .subheadline
-            )
+            if !shouldHideInlineShortcutButtons {
+                shortcutButtonsRow(
+                    voiceLabel: info.ctaLabel,
+                    textLabel: "✏️ テキストで追加",
+                    font: .subheadline
+                )
+            }
 
             // デイリーミニタスク（P-1-5）: 全完了時のみ
             if viewModel.completedTodayEvents.count > 0 && !viewModel.isMiniTaskCompletedToday {
@@ -477,11 +471,19 @@ struct PersonHomeView: View {
     private var tomorrowSection: some View {
         if !viewModel.tomorrowEvents.isEmpty {
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text("─── ここから明日以降 ───")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.lg)
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("🌙 今日はここまで。明日の準備だけだね")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text("ゆっくり休んでね。先の予定はここに置いておくよ")
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.82))
+                }
+                .padding(Spacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(tomorrowHeaderBackground)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, Spacing.lg)
 
                 ForEach(viewModel.tomorrowEvents) { alarm in
                     EventRow(
@@ -521,8 +523,8 @@ struct PersonHomeView: View {
         } label: {
             VStack(spacing: Spacing.xs) {
                 Image(systemName: "mic.fill")
-                    .font(.system(size: IconSize.md, weight: .bold))
-                if !shouldUseCompactFABLabel {
+                    .font(.system(size: shouldUseExpandedMicFAB ? 44 : IconSize.md, weight: .bold))
+                if !shouldUseExpandedMicFAB {
                     Text("予定を追加")
                         .font(.caption2.weight(.semibold))
                         .lineLimit(2)
@@ -531,9 +533,12 @@ struct PersonHomeView: View {
                 }
             }
             .foregroundStyle(.black)
-            .frame(width: ComponentSize.fab, height: ComponentSize.fab)
+            .frame(
+                width: shouldUseExpandedMicFAB ? 112 : ComponentSize.fab,
+                height: shouldUseExpandedMicFAB ? 112 : ComponentSize.fab
+            )
             .background(Color.owlAmber)
-            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.fab))
+            .clipShape(Circle())
             .contentShape(Circle())
             .shadow(color: Color.owlAmber.opacity(0.4), radius: 8, y: 4)
         }
@@ -546,6 +551,14 @@ struct PersonHomeView: View {
 
     private var shouldUseCompactFABLabel: Bool {
         dynamicTypeSize >= .xLarge
+    }
+
+    private var shouldHideInlineShortcutButtons: Bool {
+        dynamicTypeSize >= .accessibility1
+    }
+
+    private var shouldUseExpandedMicFAB: Bool {
+        dynamicTypeSize >= .accessibility1
     }
 
     @ViewBuilder
@@ -602,7 +615,7 @@ struct PersonHomeView: View {
             .padding(.horizontal, Spacing.md)
             .frame(maxWidth: .infinity)
             .frame(minHeight: ComponentSize.small)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: CornerRadius.md))
+            .background(glassCardBackground(accent: Color.owlAmber, cornerRadius: CornerRadius.md))
             .overlay {
                 RoundedRectangle(cornerRadius: CornerRadius.md)
                     .stroke(Color.owlAmber.opacity(0.18), lineWidth: 1)
@@ -698,5 +711,50 @@ struct PersonHomeView: View {
             return "「\(alarm.title)」を削除しますか？"
         }
         return "「\(alarm.title)」をどうしますか？"
+    }
+
+    private var tomorrowHeaderBackground: some View {
+        RoundedRectangle(cornerRadius: CornerRadius.lg)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0.34),
+                        Color.blue.opacity(0.26),
+                        Color.indigo.opacity(0.32)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: CornerRadius.lg)
+                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
+            }
+    }
+
+    private func glassCardBackground(
+        accent: Color,
+        cornerRadius: CGFloat = CornerRadius.lg
+    ) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .fill(.ultraThinMaterial)
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.38),
+                                accent.opacity(0.08)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+            }
+            .shadow(color: accent.opacity(0.08), radius: 12, x: 0, y: 6)
     }
 }
