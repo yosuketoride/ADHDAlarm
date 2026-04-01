@@ -25,11 +25,13 @@ struct TimeOfDayBackground: View {
     }
 
     private func timeOfDayOpacity(for hour: Int) -> Double {
+        // 高齢者・ADHD ユーザーのコントラスト確保のため 8% 以下に抑える
+        // 将来的な「テーマ着せ替え（PRO）」でより濃い設定を提供する想定
         switch hour {
-        case 5..<11:  return 0.15
-        case 11..<17: return 0.12
-        case 17..<21: return 0.15
-        default:      return 0.20
+        case 5..<11:  return 0.07
+        case 11..<17: return 0.06
+        case 17..<21: return 0.07
+        default:      return 0.08
         }
     }
 }
