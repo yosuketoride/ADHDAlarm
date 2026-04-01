@@ -138,52 +138,56 @@ struct PersonHomeView: View {
     // MARK: - フクロウセクション
 
     private var owlSection: some View {
-        VStack(spacing: Spacing.xs) {
-            // フクロウ本体
+        // 吹き出し（左）＋ フクロウ（右）を横並びに配置
+        HStack(alignment: .center, spacing: Spacing.sm) {
+            // 左: 吹き出し（フクロウの左上あたり）
+            greetingBubble
+                .frame(maxWidth: .infinity, alignment: .trailing)
+
+            // 右: フクロウ本体
             owlImage
-                .frame(width: 120, height: 120)
+                .frame(width: 110, height: 110)
                 .rotationEffect(.degrees(owlNeckTilt))
                 .onTapGesture { handleOwlTap() }
                 .onLongPressGesture(minimumDuration: 0.8) {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     viewModel.showSettings = true
                 }
-
-            // 吹き出しあいさつ（フクロウの下に三角ポインタ付きバブル）
-            greetingBubble
+                // ⚙️ボタンと重ならないよう右端に余白
+                .padding(.trailing, Spacing.xl + Spacing.lg)
         }
+        .padding(.horizontal, Spacing.lg)
     }
 
-    // MARK: - 吹き出しあいさつ
+    // MARK: - 吹き出しあいさつ（青・白文字・右向きテール）
 
     private var greetingBubble: some View {
-        VStack(spacing: 0) {
-            // フクロウを指す上向き三角
-            BubbleTail()
-                .fill(Color(.secondarySystemBackground))
-                .frame(width: 22, height: 11)
-                .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: -1)
-            // 本文バブル
+        HStack(spacing: 0) {
+            // 本文バブル（青背景・白文字）
             Text(viewModel.greeting)
                 .font(.callout.weight(.semibold))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, Spacing.lg)
+                .multilineTextAlignment(.leading)
+                .foregroundStyle(.white)
+                .padding(.horizontal, Spacing.md)
                 .padding(.vertical, Spacing.sm)
-                .frame(maxWidth: 300)
-                .background(Color(.secondarySystemBackground))
+                .background(Color.statusPending)
                 .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
-                .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 3)
+                .shadow(color: Color.statusPending.opacity(0.3), radius: 6, x: 0, y: 3)
+
+            // 右向き三角（フクロウを指す）
+            BubbleTailRight()
+                .fill(Color.statusPending)
+                .frame(width: 10, height: 18)
         }
     }
 
-    // MARK: - 吹き出し三角シェイプ（上向き）
+    // MARK: - 吹き出し三角シェイプ（右向き）
 
-    private struct BubbleTail: Shape {
+    private struct BubbleTailRight: Shape {
         func path(in rect: CGRect) -> Path {
             var p = Path()
-            p.move(to: CGPoint(x: rect.midX, y: rect.minY))   // 頂点
-            p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY)) // 右下
+            p.move(to: CGPoint(x: rect.minX, y: rect.minY))    // 左上
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY)) // 右中央（先端）
             p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY)) // 左下
             p.closeSubpath()
             return p
