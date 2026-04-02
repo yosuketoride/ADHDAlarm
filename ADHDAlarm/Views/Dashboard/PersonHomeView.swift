@@ -26,12 +26,8 @@ struct PersonHomeView: View {
                 VStack(spacing: 0) {
                     owlSection
                         .padding(.top, Spacing.xs)
-                    countdownSection
-                    eventListSection
-                        .padding(.top, Spacing.lg)
-                    tomorrowSection
-                    // FABの高さ分の余白（被り防止）
-                    Spacer().frame(height: ComponentSize.fab + Spacing.xl)
+                    middleZone
+                    bottomZone
                 }
             }
             .refreshable { await viewModel.performManualSync() }
@@ -274,6 +270,23 @@ struct PersonHomeView: View {
 
     // MARK: - カウントダウンセクション
 
+    private var middleZone: some View {
+        VStack(spacing: 0) {
+            countdownSection
+            eventListSection
+                .padding(.top, Spacing.lg)
+        }
+        .background(middleZoneBackground)
+    }
+
+    private var bottomZone: some View {
+        VStack(spacing: 0) {
+            tomorrowSection
+            Spacer().frame(height: ComponentSize.fab + Spacing.xl)
+        }
+        .background(bottomZoneBackground)
+    }
+
     @ViewBuilder
     private var countdownSection: some View {
         if let next = viewModel.nextAlarm {
@@ -332,7 +345,7 @@ struct PersonHomeView: View {
     private var eventListSection: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             // セクションヘッダー
-            Text("── このあとの予定 ──")
+            Text("── 今日の予定 ──")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, Spacing.lg)
@@ -503,7 +516,6 @@ struct PersonHomeView: View {
                     .padding(.bottom, Spacing.xl)
                 }
             }
-            .background(nightZoneBackground)
         }
     }
 
@@ -701,13 +713,28 @@ struct PersonHomeView: View {
         return "「\(alarm.title)」をどうしますか？"
     }
 
-    private var nightZoneBackground: some View {
+    private var middleZoneBackground: some View {
         LinearGradient(
             colors: [
                 Color.clear,
-                Color.night.opacity(0.08),
+                Color.owlAmber.opacity(0.05),
+                Color.owlAmber.opacity(0.10),
+                Color.orange.opacity(0.12),
+                Color.orange.opacity(0.06),
+                Color.clear
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var bottomZoneBackground: some View {
+        LinearGradient(
+            colors: [
                 Color.night.opacity(0.22),
-                Color.night.opacity(0.38)
+                Color.night.opacity(0.38),
+                Color.night.opacity(0.58),
+                Color.night.opacity(0.74)
             ],
             startPoint: .top,
             endPoint: .bottom
