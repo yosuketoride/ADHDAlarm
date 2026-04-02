@@ -137,7 +137,11 @@ struct ADHDAlarmApp: App {
             $0.fireDate > Date() && $0.completionStatus == nil && !$0.isToDo
         }
         guard hasUpcoming else { return }
-        appState.globalToast = "🪫 充電残量が少なくなっています。充電してからアラームを使ってね"
+        // ToastWindowManager 経由で表示（RingingView上にも表示可能）
+        ToastWindowManager.shared.show(ToastMessage(
+            text: "充電残量が少なくなっています。充電してからアラームを使ってね",
+            style: .error
+        ))
     }
 
     // MARK: - URL Scheme ハンドラ
@@ -210,27 +214,7 @@ struct RootView: View {
         // iPhoneの「テキストサイズ」設定に自動追従。
         // RingingView などの実機テストで accessibility3 が必要なため、上限を引き上げる。
         .dynamicTypeSize(...DynamicTypeSize.accessibility3)
-        // P-9-3: グローバルトースト（バッテリー警告など）
-        .overlay(alignment: .top) {
-            if let toast = appState.globalToast {
-                Text(toast)
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .padding(16)
-                    .background(.regularMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .padding(.horizontal, 24)
-                    .padding(.top, 16)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .onAppear {
-                        Task {
-                            try? await Task.sleep(for: .seconds(5))
-                            withAnimation { appState.globalToast = nil }
-                        }
-                    }
-            }
-        }
-        .animation(.spring(duration: 0.3), value: appState.globalToast != nil)
+        // P-9-3: グローバルトースト → ToastWindowManager 経由（checkBatteryLevel参照）
         // バナーの「止める / あとで / 今日は休む」ボタン処理
         .onReceive(NotificationCenter.default.publisher(
             for: ForegroundNotificationDelegate.alarmActionNotification

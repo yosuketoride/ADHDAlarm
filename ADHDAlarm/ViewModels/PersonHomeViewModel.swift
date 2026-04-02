@@ -462,8 +462,10 @@ final class PersonHomeViewModel {
     func handleOwlShake() {
         owlState = .worried
         let messages = ["ふらふら…🌀", "酔いそうだよ！", "もう少しやさしくして！", "わあ、地震かと思った"]
-        shakeMessage = messages.randomElement() ?? "ふらふら…"
+        let msg = messages.randomElement() ?? "ふらふら…"
+        shakeMessage = msg
         showShakeToast = true
+        ToastWindowManager.shared.show(ToastMessage(text: msg, style: .owlTip))
         Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             showShakeToast = false
@@ -538,6 +540,9 @@ final class PersonHomeViewModel {
     // MARK: - プライベートヘルパー
 
     private func showConfirmation(_ message: String) {
+        // ToastWindowManager 経由で表示（RingingView上にも表示可能）
+        ToastWindowManager.shared.show(ToastMessage(text: message, style: .owlTip))
+        // 後方互換: confirmationMessage も更新してアニメーションを維持
         confirmationMessage = message
         Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
