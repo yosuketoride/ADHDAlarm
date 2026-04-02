@@ -191,12 +191,17 @@ struct PersonHomeView: View {
         }
     }
 
-    // MARK: - フクロウセクション
+    // MARK: - フクロウセクション（Zone 1: 時間帯オーバーレイなし）
 
     private var owlSection: some View {
-        ZStack(alignment: .top) {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            greetingBubble
+                .padding(.top, 20) // ふくろうの胸付近の高さに合わせる
+
+            Spacer()
+
             owlImage
-                .frame(width: 118, height: 118)
+                .frame(width: 120, height: 120)
                 .offset(y: owlFloatOffset)
                 .rotationEffect(.degrees(owlNeckTilt))
                 .onTapGesture { handleOwlTap() }
@@ -204,22 +209,17 @@ struct PersonHomeView: View {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     viewModel.showSettings = true
                 }
-
-            HStack(alignment: .top, spacing: Spacing.sm) {
-                greetingBubble
-                    .padding(.top, Spacing.sm)
-                Spacer(minLength: 120)
-            }
         }
         .frame(maxWidth: .infinity)
         .frame(height: 152)
         .padding(.horizontal, Spacing.lg)
+        .background(Color(.systemBackground)) // 時間帯オーバーレイをキャンセル
     }
 
-    // MARK: - 吹き出しあいさつ（青・白文字・右下テール）
+    // MARK: - 吹き出しあいさつ（青・白文字・右向きテール）
 
     private var greetingBubble: some View {
-        VStack(alignment: .trailing, spacing: 0) {
+        HStack(alignment: .center, spacing: 0) {
             Text(viewModel.greeting)
                 .font(.caption.weight(.semibold))
                 .multilineTextAlignment(.leading)
@@ -231,23 +231,24 @@ struct PersonHomeView: View {
                 .background(Color.statusPending)
                 .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
                 .shadow(color: Color.statusPending.opacity(0.25), radius: 6, x: 0, y: 3)
-                .frame(maxWidth: 168, alignment: .leading)
 
-            BubbleTailDownRight()
+            // テール：バブルの右側からふくろう（右）に向かって突き出す
+            BubbleTailRight()
                 .fill(Color.statusPending)
-                .frame(width: 14, height: 12)
-                .padding(.trailing, Spacing.lg)
+                .frame(width: 10, height: 14)
         }
+        .fixedSize(horizontal: true, vertical: false)
+        .frame(maxWidth: 180)
     }
 
-    // MARK: - 吹き出し三角シェイプ（右下向き）
+    // MARK: - 吹き出し三角シェイプ（右向き）
 
-    private struct BubbleTailDownRight: Shape {
+    private struct BubbleTailRight: Shape {
         func path(in rect: CGRect) -> Path {
             var p = Path()
             p.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
             p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-            p.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
             p.closeSubpath()
             return p
         }
@@ -260,6 +261,7 @@ struct PersonHomeView: View {
         let imageName = UIImage(named: viewModel.owlImageName) != nil ? viewModel.owlImageName : "OwlIcon"
         Image(imageName)
             .resizable()
+            .renderingMode(.original) // テンプレートモードによるモノクロ化を防ぐ
             .scaledToFit()
             .saturation(viewModel.owlState == .sleepy ? 0.4 : 1.0)
             .scaleEffect(viewModel.owlState == .happy ? 1.1 : 1.0)
@@ -465,23 +467,25 @@ struct PersonHomeView: View {
     // MARK: - ManualInputシート用状態
     // (showManualInput は PersonHomeViewModel に追加)
 
-    // MARK: - 明日の予定セクション
+    // MARK: - 明日以降の予定セクション（Zone 3: 夜テーマ）
 
     @ViewBuilder
     private var tomorrowSection: some View {
         if !viewModel.tomorrowEvents.isEmpty {
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text("🌙 今日はここまで。明日の準備だけだね")
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Text("ゆっくり休んでね。先の予定はここに置いておくよ")
-                        .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.82))
+                // シンプルな区切り線
+                HStack(spacing: Spacing.sm) {
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.3))
+                        .frame(height: 1)
+                    Text("── ここから明日以降 ──")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.3))
+                        .frame(height: 1)
                 }
-                .padding(Spacing.md)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(tomorrowHeaderBackground)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.lg)
 
@@ -497,7 +501,6 @@ struct PersonHomeView: View {
                         }
                     )
                     .padding(.horizontal, Spacing.md)
-                    .opacity(0.6)
                 }
 
                 // 📅 カレンダーで先を見るリンク（P-1-8）
@@ -512,6 +515,7 @@ struct PersonHomeView: View {
                     .padding(.top, Spacing.xs)
                 }
             }
+            .background(nightZoneBackground) // 夜テーマ背景
         }
     }
 
@@ -713,23 +717,14 @@ struct PersonHomeView: View {
         return "「\(alarm.title)」をどうしますか？"
     }
 
-    private var tomorrowHeaderBackground: some View {
-        RoundedRectangle(cornerRadius: CornerRadius.lg)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color.black.opacity(0.34),
-                        Color.blue.opacity(0.26),
-                        Color.indigo.opacity(0.32)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: CornerRadius.lg)
-                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
-            }
+    // Zone 3 夜テーマ背景（明日以降エリア全体に薄くかける）
+    private var nightZoneBackground: some View {
+        LinearGradient(
+            colors: [Color.night.opacity(0.10), Color.night.opacity(0.18)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea(edges: .bottom)
     }
 
     private func glassCardBackground(
