@@ -21,10 +21,6 @@ struct PersonHomeView: View {
             TimeOfDayBackground()
                 .ignoresSafeArea()
 
-            dashboardBackdrop
-                .ignoresSafeArea(edges: .bottom)
-                .allowsHitTesting(false)
-
             // レイヤー2: メインコンテンツ（スクロール可能）
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
@@ -280,6 +276,7 @@ struct PersonHomeView: View {
             eventListSection
                 .padding(.top, Spacing.lg)
         }
+        .background(middleZoneBackground)
     }
 
     private var bottomZone: some View {
@@ -287,6 +284,7 @@ struct PersonHomeView: View {
             tomorrowSection
             Spacer().frame(height: max(ComponentSize.fab + Spacing.xl, 240))
         }
+        .background(bottomZoneBackground)
     }
 
     @ViewBuilder
@@ -729,23 +727,32 @@ struct PersonHomeView: View {
         return "「\(alarm.title)」をどうしますか？"
     }
 
-    private var dashboardBackdrop: some View {
-        VStack(spacing: 0) {
-            Color.clear.frame(height: 260)
-            LinearGradient(
-                stops: [
-                    .init(color: Color.owlAmber.opacity(0.04), location: 0.00),
-                    .init(color: Color.orange.opacity(0.10), location: 0.16),
-                    .init(color: Color.orange.opacity(0.14), location: 0.34),
-                    .init(color: Color.night.opacity(0.16), location: 0.56),
-                    .init(color: Color.night.opacity(0.42), location: 0.74),
-                    .init(color: Color.night.opacity(0.72), location: 1.00),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    private var middleZoneBackground: some View {
+        LinearGradient(
+            stops: [
+                .init(color: Color.clear, location: 0.00),
+                .init(color: Color.owlAmber.opacity(0.05), location: 0.16),
+                .init(color: Color.orange.opacity(0.11), location: 0.44),
+                .init(color: Color.orange.opacity(0.08), location: 0.70),
+                .init(color: Color.night.opacity(0.08), location: 1.00),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var bottomZoneBackground: some View {
+        LinearGradient(
+            stops: [
+                .init(color: Color.night.opacity(0.16), location: 0.00),
+                .init(color: Color.night.opacity(0.34), location: 0.22),
+                .init(color: Color.night.opacity(0.58), location: 0.62),
+                .init(color: Color.night.opacity(0.76), location: 1.00),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea(edges: .bottom)
     }
 
     private func glassCardBackground(
