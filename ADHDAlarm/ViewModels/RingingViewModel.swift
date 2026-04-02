@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import AudioToolbox
 import Observation
+import WidgetKit
 
 /// アラーム鳴動中の状態管理
 @Observable @MainActor
@@ -29,6 +30,8 @@ final class RingingViewModel: NSObject {
     
     private let sosService: SOSNotifying
     private var appState: AppState?
+    /// P-9-13: Undo猶予タスク（30秒後にEK/AlarmKit削除確定）
+    private var undoTask: Task<Void, Never>?
 
     init(
         scheduler: AlarmScheduling? = nil,
@@ -263,17 +266,23 @@ final class RingingViewModel: NSObject {
         syncReactionToRemote(alarm: alarm, status: "completed")
         addXP(10)
         stopAudioPlayback()
-        Task {
+        activeAlarm = nil
+        playPraisePhrase()
+
+        // P-9-13: EK/AlarmKit削除は30秒後（Undo猶予期間）
+        undoTask?.cancel()
+        undoTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(30))
+            guard !Task.isCancelled, let self else { return }
             // EK から削除（SyncEngine による復活を防ぐ）
             if let ekID = alarm.eventKitIdentifier {
-                try? await calendarProvider.deleteEvent(eventKitIdentifier: ekID)
+                try? await self.calendarProvider.deleteEvent(eventKitIdentifier: ekID)
             }
             if let alarmKitID = alarm.alarmKitIdentifier {
-                try? await scheduler.cancel(alarmKitID: alarmKitID)
+                try? await self.scheduler.cancel(alarmKitID: alarmKitID)
             }
-            activeAlarm = nil
+            WidgetCenter.shared.reloadAllTimelines()
         }
-        playPraisePhrase()
     }
 
     /// スヌーズ（30分後に再アラーム）: completionStatus は変えず snoozeCount をインクリメント（P-2-2）
@@ -353,6 +362,9 @@ final class RingingViewModel: NSObject {
 
     /// 完了をUndoする: completionStatus を nil に戻す（P-2-1/P-9-1）
     func undoCompletion(alarm: AlarmEvent) {
+        // P-9-13: 削除タスクをキャンセル（30秒猶予内ならEK/AlarmKitは消えない）
+        undoTask?.cancel()
+        undoTask = nil
         var reverted = alarm
         reverted.completionStatus = nil
         // P-9-1: 薬の二重服用トラップ防止 — Undo直後の5分間は家族側からの complete 上書きをブロック

@@ -362,9 +362,9 @@ struct RingingView: View {
                 showDismissMessage = true
             }
             ReviewManager.shared.recordCompletionAndRequestIfNeeded(isSOSFired: sosWasFired)
-            // P-9-13: 自動クローズは10秒後。ユーザーは「閉じる」ボタンでいつでも閉じられる
+            // P-9-13: UIは3秒で自動クローズ。Undoは30秒バックグラウンドで継続
             Task {
-                try? await Task.sleep(for: .seconds(10))
+                try? await Task.sleep(for: .seconds(3))
                 if !isUndone { onDismissed() }
             }
         } label: {
