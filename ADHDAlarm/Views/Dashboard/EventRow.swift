@@ -28,7 +28,6 @@ struct EventRow: View {
         .frame(minHeight: ComponentSize.eventRow)
         .background(cardBackground)
         .contentShape(Rectangle())
-        .opacity(isPast ? 0.7 : 1.0)
         // 長押しで操作メニューを開く
         .onLongPressGesture(minimumDuration: 1.0) {
             guard let onOpenActions else { return }
@@ -44,7 +43,7 @@ struct EventRow: View {
             // 絵文字アイコン（左端・固定20pt・Dynamic Type非スケール）
             Text(alarm.eventEmoji ?? "📌")
                 .font(.system(size: 20))
-                .opacity(isPast ? 0.4 : 1.0)
+                .opacity(isPast ? 0.6 : 1.0)
                 .frame(width: 24, alignment: .center)
 
             // 時刻（ToDoは「いつでも」表示）
@@ -69,7 +68,7 @@ struct EventRow: View {
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
-                        .foregroundStyle(isPast ? .secondary : .primary)
+                        .foregroundStyle(isPast ? Color.secondary.opacity(0.82) : .primary)
                 }
             }
             .frame(minWidth: showDate ? 54 : 60)
@@ -92,7 +91,7 @@ struct EventRow: View {
             HStack(alignment: .top, spacing: Spacing.sm) {
                 Text(alarm.eventEmoji ?? "📌")
                     .font(.system(size: IconSize.xl))
-                    .opacity(isPast ? 0.4 : 1.0)
+                    .opacity(isPast ? 0.6 : 1.0)
 
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     if showDate {
@@ -108,7 +107,7 @@ struct EventRow: View {
                         Text(alarm.fireDate.japaneseTimeString)
                             .font(.title3.weight(.bold))
                             .monospacedDigit()
-                            .foregroundStyle(isPast ? .secondary : .primary)
+                            .foregroundStyle(isPast ? Color.secondary.opacity(0.82) : .primary)
                     }
                 }
                 Spacer()
@@ -117,7 +116,7 @@ struct EventRow: View {
 
             Text(alarm.displayTitle)
                 .font(.title3.weight(.bold))
-                .foregroundStyle(isPast ? .secondary : .primary)
+                .foregroundStyle(isPast ? Color.secondary.opacity(0.82) : .primary)
                 .strikethrough(isPast, color: .secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -131,7 +130,7 @@ struct EventRow: View {
         HStack(alignment: .top, spacing: 4) {
             Text(alarm.displayTitle)
                 .font(.body.weight(.medium))
-                .foregroundStyle(isPast ? .secondary : .primary)
+                .foregroundStyle(isPast ? Color.secondary.opacity(0.82) : .primary)
                 .lineLimit(showDate ? 3 : 2)
                 .strikethrough(isPast, color: .secondary)
                 .layoutPriority(1)
@@ -191,16 +190,16 @@ struct EventRow: View {
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: CornerRadius.lg)
-            .fill(.ultraThinMaterial)
+            .fill(Color(.secondarySystemBackground).opacity(0.92))
             .overlay {
                 RoundedRectangle(cornerRadius: CornerRadius.lg)
-                    .fill(Color.white.opacity(0.34))
+                    .fill(.ultraThinMaterial.opacity(0.45))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: CornerRadius.lg)
-                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.42), lineWidth: 1)
             }
-            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 6)
+            .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 6)
     }
 
     private var isPast: Bool {

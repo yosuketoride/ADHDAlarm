@@ -21,6 +21,10 @@ struct PersonHomeView: View {
             TimeOfDayBackground()
                 .ignoresSafeArea()
 
+            dashboardBackdrop
+                .ignoresSafeArea(edges: .bottom)
+                .allowsHitTesting(false)
+
             // レイヤー2: メインコンテンツ（スクロール可能）
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
@@ -276,15 +280,13 @@ struct PersonHomeView: View {
             eventListSection
                 .padding(.top, Spacing.lg)
         }
-        .background(middleZoneBackground)
     }
 
     private var bottomZone: some View {
         VStack(spacing: 0) {
             tomorrowSection
-            Spacer().frame(height: ComponentSize.fab + Spacing.xl)
+            Spacer().frame(height: max(ComponentSize.fab + Spacing.xl, 240))
         }
-        .background(bottomZoneBackground)
     }
 
     @ViewBuilder
@@ -312,6 +314,15 @@ struct PersonHomeView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
+                Button(role: .destructive) {
+                    eventToDelete = alarm
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.title3)
+                        .foregroundStyle(Color.statusDanger)
+                        .frame(width: 60, height: 60)
+                }
+                .buttonStyle(.plain)
             }
 
             if minutes < 10 {
@@ -331,6 +342,11 @@ struct PersonHomeView: View {
         }
         .padding(Spacing.md)
         .background(glassCardBackground(accent: minutes < 10 ? Color.statusDanger : Color.owlAmber))
+        .contentShape(Rectangle())
+        .onLongPressGesture(minimumDuration: 1.0) {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            eventToActOn = alarm
+        }
     }
 
     private func nextAlarmTimingText(minutes: Int, alarm: AlarmEvent) -> String {
@@ -713,33 +729,23 @@ struct PersonHomeView: View {
         return "「\(alarm.title)」をどうしますか？"
     }
 
-    private var middleZoneBackground: some View {
-        LinearGradient(
-            colors: [
-                Color.clear,
-                Color.owlAmber.opacity(0.05),
-                Color.owlAmber.opacity(0.10),
-                Color.orange.opacity(0.12),
-                Color.orange.opacity(0.06),
-                Color.clear
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    private var bottomZoneBackground: some View {
-        LinearGradient(
-            colors: [
-                Color.night.opacity(0.22),
-                Color.night.opacity(0.38),
-                Color.night.opacity(0.58),
-                Color.night.opacity(0.74)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea(edges: .bottom)
+    private var dashboardBackdrop: some View {
+        VStack(spacing: 0) {
+            Color.clear.frame(height: 260)
+            LinearGradient(
+                stops: [
+                    .init(color: Color.owlAmber.opacity(0.04), location: 0.00),
+                    .init(color: Color.orange.opacity(0.10), location: 0.16),
+                    .init(color: Color.orange.opacity(0.14), location: 0.34),
+                    .init(color: Color.night.opacity(0.16), location: 0.56),
+                    .init(color: Color.night.opacity(0.42), location: 0.74),
+                    .init(color: Color.night.opacity(0.72), location: 1.00),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private func glassCardBackground(
@@ -747,14 +753,14 @@ struct PersonHomeView: View {
         cornerRadius: CGFloat = CornerRadius.lg
     ) -> some View {
         RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(.ultraThinMaterial)
+            .fill(Color(.secondarySystemBackground).opacity(0.92))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.38),
-                                accent.opacity(0.08)
+                                Color.white.opacity(0.54),
+                                accent.opacity(0.06)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -763,8 +769,8 @@ struct PersonHomeView: View {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.45), lineWidth: 1)
             }
-            .shadow(color: accent.opacity(0.08), radius: 12, x: 0, y: 6)
+            .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
     }
 }
