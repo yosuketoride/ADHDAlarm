@@ -21,10 +21,6 @@ struct PersonHomeView: View {
             TimeOfDayBackground()
                 .ignoresSafeArea()
 
-            bottomNightOverlay
-                .ignoresSafeArea(edges: .bottom)
-                .allowsHitTesting(false)
-
             // レイヤー2: メインコンテンツ（スクロール可能）
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
@@ -222,7 +218,6 @@ struct PersonHomeView: View {
         }
         .frame(height: 182)
         .padding(.horizontal, Spacing.lg)
-        .background(Color(.systemBackground)) // 時間帯オーバーレイをキャンセル
     }
 
     // MARK: - 吹き出しあいさつ（青・白文字・右下テール）
@@ -467,18 +462,17 @@ struct PersonHomeView: View {
         if !viewModel.tomorrowEvents.isEmpty {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(spacing: Spacing.sm) {
-                    VStack(alignment: .leading, spacing: Spacing.xs) {
-                        Text("🌙 今日はここまで。あとは明日の準備だけだね")
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(.white)
-                        Text("少し暗めの場所に置いておくね。必要なときだけ見よう")
-                            .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.82))
-                    }
-                    Spacer()
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.3))
+                        .frame(height: 1)
+                    Text("─── ここから明日以降 ───")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.3))
+                        .frame(height: 1)
                 }
-                .padding(Spacing.md)
-                .background(tomorrowHeaderBackground)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.lg)
 
@@ -501,7 +495,7 @@ struct PersonHomeView: View {
                     Link(destination: url) {
                         Text("📅 カレンダーで先の予定を確認する")
                             .font(.footnote)
-                            .foregroundStyle(Color.white.opacity(0.88))
+                            .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, Spacing.lg)
@@ -509,6 +503,7 @@ struct PersonHomeView: View {
                     .padding(.bottom, Spacing.xl)
                 }
             }
+            .background(nightZoneBackground)
         }
     }
 
@@ -706,36 +701,18 @@ struct PersonHomeView: View {
         return "「\(alarm.title)」をどうしますか？"
     }
 
-    private var bottomNightOverlay: some View {
+    private var nightZoneBackground: some View {
         LinearGradient(
             colors: [
                 Color.clear,
-                Color.night.opacity(0.10),
-                Color.night.opacity(0.36),
-                Color.night.opacity(0.64)
+                Color.night.opacity(0.08),
+                Color.night.opacity(0.22),
+                Color.night.opacity(0.38)
             ],
             startPoint: .top,
             endPoint: .bottom
         )
-    }
-
-    private var tomorrowHeaderBackground: some View {
-        RoundedRectangle(cornerRadius: CornerRadius.lg)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color.indigo.opacity(0.55),
-                        Color.night.opacity(0.72),
-                        Color.black.opacity(0.72)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: CornerRadius.lg)
-                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
-            }
+        .ignoresSafeArea(edges: .bottom)
     }
 
     private func glassCardBackground(

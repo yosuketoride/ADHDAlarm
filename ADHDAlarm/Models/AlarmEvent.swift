@@ -164,14 +164,23 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         try c.encodeIfPresent(undoPendingUntil,      forKey: .undoPendingUntil)
     }
 
-    /// 表示用タイトル。先頭に eventEmoji と同じ絵文字が含まれている場合は重複表示を避ける
+    /// 表示用タイトル。先頭に絵文字が付いている場合は先頭1個ぶんを取り除く
     nonisolated var displayTitle: String {
         var trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let eventEmoji, !eventEmoji.isEmpty else { return trimmed }
-        guard trimmed.hasPrefix(eventEmoji) else { return trimmed }
+        guard !trimmed.isEmpty else { return trimmed }
 
-        trimmed.removeFirst(eventEmoji.count)
-        trimmed = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let eventEmoji, !eventEmoji.isEmpty, trimmed.hasPrefix(eventEmoji) {
+            trimmed.removeFirst(eventEmoji.count)
+            trimmed = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? title : trimmed
+        }
+
+        if let firstScalar = trimmed.unicodeScalars.first,
+           firstScalar.properties.isEmojiPresentation || firstScalar.properties.isEmoji {
+            trimmed.removeFirst()
+            trimmed = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
         return trimmed.isEmpty ? title : trimmed
     }
 }
