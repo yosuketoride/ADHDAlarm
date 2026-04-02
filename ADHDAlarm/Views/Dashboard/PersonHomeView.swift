@@ -282,7 +282,7 @@ struct PersonHomeView: View {
     private var bottomZone: some View {
         VStack(spacing: 0) {
             tomorrowSection
-            Spacer().frame(height: max(ComponentSize.fab + Spacing.xl, 240))
+            Spacer().frame(height: max(ComponentSize.fab + Spacing.xl, 900))
         }
         .background(bottomZoneBackground)
     }
