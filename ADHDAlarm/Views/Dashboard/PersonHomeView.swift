@@ -194,12 +194,8 @@ struct PersonHomeView: View {
     // MARK: - フクロウセクション（Zone 1: 時間帯オーバーレイなし）
 
     private var owlSection: some View {
-        HStack(alignment: .top, spacing: Spacing.sm) {
-            greetingBubble
-                .padding(.top, 20) // ふくろうの胸付近の高さに合わせる
-
-            Spacer()
-
+        ZStack {
+            // フクロウ（中央）
             owlImage
                 .frame(width: 120, height: 120)
                 .offset(y: owlFloatOffset)
@@ -209,17 +205,25 @@ struct PersonHomeView: View {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     viewModel.showSettings = true
                 }
+
+            // 吹き出し（フクロウの斜め上左）
+            VStack(spacing: 0) {
+                HStack {
+                    greetingBubble
+                    Spacer()
+                }
+                Spacer()
+            }
         }
-        .frame(maxWidth: .infinity)
         .frame(height: 152)
         .padding(.horizontal, Spacing.lg)
         .background(Color(.systemBackground)) // 時間帯オーバーレイをキャンセル
     }
 
-    // MARK: - 吹き出しあいさつ（青・白文字・右向きテール）
+    // MARK: - 吹き出しあいさつ（青・白文字・右下テール）
 
     private var greetingBubble: some View {
-        HStack(alignment: .center, spacing: 0) {
+        VStack(alignment: .trailing, spacing: 0) {
             Text(viewModel.greeting)
                 .font(.caption.weight(.semibold))
                 .multilineTextAlignment(.leading)
@@ -230,25 +234,25 @@ struct PersonHomeView: View {
                 .padding(.vertical, Spacing.xs)
                 .background(Color.statusPending)
                 .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
-                .shadow(color: Color.statusPending.opacity(0.25), radius: 6, x: 0, y: 3)
+                .shadow(color: Color.statusPending.opacity(0.25), radius: 4, x: 0, y: 2)
 
-            // テール：バブルの右側からふくろう（右）に向かって突き出す
-            BubbleTailRight()
+            // テール：右下向き（ふくろう方向へ向かう）
+            BubbleTailDownRight()
                 .fill(Color.statusPending)
-                .frame(width: 10, height: 14)
+                .frame(width: 10, height: 8)
+                .padding(.trailing, Spacing.sm)
         }
-        .fixedSize(horizontal: true, vertical: false)
-        .frame(maxWidth: 180)
+        .frame(maxWidth: 110)
     }
 
-    // MARK: - 吹き出し三角シェイプ（右向き）
+    // MARK: - 吹き出し三角シェイプ（右下向き）
 
-    private struct BubbleTailRight: Shape {
+    private struct BubbleTailDownRight: Shape {
         func path(in rect: CGRect) -> Path {
             var p = Path()
-            p.move(to: CGPoint(x: rect.minX, y: rect.minY))
-            p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-            p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+            p.move(to: CGPoint(x: rect.minX, y: rect.minY))    // 左上
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))  // 右上
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))  // 右下（頂点）
             p.closeSubpath()
             return p
         }
@@ -395,20 +399,6 @@ struct PersonHomeView: View {
                     .padding(.horizontal, Spacing.md)
                 }
 
-                // P-1-4: 未完了が2件以下のときは追加CTAを表示
-                if viewModel.visibleEvents.count <= 2 {
-                    if !shouldHideInlineShortcutButtons {
-                        shortcutButtonsRow(
-                            voiceLabel: "🎤 予定を追加",
-                            textLabel: "✏️ テキストで追加",
-                            font: .footnote
-                        )
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, Spacing.lg)
-                        .padding(.top, Spacing.xs)
-                        .frame(minHeight: 44)
-                    }
-                }
 
             }
 
@@ -435,14 +425,6 @@ struct PersonHomeView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, Spacing.xl)
-
-            if !shouldHideInlineShortcutButtons {
-                shortcutButtonsRow(
-                    voiceLabel: info.ctaLabel,
-                    textLabel: "✏️ テキストで追加",
-                    font: .subheadline
-                )
-            }
 
             // デイリーミニタスク（P-1-5）: 全完了時のみ
             if viewModel.completedTodayEvents.count > 0 && !viewModel.isMiniTaskCompletedToday {
@@ -717,10 +699,14 @@ struct PersonHomeView: View {
         return "「\(alarm.title)」をどうしますか？"
     }
 
-    // Zone 3 夜テーマ背景（明日以降エリア全体に薄くかける）
+    // Zone 3 夜テーマ背景（明日以降エリア・zone2との境界はグラデーションでぼかす）
     private var nightZoneBackground: some View {
         LinearGradient(
-            colors: [Color.night.opacity(0.10), Color.night.opacity(0.18)],
+            colors: [
+                Color.night.opacity(0.0),   // zone2との境界：なめらかにぼかす
+                Color.night.opacity(0.30),
+                Color.night.opacity(0.42)
+            ],
             startPoint: .top,
             endPoint: .bottom
         )
