@@ -21,6 +21,10 @@ struct PersonHomeView: View {
             TimeOfDayBackground()
                 .ignoresSafeArea()
 
+            bottomNightOverlay
+                .ignoresSafeArea(edges: .bottom)
+                .allowsHitTesting(false)
+
             // レイヤー2: メインコンテンツ（スクロール可能）
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
@@ -198,7 +202,7 @@ struct PersonHomeView: View {
             // フクロウ（中央）
             owlImage
                 .frame(width: 120, height: 120)
-                .offset(y: owlFloatOffset)
+                .offset(y: owlFloatOffset + 30)
                 .rotationEffect(.degrees(owlNeckTilt))
                 .onTapGesture { handleOwlTap() }
                 .onLongPressGesture(minimumDuration: 0.8) {
@@ -210,12 +214,13 @@ struct PersonHomeView: View {
             VStack(spacing: 0) {
                 HStack {
                     greetingBubble
+                        .offset(x: 30, y: 30)
                     Spacer()
                 }
                 Spacer()
             }
         }
-        .frame(height: 152)
+        .frame(height: 182)
         .padding(.horizontal, Spacing.lg)
         .background(Color(.systemBackground)) // 時間帯オーバーレイをキャンセル
     }
@@ -293,7 +298,7 @@ struct PersonHomeView: View {
                     Text(nextAlarmTimingText(minutes: minutes, alarm: alarm))
                         .font(.caption.weight(.medium))
                         .foregroundStyle(minutes < 10 ? Color.statusDanger : .secondary)
-                    Text(alarm.title)
+                    Text(alarm.displayTitle)
                         .font(.title2.weight(.bold))
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -332,14 +337,14 @@ struct PersonHomeView: View {
     private var eventListSection: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             // セクションヘッダー
-            Text("── 今日のご予定 ──")
+            Text("── このあとの予定 ──")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, Spacing.lg)
 
             // 未完了の予定がゼロの場合に空状態メッセージを表示
             // （完了済みが残っていても未完了がゼロなら空状態）
-            if viewModel.visibleEvents.isEmpty {
+            if viewModel.visibleEvents.isEmpty && viewModel.completedTodayEvents.isEmpty {
                 emptyStateView
             } else {
                 // 未完了の予定（折りたたみ）
@@ -402,8 +407,6 @@ struct PersonHomeView: View {
 
             }
 
-            // 完了済み予定（greyout・未完了リストの外に独立配置）
-            // visibleEvents が空でも完了済みは常に表示する
             if !viewModel.completedTodayEvents.isEmpty {
                 ForEach(viewModel.completedTodayEvents) { alarm in
                     EventRow(alarm: alarm) {
@@ -425,6 +428,14 @@ struct PersonHomeView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, Spacing.xl)
+
+            if viewModel.events.isEmpty {
+                shortcutButtonsRow(
+                    voiceLabel: info.ctaLabel,
+                    textLabel: "✏️ テキストで追加",
+                    font: .subheadline
+                )
+            }
 
             // デイリーミニタスク（P-1-5）: 全完了時のみ
             if viewModel.completedTodayEvents.count > 0 && !viewModel.isMiniTaskCompletedToday {
@@ -455,19 +466,19 @@ struct PersonHomeView: View {
     private var tomorrowSection: some View {
         if !viewModel.tomorrowEvents.isEmpty {
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                // シンプルな区切り線
                 HStack(spacing: Spacing.sm) {
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.3))
-                        .frame(height: 1)
-                    Text("── ここから明日以降 ──")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .fixedSize()
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.3))
-                        .frame(height: 1)
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Text("🌙 今日はここまで。あとは明日の準備だけだね")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.white)
+                        Text("少し暗めの場所に置いておくね。必要なときだけ見よう")
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.82))
+                    }
+                    Spacer()
                 }
+                .padding(Spacing.md)
+                .background(tomorrowHeaderBackground)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.lg)
 
@@ -490,14 +501,14 @@ struct PersonHomeView: View {
                     Link(destination: url) {
                         Text("📅 カレンダーで先の予定を確認する")
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.white.opacity(0.88))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, Spacing.lg)
                     .padding(.top, Spacing.xs)
+                    .padding(.bottom, Spacing.xl)
                 }
             }
-            .background(nightZoneBackground) // 夜テーマ背景
         }
     }
 
@@ -531,20 +542,16 @@ struct PersonHomeView: View {
         .accessibilityLabel("予定を追加")
     }
 
-    private var shouldStackShortcutButtons: Bool {
-        dynamicTypeSize >= .xxxLarge
-    }
-
-    private var shouldUseCompactFABLabel: Bool {
-        dynamicTypeSize >= .xLarge
-    }
-
     private var shouldHideInlineShortcutButtons: Bool {
         dynamicTypeSize >= .accessibility1
     }
 
     private var shouldUseExpandedMicFAB: Bool {
         dynamicTypeSize >= .accessibility1
+    }
+
+    private var shouldStackShortcutButtons: Bool {
+        dynamicTypeSize >= .xxxLarge
     }
 
     @ViewBuilder
@@ -699,18 +706,36 @@ struct PersonHomeView: View {
         return "「\(alarm.title)」をどうしますか？"
     }
 
-    // Zone 3 夜テーマ背景（明日以降エリア・zone2との境界はグラデーションでぼかす）
-    private var nightZoneBackground: some View {
+    private var bottomNightOverlay: some View {
         LinearGradient(
             colors: [
-                Color.night.opacity(0.0),   // zone2との境界：なめらかにぼかす
-                Color.night.opacity(0.30),
-                Color.night.opacity(0.42)
+                Color.clear,
+                Color.night.opacity(0.10),
+                Color.night.opacity(0.36),
+                Color.night.opacity(0.64)
             ],
             startPoint: .top,
             endPoint: .bottom
         )
-        .ignoresSafeArea(edges: .bottom)
+    }
+
+    private var tomorrowHeaderBackground: some View {
+        RoundedRectangle(cornerRadius: CornerRadius.lg)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.indigo.opacity(0.55),
+                        Color.night.opacity(0.72),
+                        Color.black.opacity(0.72)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: CornerRadius.lg)
+                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
+            }
     }
 
     private func glassCardBackground(

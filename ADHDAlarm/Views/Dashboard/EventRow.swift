@@ -115,7 +115,7 @@ struct EventRow: View {
                 actionButton
             }
 
-            Text(alarm.title)
+            Text(alarm.displayTitle)
                 .font(.title3.weight(.bold))
                 .foregroundStyle(isPast ? .secondary : .primary)
                 .strikethrough(isPast, color: .secondary)
@@ -129,7 +129,7 @@ struct EventRow: View {
 
     private var titleText: some View {
         HStack(alignment: .top, spacing: 4) {
-            Text(alarm.title)
+            Text(alarm.displayTitle)
                 .font(.body.weight(.medium))
                 .foregroundStyle(isPast ? .secondary : .primary)
                 .lineLimit(showDate ? 3 : 2)
@@ -165,24 +165,28 @@ struct EventRow: View {
                 Label(rule.shortDisplayName, systemImage: "repeat")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else if isPast {
-                Label("完了済み", systemImage: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(Color.statusSuccess.opacity(0.9))
             }
         }
     }
 
+    @ViewBuilder
     private var actionButton: some View {
-        Button(role: .destructive) {
-            onDelete()
-        } label: {
-            Image(systemName: "trash")
+        if isPast {
+            Image(systemName: "checkmark.circle.fill")
                 .font(.title3)
-                .foregroundStyle(isPast ? .secondary : Color.statusDanger)
+                .foregroundStyle(Color.statusSuccess.opacity(0.8))
                 .frame(width: 60, height: 60)
+        } else {
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Image(systemName: "trash")
+                    .font(.title3)
+                    .foregroundStyle(Color.statusDanger)
+                    .frame(width: 60, height: 60)
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 
     private var cardBackground: some View {

@@ -111,17 +111,28 @@ final class PersonHomeViewModel {
         return todos + timed
     }
 
+    /// 上部の特別席に表示する予定
+    var featuredEvents: [AlarmEvent] {
+        guard let nextAlarm else { return [] }
+        return [nextAlarm]
+    }
+
+    private var listTodayEvents: [AlarmEvent] {
+        let featuredIDs = Set(featuredEvents.map(\.id))
+        return incompleteTodayEvents.filter { !featuredIDs.contains($0.id) }
+    }
+
     /// 画面に表示する予定（折りたたみ考慮済み）
     var visibleEvents: [AlarmEvent] {
         if isEventListExpanded {
-            return incompleteTodayEvents
+            return listTodayEvents
         }
-        return Array(incompleteTodayEvents.prefix(maxVisibleEventCount))
+        return Array(listTodayEvents.prefix(maxVisibleEventCount))
     }
 
     /// 折りたたまれている件数
     var hiddenEventCount: Int {
-        max(0, incompleteTodayEvents.count - maxVisibleEventCount)
+        max(0, listTodayEvents.count - maxVisibleEventCount)
     }
 
     /// 完了済み・スキップ済みの今日の予定（リスト下部に表示）
