@@ -62,6 +62,11 @@ final class AppState {
         }
     }
 
+    /// クリアボイスモード: ONにするとゆっくり・低い声で読み上げる（聞き取りやすさ優先）
+    var isClearVoiceEnabled: Bool {
+        didSet { UserDefaults.standard.set(isClearVoiceEnabled, forKey: Constants.Keys.isClearVoiceEnabled) }
+    }
+
     /// デフォルトの事前通知タイミング（複数選択対応）
     var preNotificationMinutesList: Set<Int> {
         didSet {
@@ -140,6 +145,7 @@ final class AppState {
         self.isOnboardingComplete = defaults.bool(forKey: Constants.Keys.onboardingComplete)
         self.subscriptionTier = SubscriptionTier(rawValue: defaults.string(forKey: Constants.Keys.subscriptionTier) ?? "") ?? .free
         self.voiceCharacter = VoiceCharacter(rawValue: defaults.string(forKey: Constants.Keys.voiceCharacter) ?? "") ?? .femaleConcierge
+        self.isClearVoiceEnabled = defaults.bool(forKey: Constants.Keys.isClearVoiceEnabled)
         // 新形式（Set<Int>）を優先し、なければ旧形式（Int）から移行
         if let arr = defaults.array(forKey: Constants.Keys.preNotificationMinutesList) as? [Int], !arr.isEmpty {
             self.preNotificationMinutesList = Set(arr)

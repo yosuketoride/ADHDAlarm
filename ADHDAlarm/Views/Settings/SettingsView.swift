@@ -229,10 +229,10 @@ struct SettingsView: View {
     // MARK: - ⑤ 詳細設定カード
 
     private var advancedCard: some View {
-        NavigationLink {
-            AdvancedSettingsView(viewModel: viewModel)
-        } label: {
-            SettingsCard {
+        SettingsCard {
+            NavigationLink {
+                AdvancedSettingsView(viewModel: viewModel)
+            } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "gearshape.fill")
                         .font(.title2)
@@ -250,9 +250,32 @@ struct SettingsView: View {
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
+                .frame(minHeight: ComponentSize.settingRow)
             }
+            .buttonStyle(.plain)
+
+            Divider()
+
+            // クリアボイスモード
+            Toggle(isOn: Binding(
+                get: { appState.isClearVoiceEnabled },
+                set: { appState.isClearVoiceEnabled = $0 }
+            )) {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("聞き取りやすいこえ")
+                            .font(.body)
+                        Text("アラームの声をゆっくり・低めに読み上げます")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "ear.badge.checkmark")
+                        .foregroundStyle(.blue)
+                }
+            }
+            .frame(minHeight: ComponentSize.settingRow)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - フッター

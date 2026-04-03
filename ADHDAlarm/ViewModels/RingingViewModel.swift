@@ -192,8 +192,14 @@ final class RingingViewModel: NSObject {
         let sanitizedText = sanitizeForTTS(rawText)
         let utterance = AVSpeechUtterance(string: sanitizedText)
         utterance.voice = AVSpeechSynthesisVoice(language: "ja-JP")
-        utterance.rate  = 0.48
-        utterance.pitchMultiplier = 1.1
+        // クリアボイスモード: ONならゆっくり・低音で読み上げる
+        if appState?.isClearVoiceEnabled == true {
+            utterance.rate  = 0.40
+            utterance.pitchMultiplier = 0.80
+        } else {
+            utterance.rate  = 0.48
+            utterance.pitchMultiplier = 1.1
+        }
         synthesizer.speak(utterance)
         speechSynthesizer = synthesizer
     }
