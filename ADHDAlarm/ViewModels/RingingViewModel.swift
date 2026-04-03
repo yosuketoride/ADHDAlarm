@@ -270,7 +270,7 @@ final class RingingViewModel: NSObject {
         // completionStatus を .completed に更新して永続化
         recordCompletion(for: alarm, status: .completed)
         syncReactionToRemote(alarm: alarm, status: "completed")
-        addXP(10)
+        appState?.addXP(10)
         stopAudioPlayback()
         activeAlarm = nil
         playPraisePhrase()
@@ -350,7 +350,7 @@ final class RingingViewModel: NSObject {
         }
         recordCompletion(for: alarm, status: .skipped)
         syncReactionToRemote(alarm: alarm, status: "skipped")
-        addXP(3)
+        appState?.addXP(3)
         stopAudioPlayback()
         Task {
             // EK から削除（SyncEngine による復活を防ぐ）
@@ -394,24 +394,6 @@ final class RingingViewModel: NSObject {
         Task {
             try? await FamilyRemoteService.shared.updateRemoteEventStatus(id: remoteId, status: status)
         }
-    }
-
-    private func addXP(_ amount: Int) {
-        guard let appState else { return }
-        let cap = 50
-        let defaults = UserDefaults.standard
-        // 日付が変わっていたら今日のXPをリセット
-        let lastDate = defaults.object(forKey: Constants.Keys.owlXPLastDate) as? Date ?? .distantPast
-        var dailyAdded = defaults.integer(forKey: Constants.Keys.owlXPToday)
-        if !Calendar.current.isDateInToday(lastDate) {
-            dailyAdded = 0
-            defaults.set(0, forKey: Constants.Keys.owlXPToday)
-        }
-        let actual = min(amount, cap - dailyAdded)
-        guard actual > 0 else { return }
-        appState.owlXP += actual
-        defaults.set(dailyAdded + actual, forKey: Constants.Keys.owlXPToday)
-        defaults.set(Date(), forKey: Constants.Keys.owlXPLastDate)
     }
 
     // MARK: - 褒め言葉（アラーム停止時のポジティブフィードバック）

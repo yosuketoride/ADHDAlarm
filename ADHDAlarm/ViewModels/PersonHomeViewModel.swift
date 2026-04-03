@@ -395,7 +395,7 @@ final class PersonHomeViewModel {
         }
 
         eventStore.save(updated)
-        addXP(10)
+        appState?.addXP(10)
         await loadEvents()
         showConfirmation("「\(alarm.title)」を完了にしたよ")
     }
@@ -486,24 +486,6 @@ final class PersonHomeViewModel {
         }
     }
 
-    func addXP(_ amount: Int) {
-        guard let appState else { return }
-        let cap = 50
-        let defaults = UserDefaults.standard
-        // 日付が変わっていたら今日のXPをリセット
-        let lastDate = defaults.object(forKey: Constants.Keys.owlXPLastDate) as? Date ?? .distantPast
-        var dailyAdded = defaults.integer(forKey: Constants.Keys.owlXPToday)
-        if !Calendar.current.isDateInToday(lastDate) {
-            dailyAdded = 0
-            defaults.set(0, forKey: Constants.Keys.owlXPToday)
-        }
-        let actual = min(amount, cap - dailyAdded)
-        guard actual > 0 else { return }
-        appState.owlXP += actual
-        defaults.set(dailyAdded + actual, forKey: Constants.Keys.owlXPToday)
-        defaults.set(Date(), forKey: Constants.Keys.owlXPLastDate)
-    }
-
     // MARK: - デイリーミニタスク（P-1-5）
 
     /// 日替わりのミニタスク候補（ランダム選出）
@@ -533,7 +515,7 @@ final class PersonHomeViewModel {
     func completeDailyMiniTask() {
         guard !isMiniTaskCompletedToday else { return }
         UserDefaults.standard.set(Date(), forKey: "miniTaskCompletedDate")
-        addXP(5)
+        appState?.addXP(5)
         showConfirmation("🦉 えらい！+5ポイントだよ")
     }
 

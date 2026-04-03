@@ -118,6 +118,26 @@ final class AppState {
         didSet { UserDefaults.standard.set(sosEscalationMinutes, forKey: Constants.Keys.sosEscalationMinutes) }
     }
 
+    // MARK: - XP管理
+
+    /// XPを加算する（1日の上限50XP。日付をまたいだ場合は今日のXPをリセット）
+    func addXP(_ amount: Int) {
+        let cap = 50
+        let defaults = UserDefaults.standard
+        // 日付が変わっていたら今日のXPをリセット
+        let lastDate = defaults.object(forKey: Constants.Keys.owlXPLastDate) as? Date ?? .distantPast
+        var dailyAdded = defaults.integer(forKey: Constants.Keys.owlXPToday)
+        if !Calendar.current.isDateInToday(lastDate) {
+            dailyAdded = 0
+            defaults.set(0, forKey: Constants.Keys.owlXPToday)
+        }
+        let actual = min(amount, cap - dailyAdded)
+        guard actual > 0 else { return }
+        owlXP += actual
+        defaults.set(dailyAdded + actual, forKey: Constants.Keys.owlXPToday)
+        defaults.set(Date(), forKey: Constants.Keys.owlXPLastDate)
+    }
+
     // MARK: - グローバルトースト
     /// アプリ全体で表示するトーストメッセージ（nilで非表示）
     var globalToast: String?
