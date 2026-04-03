@@ -4,9 +4,13 @@ import UIKit
 /// 当事者モードのホーム画面
 /// タブレス・1画面集約・ストレス排除設計
 struct PersonHomeView: View {
-    @State private var viewModel = PersonHomeViewModel()
+    private static let transitionGapHeight: CGFloat = ComponentSize.eventRow + Spacing.lg
+
+    @State private var viewModel: PersonHomeViewModel
     @Environment(AppState.self) private var appState
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private let loadsEventsOnTask: Bool
+    private let previewHour: Int?
 
     // フクロウ首傾けアニメ用
     @State private var owlNeckTilt: Double = 0
@@ -15,38 +19,49 @@ struct PersonHomeView: View {
     @State private var eventToDelete: AlarmEvent?
     @State private var eventToActOn: AlarmEvent?
 
+    @MainActor
+    init(
+        viewModel: PersonHomeViewModel? = nil,
+        loadsEventsOnTask: Bool = true,
+        previewHour: Int? = nil
+    ) {
+        _viewModel = State(initialValue: viewModel ?? PersonHomeViewModel())
+        self.loadsEventsOnTask = loadsEventsOnTask
+        self.previewHour = previewHour
+    }
+
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            // レイヤー1（最背面）: 時間帯グラデーション背景
-            TimeOfDayBackground()
-                .ignoresSafeArea()
+        GeometryReader { proxy in
+            ZStack(alignment: .bottomTrailing) {
+                // レイヤー1（最背面）: 時間帯グラデーション背景
+                TimeOfDayBackground(previewHour: previewHour)
+                    .ignoresSafeArea(edges: .top)
 
-            // レイヤー2: メインコンテンツ（スクロール可能）
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 0) {
-                    owlSection
-                        .padding(.top, Spacing.xs)
-                    middleZone
-                    bottomZone
+                // レイヤー2: メインコンテンツ（スクロール可能）
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        owlSection
+                            .padding(.top, Spacing.xs)
+                        middleZone
+                        zoneTransitionBand
+                        bottomZone
+                    }
+                    .frame(minHeight: proxy.size.height, alignment: .top)
                 }
-            }
-            .refreshable { await viewModel.performManualSync() }
+                .refreshable { await viewModel.performManualSync() }
 
-            // レイヤー3（最前面）: マイクFAB
-            micFAB
-                .padding(.trailing, Spacing.md)
-                .padding(.bottom, Spacing.md)
-        }
-        .background {
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear {
-                        viewModel.updateScreenHeightIfNeeded(proxy.size.height)
-                    }
-                    .onChange(of: proxy.size.height) { _, newHeight in
-                        viewModel.updateScreenHeightIfNeeded(newHeight)
-                    }
+                // レイヤー3（最前面）: マイクFAB
+                micFAB
+                    .padding(.trailing, Spacing.md)
+                    .padding(.bottom, Spacing.md)
             }
+            .onAppear {
+                viewModel.updateScreenHeightIfNeeded(proxy.size.height)
+            }
+            .onChange(of: proxy.size.height) { _, newHeight in
+                viewModel.updateScreenHeightIfNeeded(newHeight)
+            }
+            .background(bottomZoneBackground)
         }
         // Toast（シェイク等の通知）
         .overlay(alignment: .top) {
@@ -63,7 +78,7 @@ struct PersonHomeView: View {
                 } label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: IconSize.sm))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(upperSecondaryTextColor)
                         .frame(width: 60, height: 60)
                 }
 
@@ -72,7 +87,7 @@ struct PersonHomeView: View {
                 } label: {
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: IconSize.md))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(upperSecondaryTextColor)
                         .frame(width: 60, height: 60)
                 }
             }
@@ -129,7 +144,9 @@ struct PersonHomeView: View {
         }
         .task {
             viewModel.bindAppStateIfNeeded(appState)
-            await viewModel.loadEvents()
+            if loadsEventsOnTask {
+                await viewModel.loadEvents()
+            }
         }
         .confirmationDialog(
             deleteDialogTitle,
@@ -225,7 +242,9 @@ struct PersonHomeView: View {
                 .multilineTextAlignment(.leading)
                 .foregroundStyle(.white)
                 .lineLimit(2)
-                .minimumScaleFactor(0.82)
+                .minimumScaleFactor(0.76)
+                .allowsTightening(true)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, Spacing.sm)
                 .padding(.vertical, Spacing.xs)
                 .background(Color.statusPending)
@@ -238,7 +257,7 @@ struct PersonHomeView: View {
                 .frame(width: 10, height: 8)
                 .padding(.trailing, Spacing.sm)
         }
-        .frame(maxWidth: 110)
+        .frame(width: 136, alignment: .leading)
     }
 
     // MARK: - 吹き出し三角シェイプ（右下向き）
@@ -263,9 +282,10 @@ struct PersonHomeView: View {
             .resizable()
             .renderingMode(.original) // テンプレートモードによるモノクロ化を防ぐ
             .scaledToFit()
-            .saturation(viewModel.owlState == .sleepy ? 0.4 : 1.0)
-            .scaleEffect(viewModel.owlState == .happy ? 1.1 : 1.0)
-            .animation(.spring(duration: 0.4, bounce: 0.5), value: viewModel.owlState)
+//            .saturation(viewModel.owlState == .sleepy ? 0.4 : 1.0)
+//            .scaleEffect(viewModel.owlState == .happy ? 1.1 : 1.0)
+            .saturation(1.0)
+            .animation(.spring(duration: 0.3, bounce: 0.6), value: viewModel.owlState)
     }
 
     // MARK: - カウントダウンセクション
@@ -275,6 +295,10 @@ struct PersonHomeView: View {
             countdownSection
             eventListSection
                 .padding(.top, Spacing.lg)
+            if hasTodayCards {
+                Spacer()
+                    .frame(height: Self.transitionGapHeight)
+            }
         }
         .background(middleZoneBackground)
     }
@@ -282,9 +306,9 @@ struct PersonHomeView: View {
     private var bottomZone: some View {
         VStack(spacing: 0) {
             tomorrowSection
-            Spacer().frame(height: max(ComponentSize.fab + Spacing.xl, 900))
+            Spacer(minLength: ComponentSize.fab + Spacing.xl)
         }
-        .background(bottomZoneBackground)
+        .background(bottomZoneExtendedBackground)
     }
 
     @ViewBuilder
@@ -361,7 +385,7 @@ struct PersonHomeView: View {
             // セクションヘッダー
             Text("── 今日の予定 ──")
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(upperSecondaryTextColor)
                 .padding(.horizontal, Spacing.lg)
 
             // 未完了の予定がゼロの場合に空状態メッセージを表示
@@ -373,6 +397,7 @@ struct PersonHomeView: View {
                 ForEach(viewModel.visibleEvents) { alarm in
                     EventRow(
                         alarm: alarm,
+                        appearance: .today,
                         onDelete: {
                             eventToDelete = alarm
                         },
@@ -394,10 +419,10 @@ struct PersonHomeView: View {
                             Spacer()
                             Text("＋ 残り\(viewModel.hiddenEventCount)件を表示")
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(upperSecondaryTextColor)
                             Image(systemName: "chevron.down")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(upperSecondaryTextColor)
                             Spacer()
                         }
                         .frame(minHeight: ComponentSize.small)
@@ -415,10 +440,10 @@ struct PersonHomeView: View {
                             Spacer()
                             Image(systemName: "chevron.up")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(upperSecondaryTextColor)
                             Text("折りたたむ")
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(upperSecondaryTextColor)
                             Spacer()
                         }
                         .frame(minHeight: ComponentSize.small)
@@ -431,7 +456,7 @@ struct PersonHomeView: View {
 
             if !viewModel.completedTodayEvents.isEmpty {
                 ForEach(viewModel.completedTodayEvents) { alarm in
-                    EventRow(alarm: alarm) {
+                    EventRow(alarm: alarm, appearance: .today) {
                         eventToDelete = alarm
                     }
                     .padding(.horizontal, Spacing.md)
@@ -448,7 +473,7 @@ struct PersonHomeView: View {
             Text(info.message)
                 .font(.body)
                 .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(upperSecondaryTextColor)
                 .padding(.horizontal, Spacing.xl)
 
             if viewModel.events.isEmpty {
@@ -488,25 +513,11 @@ struct PersonHomeView: View {
     private var tomorrowSection: some View {
         if !viewModel.tomorrowEvents.isEmpty {
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                HStack(spacing: Spacing.sm) {
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.3))
-                        .frame(height: 1)
-                    Text("─── ここから明日以降 ───")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .fixedSize()
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.3))
-                        .frame(height: 1)
-                }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, Spacing.lg)
-
                 ForEach(viewModel.tomorrowEvents) { alarm in
                     EventRow(
                         alarm: alarm,
                         showDate: true,
+                        appearance: .upcoming,
                         onDelete: {
                             eventToDelete = alarm
                         },
@@ -522,7 +533,7 @@ struct PersonHomeView: View {
                     Link(destination: url) {
                         Text("📅 カレンダーで先の予定を確認する")
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(lowerSecondaryTextColor)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, Spacing.lg)
@@ -531,6 +542,20 @@ struct PersonHomeView: View {
                 }
             }
         }
+    }
+
+    private var zoneTransitionBand: some View {
+        VStack(spacing: 0) {
+            Text("ここから明日以降")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(transitionLabelColor)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, 6)
+                .padding(.top, Spacing.md)
+                .padding(.bottom, Spacing.sm)
+        }
+        .frame(maxWidth: .infinity)
+        .background(zoneTransitionBackground)
     }
 
     // MARK: - マイクFAB
@@ -598,7 +623,7 @@ struct PersonHomeView: View {
 
                 Text("｜")
                     .font(font)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(upperSecondaryTextColor.opacity(0.82))
 
                 shortcutButton(title: textLabel, font: font) {
                     viewModel.showManualInput = true
@@ -728,13 +753,29 @@ struct PersonHomeView: View {
     }
 
     private var middleZoneBackground: some View {
-        LinearGradient(
+        let palette = currentBackgroundPalette
+        let isNight = palette.phase == .night
+        return LinearGradient(
             stops: [
                 .init(color: Color.clear, location: 0.00),
-                .init(color: Color.owlAmber.opacity(0.05), location: 0.16),
-                .init(color: Color.orange.opacity(0.11), location: 0.44),
-                .init(color: Color.orange.opacity(0.08), location: 0.70),
-                .init(color: Color.night.opacity(0.08), location: 1.00),
+                .init(color: Color.clear, location: 0.82),
+                .init(color: isNight ? Color.midnightInk : palette.boundary.opacity(0.10), location: 0.94),
+                .init(color: isNight ? Color.midnightInk : palette.boundary.opacity(0.22), location: 1.00),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var zoneTransitionBackground: some View {
+        let palette = currentBackgroundPalette
+        let isNight = palette.phase == .night
+        return LinearGradient(
+            stops: [
+                .init(color: isNight ? Color.midnightInk : palette.boundary.opacity(0.22), location: 0.00),
+                .init(color: isNight ? Color.midnightInk : palette.boundary.opacity(0.12), location: 0.24),
+                .init(color: Color.midnightInk.opacity(0.94), location: 0.72),
+                .init(color: Color.midnightInk, location: 1.00),
             ],
             startPoint: .top,
             endPoint: .bottom
@@ -744,15 +785,56 @@ struct PersonHomeView: View {
     private var bottomZoneBackground: some View {
         LinearGradient(
             stops: [
-                .init(color: Color.night.opacity(0.16), location: 0.00),
-                .init(color: Color.night.opacity(0.34), location: 0.22),
-                .init(color: Color.night.opacity(0.58), location: 0.62),
-                .init(color: Color.night.opacity(0.76), location: 1.00),
+                .init(color: Color.midnightInk, location: 0.00),
+                .init(color: Color.midnightInk, location: 0.20),
+                .init(color: Color.midnightInk, location: 0.52),
+                .init(color: Color.midnightBlack, location: 1.00),
             ],
             startPoint: .top,
             endPoint: .bottom
         )
         .ignoresSafeArea(edges: .bottom)
+    }
+
+    private var bottomZoneExtendedBackground: some View {
+        VStack(spacing: 0) {
+            bottomZoneBackground
+            Color.midnightBlack
+                .frame(height: 1000)
+        }
+        .padding(.bottom, -1000)
+        .allowsHitTesting(false)
+    }
+
+    private var currentBackgroundPalette: HomeBackgroundPalette {
+        if let previewHour {
+            return HomeBackgroundPalette.forHour(previewHour)
+        }
+        return HomeBackgroundPalette.forDate(Date())
+    }
+
+    private var hasTodayCards: Bool {
+        !viewModel.visibleEvents.isEmpty || !viewModel.completedTodayEvents.isEmpty
+    }
+
+    private var upperPrimaryTextColor: Color {
+        currentBackgroundPalette.usesLightUpperText ? Color.white.opacity(0.94) : Color.black.opacity(0.86)
+    }
+
+    private var upperSecondaryTextColor: Color {
+        currentBackgroundPalette.usesLightUpperText ? Color.white.opacity(0.72) : Color.black.opacity(0.58)
+    }
+
+    private var lowerPrimaryTextColor: Color {
+        Color.white.opacity(0.92)
+    }
+
+    private var lowerSecondaryTextColor: Color {
+        Color.white.opacity(0.72)
+    }
+
+    private var transitionLabelColor: Color {
+        Color.white.opacity(currentBackgroundPalette.phase == .night ? 0.76 : 0.88)
     }
 
     private func glassCardBackground(
@@ -779,5 +861,100 @@ struct PersonHomeView: View {
                     .stroke(Color.white.opacity(0.45), lineWidth: 1)
             }
             .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
+    }
+}
+
+#Preview("Person Home • Dawn") {
+    PersonHomeView.previewScreen(hour: 12)
+}
+
+#Preview("Person Home • Day") {
+    PersonHomeView.previewScreen(hour: 12)
+}
+
+#Preview("Person Home • Sunset") {
+    PersonHomeView.previewScreen(hour: 18)
+}
+
+#Preview("Person Home • Night") {
+    PersonHomeView.previewScreen(hour: 22)
+}
+
+private extension PersonHomeView {
+    @MainActor
+    static var previewAppState: AppState {
+        let state = AppState()
+        state.appMode = .person
+        state.isOnboardingComplete = true
+        state.owlName = "ねね"
+        state.owlStage = 2
+        return state
+    }
+
+    @MainActor
+    static func previewScreen(hour: Int) -> some View {
+        PersonHomeView(
+            viewModel: .previewHomeState(now: previewDate(hour: hour)),
+            loadsEventsOnTask: false,
+            previewHour: hour
+        )
+        .environment(previewAppState)
+    }
+
+    static func previewDate(hour: Int) -> Date {
+        Calendar.current.date(
+            bySettingHour: hour,
+            minute: 0,
+            second: 0,
+            of: Date()
+        ) ?? Date()
+    }
+}
+
+private extension PersonHomeViewModel {
+    @MainActor
+    static func previewHomeState(now: Date = Date()) -> PersonHomeViewModel {
+        let viewModel = PersonHomeViewModel()
+        let calendar = Calendar.current
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+
+        viewModel.events = [
+            AlarmEvent(
+                title: "📌 カフェ",
+                fireDate: now,
+                eventEmoji: "📌",
+                isToDo: true
+            ),
+            AlarmEvent(
+                title: "🛒 買い物",
+                fireDate: now,
+                eventEmoji: "🛒",
+                isToDo: true
+            ),
+            AlarmEvent(
+                title: "眠りクリニック",
+                fireDate: now.addingTimeInterval(15 * 60),
+                preNotificationMinutes: 15,
+                eventEmoji: "📌",
+                completionStatus: .completed
+            )
+        ]
+        viewModel.upcomingEvents = [
+            AlarmEvent(
+                title: "病院",
+                fireDate: calendar.date(bySettingHour: 14, minute: 0, second: 0, of: tomorrow) ?? tomorrow,
+                preNotificationMinutes: 15,
+                eventEmoji: "📌"
+            ),
+            AlarmEvent(
+                title: "家族と電話",
+                fireDate: calendar.date(bySettingHour: 19, minute: 30, second: 0, of: tomorrow) ?? tomorrow,
+                preNotificationMinutes: 10,
+                eventEmoji: "☎️"
+            )
+        ]
+        viewModel.owlState = .sleepy
+        viewModel.updateScreenHeightIfNeeded(844)
+        return viewModel
     }
 }

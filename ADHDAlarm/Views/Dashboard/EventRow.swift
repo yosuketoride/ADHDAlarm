@@ -1,11 +1,17 @@
 import SwiftUI
 import UIKit
 
+enum EventRowAppearance {
+    case today
+    case upcoming
+}
+
 /// 予定1件の行表示
 /// 左端に絵文字アイコン・時刻・タイトル・削除ボタンを並べる
 struct EventRow: View {
     let alarm: AlarmEvent
     var showDate: Bool = false
+    var appearance: EventRowAppearance = .today
     let onDelete: () -> Void
     var onOpenActions: (() -> Void)? = nil
 
@@ -43,7 +49,7 @@ struct EventRow: View {
             // 絵文字アイコン（左端・固定20pt・Dynamic Type非スケール）
             Text(alarm.eventEmoji ?? "📌")
                 .font(.system(size: 20))
-                .opacity(isPast ? 0.6 : 1.0)
+                .opacity(iconOpacity)
                 .frame(width: 24, alignment: .center)
 
             // 時刻（ToDoは「いつでも」表示）
@@ -51,7 +57,7 @@ struct EventRow: View {
                 if showDate {
                     Text(alarm.fireDate.japaneseCompactDateString)
                         .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(secondaryTextColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .allowsTightening(true)
@@ -59,7 +65,7 @@ struct EventRow: View {
                 if alarm.isToDo {
                     Text("いつでも")
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(secondaryTextColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                 } else {
@@ -68,7 +74,7 @@ struct EventRow: View {
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
-                        .foregroundStyle(isPast ? Color.secondary.opacity(0.82) : .primary)
+                        .foregroundStyle(primaryTextColor)
                 }
             }
             .frame(minWidth: showDate ? 54 : 60)
@@ -91,23 +97,23 @@ struct EventRow: View {
             HStack(alignment: .top, spacing: Spacing.sm) {
                 Text(alarm.eventEmoji ?? "📌")
                     .font(.system(size: IconSize.xl))
-                    .opacity(isPast ? 0.6 : 1.0)
+                    .opacity(iconOpacity)
 
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     if showDate {
                         Text(alarm.fireDate.japaneseCompactDateString)
                             .font(.callout.weight(.medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(secondaryTextColor)
                     }
                     if alarm.isToDo {
                         Text("いつでも")
                             .font(.headline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(secondaryTextColor)
                     } else {
                         Text(alarm.fireDate.japaneseTimeString)
                             .font(.title3.weight(.bold))
                             .monospacedDigit()
-                            .foregroundStyle(isPast ? Color.secondary.opacity(0.82) : .primary)
+                            .foregroundStyle(primaryTextColor)
                     }
                 }
                 Spacer()
@@ -116,7 +122,7 @@ struct EventRow: View {
 
             Text(alarm.displayTitle)
                 .font(.title3.weight(.bold))
-                .foregroundStyle(isPast ? Color.secondary.opacity(0.82) : .primary)
+                .foregroundStyle(primaryTextColor)
                 .strikethrough(isPast, color: .secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -130,7 +136,7 @@ struct EventRow: View {
         HStack(alignment: .top, spacing: 4) {
             Text(alarm.displayTitle)
                 .font(.body.weight(.medium))
-                .foregroundStyle(isPast ? Color.secondary.opacity(0.82) : .primary)
+                .foregroundStyle(primaryTextColor)
                 .lineLimit(showDate ? 3 : 2)
                 .strikethrough(isPast, color: .secondary)
                 .layoutPriority(1)
@@ -157,13 +163,13 @@ struct EventRow: View {
                 let timingLabel = minutes.map { $0 == 0 ? "ちょうど" : "\($0)分前" }.joined(separator: "・")
                 Label(timingLabel, systemImage: "bell.fill")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryTextColor)
             }
 
             if let rule = alarm.recurrenceRule {
                 Label(rule.shortDisplayName, systemImage: "repeat")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryTextColor)
             }
         }
     }
@@ -189,20 +195,82 @@ struct EventRow: View {
     }
 
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: CornerRadius.lg)
-            .fill(Color(.secondarySystemBackground).opacity(0.92))
+        let isUpcoming = appearance == .upcoming && !isPast
+        return RoundedRectangle(cornerRadius: CornerRadius.lg)
+            .fill(isUpcoming ? Color.white.opacity(0.68) : Color.white.opacity(0.96))
             .overlay {
                 RoundedRectangle(cornerRadius: CornerRadius.lg)
-                    .fill(.ultraThinMaterial.opacity(0.45))
+                    .fill(isUpcoming ? Color.midnightInk.opacity(0.20) : Color.white.opacity(0.18))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: CornerRadius.lg)
-                    .stroke(Color.white.opacity(0.42), lineWidth: 1)
+                    .stroke(isUpcoming ? Color.white.opacity(0.24) : Color.white.opacity(0.7), lineWidth: 1)
             }
-            .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 6)
+            .shadow(
+                color: .black.opacity(isUpcoming ? 0.03 : 0.05),
+                radius: isUpcoming ? 6 : 8,
+                x: 0,
+                y: isUpcoming ? 2 : 4
+            )
     }
+
+    private var primaryTextColor: Color {
+        if isPast { return Color.secondary.opacity(0.82) }
+        return appearance == .upcoming ? Color.primary.opacity(0.86) : .primary
+    }
+
+    private var secondaryTextColor: Color {
+        appearance == .upcoming ? Color.secondary.opacity(0.82) : .secondary
+    }
+
+    private var iconOpacity: Double {
+        if isPast { return 0.6 }
+        return appearance == .upcoming ? 0.82 : 1.0
+    }
+
 
     private var isPast: Bool {
         alarm.completionStatus != nil || (!alarm.isToDo && alarm.fireDate < Date())
     }
+}
+
+#Preview("Upcoming Event Row") {
+    VStack(spacing: Spacing.md) {
+        EventRow(
+            alarm: AlarmEvent(
+                title: "🛒 買い物",
+                fireDate: Date().addingTimeInterval(45 * 60),
+                preNotificationMinutes: 15,
+                eventEmoji: "🛒"
+            ),
+            appearance: .upcoming,
+            onDelete: {}
+        )
+
+        EventRow(
+            alarm: AlarmEvent(
+                title: "📌 カフェ",
+                fireDate: Date(),
+                eventEmoji: "📌",
+                isToDo: true
+            ),
+            appearance: .today,
+            onDelete: {}
+        )
+
+        EventRow(
+            alarm: AlarmEvent(
+                title: "眠りクリニック",
+                fireDate: Date().addingTimeInterval(-30 * 60),
+                preNotificationMinutes: 15,
+                eventEmoji: "📌",
+                completionStatus: .completed
+            ),
+            showDate: true,
+            appearance: .today,
+            onDelete: {}
+        )
+    }
+    .padding()
+    .background(Color(.systemGroupedBackground))
 }

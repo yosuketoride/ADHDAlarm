@@ -209,7 +209,18 @@ final class PersonHomeViewModel {
         ]
         let slot = TimeSlot.current
         let candidates = greetings[slot]?[owlState] ?? ["\(name)だよ！こんにちは！"]
-        return candidates.randomElement() ?? "こんにちは！"
+        guard !candidates.isEmpty else { return "こんにちは！" }
+        let daySeed = Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? 0
+        let hourSeed = Calendar.current.component(.hour, from: Date())
+        let stateSeed: Int = switch owlState {
+        case .normal: 0
+        case .happy: 1
+        case .worried: 2
+        case .sleepy: 3
+        case .sunglasses: 4
+        }
+        let index = abs(daySeed + hourSeed + stateSeed) % candidates.count
+        return candidates[index]
     }
 
     // MARK: - データ取得

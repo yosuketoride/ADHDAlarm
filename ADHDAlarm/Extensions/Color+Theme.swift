@@ -22,6 +22,17 @@ extension Color {
     static let afternoon = Color(hex: "#FFF9C4")  // 昼
     static let evening   = Color(hex: "#FFB347")  // 夕
     static let night     = Color(hex: "#4B5EA3")  // 夜
+    static let dawnPink  = Color(hex: "#F7D7DF")
+    static let dawnPeach = Color(hex: "#F9E8D2")
+    static let daySky    = Color(hex: "#8BD3FF")
+    static let dayBlue   = Color(hex: "#5BA8FF")
+    static let sunsetCoral = Color(hex: "#FF9A7A")
+    static let sunsetAmber = Color(hex: "#FFB15F")
+    static let dawnBoundary = Color(hex: "#8A82B8")
+    static let dayBoundary = Color(hex: "#5375C8")
+    static let sunsetBoundary = Color(hex: "#6D537E")
+    static let midnightInk = Color(hex: "#1E244D")
+    static let midnightBlack = Color(hex: "#0E1226")
 
     // MARK: - 16進数ヘルパー
     init(hex: String) {
