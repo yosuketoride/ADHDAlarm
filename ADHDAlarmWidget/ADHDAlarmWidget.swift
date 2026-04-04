@@ -100,31 +100,51 @@ struct NextAlarmWidgetView: View {
         }
     }
 
-    // Small: 残り時間 + タイトル（高齢者向け大文字）
+    // Small: ふくろう大きく表示 + 時刻 + タイトル
     private func smallView(alarm: WidgetAlarmEvent) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
+        VStack(alignment: .leading, spacing: 4) {
+            // ふくろう + 残り時間バッジ
+            HStack(alignment: .top, spacing: 0) {
                 Image(owlImageName(for: alarm))
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 28, height: 28)
+                    .frame(width: 64, height: 64)
                 Spacer()
-                Text(alarm.fireDate.remainingString)
-                    .font(.title2.bold())
-                    .foregroundStyle(.blue)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(alarm.fireDate.remainingString)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.blue, in: Capsule())
+                    Text(alarm.fireDate.widgetTimeString)
+                        .font(.title3.weight(.black))
+                        .monospacedDigit()
+                        .foregroundStyle(.primary)
+                }
             }
 
+            Spacer(minLength: 0)
+
+            // タイトル（下部に大きく）
             Text(alarm.title)
-                .font(.system(.title2, design: .rounded).weight(.black))
+                .font(.system(.title3, design: .rounded).weight(.black))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
+            // 完了ボタン
+            Button(intent: CompleteAlarmIntent(eventID: alarm.id.uuidString)) {
+                Text("完了")
+                    .font(.caption.weight(.bold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.green)
+            .controlSize(.mini)
         }
-        .padding(14)
+        .padding(12)
         .containerBackground(.fill.tertiary, for: .widget)
     }
 
@@ -207,18 +227,20 @@ struct NextAlarmWidgetView: View {
             Image(owlImageName(for: alarm))
                 .resizable()
                 .scaledToFit()
-                .frame(width: 60, height: 60)
-                .offset(x: isWorried ? -8 : 0, y: 10)
+                .frame(width: 96, height: 96)
+                .offset(x: isWorried ? -8 : 0, y: 6)
         }
     }
 
     // Large: 今日の予定一覧
     private var largeView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // ヘッダー（マイク追加ボタン付き）
-            HStack {
-                Image(systemName: "list.bullet.clipboard.fill")
-                    .foregroundStyle(.blue)
+            // ヘッダー（ふくろう + タイトル + 日付 + マイクボタン）
+            HStack(spacing: 8) {
+                Image(owlImageName(for: entry.nextAlarm))
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
                 Text("今日の予定")
                     .font(.headline.weight(.bold))
                 Spacer()
@@ -240,9 +262,10 @@ struct NextAlarmWidgetView: View {
             if entry.todayAlarms.isEmpty {
                 // 今日の予定なし
                 VStack(spacing: 12) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 36))
-                        .foregroundStyle(.green.opacity(0.7))
+                    Image(owlImageName(for: nil))
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 72, height: 72)
                     Text("今日の予定はありません")
                         .font(.callout)
                         .foregroundStyle(.secondary)
