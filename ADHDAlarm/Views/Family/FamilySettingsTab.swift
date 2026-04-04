@@ -81,6 +81,15 @@ struct FamilySettingsTab: View {
             Label("ペアリング管理", systemImage: "link")
                 .font(.headline)
 
+            Button {
+                appState.appMode = .person
+            } label: {
+                Label("自分で使うモードに切り替える", systemImage: "person.fill.turn.right")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.large(background: .secondary))
+            .frame(minHeight: 60)
+
             if let activeLinkId {
                 Text("連携中のリンクID: \(activeLinkId)")
                     .font(.caption)

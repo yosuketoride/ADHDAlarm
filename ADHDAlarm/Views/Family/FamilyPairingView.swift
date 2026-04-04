@@ -13,6 +13,7 @@ struct FamilyPairingView: View {
                 headerSection
                 codeInputCard
                 statusSection
+                switchModeButton
             }
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.xl)
@@ -135,6 +136,17 @@ struct FamilyPairingView: View {
         case .generating, .waitingForFamily:
             EmptyView()
         }
+    }
+
+    private var switchModeButton: some View {
+        Button {
+            appState.appMode = .person
+        } label: {
+            Text("やっぱり自分で使う")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .frame(minHeight: 60)
     }
 
     private func codeCell(_ character: String) -> some View {
