@@ -224,6 +224,24 @@ struct RingingView: View {
         .padding(.horizontal, 32)
     }
 
+    // MARK: - フクロウ画像ヘルパー
+
+    /// XP × 感情に応じたふくろうアセット名を返す（RingingView専用）
+    private func owlImageName(emotion: String) -> String {
+        let stage: Int
+        switch appState.owlXP {
+        case 0..<100:    stage = 0
+        case 100..<500:  stage = 1
+        case 500..<1000: stage = 2
+        default:         stage = 3
+        }
+        let name = "owl_stage\(stage)_\(emotion)"
+        if UIImage(named: name) != nil { return name }
+        let normal = "owl_stage\(stage)_normal"
+        if UIImage(named: normal) != nil { return normal }
+        return "OwlIcon"
+    }
+
     // MARK: - フクロウ + 波紋
 
     private var owlWithRipple: some View {
@@ -244,8 +262,8 @@ struct RingingView: View {
                 .fill(Color.white)
                 .frame(width: 112, height: 112)
                 .shadow(color: .black.opacity(0.10), radius: 14, y: 5)
-            // フクロウ本体
-            Image("OwlIcon")
+            // フクロウ本体（アラーム発火中 = surprised）
+            Image(owlImageName(emotion: "surprised"))
                 .resizable().scaledToFit()
                 .frame(width: 88, height: 88)
         }
@@ -486,7 +504,8 @@ struct RingingView: View {
             VStack(spacing: 28) {
                 // フクロウ + 吹き出し
                 ZStack(alignment: .topTrailing) {
-                    Image("OwlIcon")
+                    // 停止後 = happy
+                    Image(owlImageName(emotion: "happy"))
                         .resizable().scaledToFit()
                         .frame(width: 120, height: 120)
 

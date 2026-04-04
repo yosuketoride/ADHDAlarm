@@ -8,6 +8,7 @@ struct PersonHomeView: View {
 
     @State private var viewModel: PersonHomeViewModel
     @Environment(AppState.self) private var appState
+    @Environment(AppRouter.self) private var router
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let loadsEventsOnTask: Bool
     private let previewHour: Int?
@@ -35,7 +36,7 @@ struct PersonHomeView: View {
             ZStack(alignment: .bottomTrailing) {
                 // レイヤー1（最背面）: 時間帯グラデーション背景
                 TimeOfDayBackground(previewHour: previewHour)
-                    .ignoresSafeArea(edges: .top)
+                    .ignoresSafeArea(edges: hasTomorrowCards ? .top : .all)
 
                 // レイヤー2: メインコンテンツ（スクロール可能）
                 ScrollView(.vertical, showsIndicators: false) {
@@ -43,8 +44,10 @@ struct PersonHomeView: View {
                         owlSection
                             .padding(.top, Spacing.xs)
                         middleZone
-                        zoneTransitionBand
-                        bottomZone
+                        if hasTomorrowCards {
+                            zoneTransitionBand
+                            bottomZone
+                        }
                     }
                     .frame(minHeight: proxy.size.height, alignment: .top)
                 }
@@ -61,7 +64,7 @@ struct PersonHomeView: View {
             .onChange(of: proxy.size.height) { _, newHeight in
                 viewModel.updateScreenHeightIfNeeded(newHeight)
             }
-            .background(bottomZoneBackground)
+            .background(hasTomorrowCards ? AnyView(bottomZoneBackground) : AnyView(Color.clear))
         }
         // Toast（シェイク等の通知）
         .overlay(alignment: .top) {
@@ -95,7 +98,9 @@ struct PersonHomeView: View {
             .padding(.trailing, Spacing.lg)
         }
         // マイク入力シート
-        .sheet(isPresented: $viewModel.showMicSheet) {
+        .sheet(isPresented: $viewModel.showMicSheet, onDismiss: {
+            Task { await viewModel.loadEvents() }
+        }) {
             MicrophoneInputView(viewModel: InputViewModel(appState: appState))
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
@@ -137,6 +142,11 @@ struct PersonHomeView: View {
         .animation(.spring(duration: 0.3), value: viewModel.pendingDelete != nil)
         .animation(.spring(duration: 0.3), value: viewModel.pendingComplete != nil)
         .onShake { viewModel.handleOwlShake() }
+        .onChange(of: router.ringingAlarm?.id) { _, newValue in
+            if newValue != nil {
+                viewModel.dismissPresentedSheets()
+            }
+        }
         .onAppear {
             withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) {
                 owlFloatOffset = 6
@@ -275,9 +285,9 @@ struct PersonHomeView: View {
 
     @ViewBuilder
     private var owlImage: some View {
-        // XPに応じてふくろうのステージアセットを切り替える（owl_stage0〜3）
-        // アセットが存在しない場合は OwlIcon にフォールバック
-        let imageName = UIImage(named: viewModel.owlImageName) != nil ? viewModel.owlImageName : "OwlIcon"
+        // XP（ステージ）× owlState（感情）に応じたアセットを表示
+        // フォールバック: normal → OwlIcon の順
+        let imageName = viewModel.owlImageName()
         Image(imageName)
             .resizable()
             .renderingMode(.original) // テンプレートモードによるモノクロ化を防ぐ
@@ -295,7 +305,7 @@ struct PersonHomeView: View {
             countdownSection
             eventListSection
                 .padding(.top, Spacing.lg)
-            if hasTodayCards {
+            if hasTodayCards && hasTomorrowCards {
                 Spacer()
                     .frame(height: Self.transitionGapHeight)
             }
@@ -753,9 +763,10 @@ struct PersonHomeView: View {
     }
 
     private var middleZoneBackground: some View {
+        guard hasTomorrowCards else { return AnyView(Color.clear) }
         let palette = currentBackgroundPalette
         let isNight = palette.phase == .night
-        return LinearGradient(
+        return AnyView(LinearGradient(
             stops: [
                 .init(color: Color.clear, location: 0.00),
                 .init(color: Color.clear, location: 0.82),
@@ -764,7 +775,7 @@ struct PersonHomeView: View {
             ],
             startPoint: .top,
             endPoint: .bottom
-        )
+        ))
     }
 
     private var zoneTransitionBackground: some View {
@@ -817,6 +828,10 @@ struct PersonHomeView: View {
         !viewModel.visibleEvents.isEmpty || !viewModel.completedTodayEvents.isEmpty
     }
 
+    private var hasTomorrowCards: Bool {
+        !viewModel.tomorrowEvents.isEmpty
+    }
+
     private var upperPrimaryTextColor: Color {
         currentBackgroundPalette.usesLightUpperText ? Color.white.opacity(0.94) : Color.black.opacity(0.86)
     }
@@ -865,40 +880,57 @@ struct PersonHomeView: View {
 }
 
 #Preview("Person Home • Dawn") {
-    PersonHomeView.previewScreen(hour: 12)
+    PersonHomeView.previewScreen(hour: 5, owlXP: 0)
 }
 
 #Preview("Person Home • Day") {
-    PersonHomeView.previewScreen(hour: 12)
+    PersonHomeView.previewScreen(hour: 12, owlXP: 0)
 }
 
 #Preview("Person Home • Sunset") {
-    PersonHomeView.previewScreen(hour: 18)
+    PersonHomeView.previewScreen(hour: 18, owlXP: 0)
 }
 
 #Preview("Person Home • Night") {
-    PersonHomeView.previewScreen(hour: 22)
+    PersonHomeView.previewScreen(hour: 22, owlXP: 0)
+}
+
+#Preview("Owl Stage 0") {
+    PersonHomeView.previewScreen(hour: 12, owlXP: 0)
+}
+
+#Preview("Owl Stage 1") {
+    PersonHomeView.previewScreen(hour: 12, owlXP: 100)
+}
+
+#Preview("Owl Stage 2") {
+    PersonHomeView.previewScreen(hour: 12, owlXP: 500)
+}
+
+#Preview("Owl Stage 3") {
+    PersonHomeView.previewScreen(hour: 12, owlXP: 1000)
 }
 
 private extension PersonHomeView {
     @MainActor
-    static var previewAppState: AppState {
+    static func previewAppState(owlXP: Int) -> AppState {
         let state = AppState()
         state.appMode = .person
         state.isOnboardingComplete = true
         state.owlName = "ねね"
+        state.owlXP = owlXP
         state.owlStage = 2
         return state
     }
 
     @MainActor
-    static func previewScreen(hour: Int) -> some View {
+    static func previewScreen(hour: Int, owlXP: Int) -> some View {
         PersonHomeView(
             viewModel: .previewHomeState(now: previewDate(hour: hour)),
             loadsEventsOnTask: false,
             previewHour: hour
         )
-        .environment(previewAppState)
+        .environment(previewAppState(owlXP: owlXP))
     }
 
     static func previewDate(hour: Int) -> Date {

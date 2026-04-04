@@ -62,16 +62,29 @@ struct NextAlarmWidgetView: View {
         UserDefaults(suiteName: "group.com.yosuke.WasurenboAlarm")?.integer(forKey: "owl_xp") ?? 0
     }
 
-    private func getOwlEmoji(for alarm: WidgetAlarmEvent?) -> String {
-        guard let alarm = alarm else { return "🦉💤" }
+    /// XP × 状況に応じたふくろう画像名を返す（ウィジェット用・4感情）
+    private func owlImageName(for alarm: WidgetAlarmEvent?) -> String {
+        let stage: Int
+        switch owlXP {
+        case 0..<100:    stage = 0
+        case 100..<500:  stage = 1
+        case 500..<1000: stage = 2
+        default:         stage = 3
+        }
+        let emotion: String
+        guard let alarm = alarm else {
+            emotion = "sleepy"
+            return "owl_stage\(stage)_\(emotion)"
+        }
         let minutes = Int(alarm.fireDate.timeIntervalSinceNow / 60)
         if minutes < 10 {
-            return "🦉👀" // worried
+            emotion = "worried"
         } else if minutes > 60 {
-            return "🦉💤" // sleepy
+            emotion = "sleepy"
         } else {
-            return "🦉" // normal
+            emotion = "normal"
         }
+        return "owl_stage\(stage)_\(emotion)"
     }
 
     var body: some View {
@@ -91,8 +104,10 @@ struct NextAlarmWidgetView: View {
     private func smallView(alarm: WidgetAlarmEvent) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(getOwlEmoji(for: alarm))
-                    .font(.title2)
+                Image(owlImageName(for: alarm))
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 28, height: 28)
                 Spacer()
                 Text(alarm.fireDate.remainingString)
                     .font(.title2.bold())
@@ -189,8 +204,10 @@ struct NextAlarmWidgetView: View {
             }
 
             // Layer 3: ふくろうキャラ
-            Text(getOwlEmoji(for: alarm))
-                .font(.system(size: 44))
+            Image(owlImageName(for: alarm))
+                .resizable()
+                .scaledToFit()
+                .frame(width: 60, height: 60)
                 .offset(x: isWorried ? -8 : 0, y: 10)
         }
     }

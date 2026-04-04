@@ -11,6 +11,17 @@ enum OwlState {
     case worried
     case sleepy
     case sunglasses
+
+    /// 画像アセット名に使うキー（owl_stageN_{assetKey}）
+    var assetKey: String {
+        switch self {
+        case .normal:     return "normal"
+        case .happy:      return "happy"
+        case .worried:    return "worried"
+        case .sleepy:     return "sleepy"
+        case .sunglasses: return "sunglasses"
+        }
+    }
 }
 
 // MARK: - 時間帯
@@ -87,6 +98,12 @@ final class PersonHomeViewModel {
     func updateScreenHeightIfNeeded(_ height: CGFloat) {
         guard height > 0 else { return }
         screenHeight = height
+    }
+
+    func dismissPresentedSheets() {
+        showMicSheet = false
+        showManualInput = false
+        showSettings = false
     }
 
     // MARK: - 計算プロパティ: 予定リスト
@@ -490,15 +507,29 @@ final class PersonHomeViewModel {
 
     // MARK: - XP管理
 
-    /// XP量に応じたふくろうアセット名（owl_stage0〜3）
-    /// アセットが存在しない場合は "OwlIcon" にフォールバックする
-    var owlImageName: String {
+    /// XP × owlState に応じたふくろうアセット名を返す
+    /// フォールバック: normal → OwlIcon の順
+    func owlImageName(emotion: OwlState? = nil) -> String {
+        let stage: Int
         switch appState?.owlXP ?? 0 {
-        case 0..<100:    return "owl_stage0"
-        case 100..<500:  return "owl_stage1"
-        case 500..<1000: return "owl_stage2"
-        default:         return "owl_stage3"
+        case 0..<100:    stage = 0
+        case 100..<500:  stage = 1
+        case 500..<1000: stage = 2
+        default:         stage = 3
         }
+        let emotionKey = (emotion ?? owlState).assetKey
+        let name = "owl_stage\(stage)_\(emotionKey)"
+        if UIImage(named: name) != nil { return name }
+        // フォールバック1: normal
+        let normalName = "owl_stage\(stage)_normal"
+        if UIImage(named: normalName) != nil { return normalName }
+        // フォールバック2: 旧アセット
+        return "OwlIcon"
+    }
+
+    // 後方互換: 旧プロパティ参照箇所用（削除可能になったら消す）
+    var owlImageName: String {
+        owlImageName()
     }
 
     // MARK: - デイリーミニタスク（P-1-5）
