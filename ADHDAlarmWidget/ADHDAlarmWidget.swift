@@ -100,49 +100,39 @@ struct NextAlarmWidgetView: View {
         }
     }
 
-    // Small: ふくろう大きく表示 + 時刻 + タイトル
+    // Small: ふくろう + 残り時間（大）+ タイトル
     private func smallView(alarm: WidgetAlarmEvent) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // ふくろう + 残り時間バッジ
-            HStack(alignment: .top, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            // 上段: ふくろう + 残り時間
+            HStack(alignment: .center, spacing: 6) {
                 Image(owlImageName(for: alarm))
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 64, height: 64)
+                    .frame(width: 52, height: 52)
                 Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
+                VStack(alignment: .trailing, spacing: 1) {
                     Text(alarm.fireDate.remainingString)
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Color.blue, in: Capsule())
-                    Text(alarm.fireDate.widgetTimeString)
-                        .font(.title3.weight(.black))
+                        .font(.title2.weight(.black))
+                        .foregroundStyle(.blue)
                         .monospacedDigit()
-                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text(alarm.fireDate.widgetTimeString)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 6)
 
-            // タイトル（下部に大きく）
+            // 下段: タイトル（大きく・主役）
             Text(alarm.title)
                 .font(.system(.title3, design: .rounded).weight(.black))
                 .foregroundStyle(.primary)
-                .lineLimit(2)
-                .minimumScaleFactor(0.7)
+                .lineLimit(3)
+                .minimumScaleFactor(0.65)
                 .frame(maxWidth: .infinity, alignment: .leading)
-
-            // 完了ボタン
-            Button(intent: CompleteAlarmIntent(eventID: alarm.id.uuidString)) {
-                Text("完了")
-                    .font(.caption.weight(.bold))
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color.green)
-            .controlSize(.mini)
         }
         .padding(12)
         .containerBackground(.fill.tertiary, for: .widget)
@@ -155,44 +145,39 @@ struct NextAlarmWidgetView: View {
             owlRoomView(alarm: alarm)
                 .frame(maxWidth: 140)
             
-            // 右ペイン（2/3）: 予定情報 + 完了ボタン
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(alarm.fireDate.widgetTimeString)
-                        .font(.title.weight(.black))
-                        .monospacedDigit()
-                        .foregroundStyle(.primary)
-                        .minimumScaleFactor(0.6)
-                    
-                    Spacer()
-                    
-                    Text(alarm.fireDate.remainingString)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.blue)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.12), in: Capsule())
-                }
+            // 右ペイン（2/3）: 残り時間 + タイトル + 事前通知
+            VStack(alignment: .leading, spacing: 4) {
+                // 残り時間（最大強調）
+                Text(alarm.fireDate.remainingString)
+                    .font(.title.weight(.black))
+                    .foregroundStyle(.blue)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
 
+                // 時刻
+                Text(alarm.fireDate.widgetTimeString)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+
+                Spacer(minLength: 4)
+
+                // タイトル
                 Text(alarm.title)
                     .font(.system(.title3, design: .rounded).weight(.bold))
                     .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.65)
 
                 Spacer(minLength: 0)
 
-                Button(intent: CompleteAlarmIntent(eventID: alarm.id.uuidString)) {
-                    Text("完了")
-                        .font(.caption)
-                        .bold()
-                        .frame(maxWidth: .infinity)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                // 事前通知タイミング
+                if alarm.preNotificationMinutes > 0 {
+                    Label("\(alarm.preNotificationMinutes)分前に鳴らす", systemImage: "bell.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.green)
-                .controlSize(.small)
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
