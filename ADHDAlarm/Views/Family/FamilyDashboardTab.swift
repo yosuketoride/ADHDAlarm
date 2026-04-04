@@ -47,10 +47,14 @@ struct FamilyDashboardTab: View {
                     Text("\(pairedPersonName)さんの見守り")
                         .font(.title3.weight(.bold))
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(lastSeenText)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    // lastSeen が取れているときだけ最終確認時刻を表示する
+                    // nil（未取得）のときは何も表示しない
+                    if lastSeen != nil {
+                        Text(lastSeenText)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     Text("送った予定が相手の端末に反映されたかを、ここでまとめて確認できます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
