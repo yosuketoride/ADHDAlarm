@@ -30,6 +30,8 @@ enum Constants {
         // XP 日次管理（日付をまたいだリセット用）
         static let owlXPToday             = "owl_xp_today"
         static let owlXPLastDate          = "owl_xp_last_date"
+        // 通知のdismissで処理済みとみなしたAlarmKit ID
+        static let handledAlarmKitIDs     = "handled_alarm_kit_ids"
     }
 
     // MARK: - Supabase (SOS LINE連携用)

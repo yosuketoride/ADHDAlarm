@@ -19,6 +19,7 @@ final class AlarmKitScheduler: AlarmScheduling {
     @discardableResult
     func schedule(_ alarm: AlarmEvent) async throws -> UUID {
         let alarmID = alarm.alarmKitIdentifier ?? UUID()
+        await HandledAlarmStore.shared.clearHandled(alarmID)
 
         // AlarmPresentation.Alert は title のみ（body引数は存在しない）
         let alert = AlarmPresentation.Alert(

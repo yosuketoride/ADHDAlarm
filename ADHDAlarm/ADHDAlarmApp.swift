@@ -121,7 +121,7 @@ struct ADHDAlarmApp: App {
             identifier: Constants.Notification.alarmCategoryID,
             actions: [dismiss, snooze, skip],
             intentIdentifiers: [],
-            options: []
+            options: [.customDismissAction]
         )
         UNUserNotificationCenter.current().setNotificationCategories([category])
     }
@@ -159,6 +159,10 @@ struct ADHDAlarmApp: App {
         for await alarms in AlarmManager.shared.alarmUpdates {
             // alerting（発火中）のアラームを探す
             guard let alertingAlarm = alarms.first(where: { $0.state == .alerting }) else {
+                continue
+            }
+
+            if await HandledAlarmStore.shared.isHandled(alertingAlarm.id) {
                 continue
             }
 
@@ -243,13 +247,19 @@ struct RootView: View {
               let actionID = userInfo[ForegroundNotificationDelegate.alarmActionIdentifierKey] as? String
         else { return }
 
+        let isDismissAction = actionID == Constants.Notification.actionDismiss
+            || actionID == UNNotificationDismissActionIdentifier
+
         // RingingView が既に開いている場合は AppRouter 経由で処理する
         // （RingingView 自身が dismiss/snooze/skip を持っているため）
         if router.ringingAlarm != nil {
             switch actionID {
-            case Constants.Notification.actionDismiss:
-                // .foreground オプションでアプリが前面に来るため、ユーザーが手動で止める
-                break
+            case _ where isDismissAction:
+                if let ringingAlarm = router.ringingAlarm {
+                    Task { @MainActor in
+                        await completeAlarmFromNotification(ringingAlarm, router: router)
+                    }
+                }
             case Constants.Notification.actionSnooze:
                 router.pendingAlarmAction = .snooze
             case Constants.Notification.actionSkip:
@@ -271,9 +281,10 @@ struct RootView: View {
         }
 
         switch actionID {
-        case Constants.Notification.actionDismiss:
-            // アプリが前面に来るので RingingView を表示して視覚的に停止できるようにする
-            router.ringingAlarm = alarm
+        case _ where isDismissAction:
+            Task { @MainActor in
+                await completeAlarmFromNotification(alarm, router: router)
+            }
         case Constants.Notification.actionSnooze:
             // バックグラウンドでスヌーズ登録：30分後に再アラーム
             Task { @MainActor in
@@ -314,6 +325,42 @@ struct RootView: View {
             }
         default:
             break
+        }
+    }
+
+    @MainActor
+    private func completeAlarmFromNotification(_ alarm: AlarmEvent, router: AppRouter) async {
+        let scheduler = AlarmKitScheduler()
+        let calendarProvider = AppleCalendarProvider()
+        let alarmKitIDs = !alarm.alarmKitIdentifiers.isEmpty
+            ? alarm.alarmKitIdentifiers
+            : [alarm.alarmKitIdentifier].compactMap { $0 }
+
+        for id in alarmKitIDs {
+            HandledAlarmStore.shared.markHandled(id)
+        }
+
+        var completed = alarm
+        completed.completionStatus = .completed
+        AlarmEventStore.shared.save(completed)
+        appState.addXP(10)
+
+        if let remoteEventId = alarm.remoteEventId {
+            Task {
+                try? await FamilyRemoteService.shared.updateRemoteEventStatus(id: remoteEventId, status: "completed")
+            }
+        }
+
+        if !alarmKitIDs.isEmpty {
+            try? await scheduler.cancelAll(alarmKitIDs: alarmKitIDs)
+        }
+
+        if let ekID = alarm.eventKitIdentifier {
+            try? await calendarProvider.deleteEvent(eventKitIdentifier: ekID)
+        }
+
+        if router.ringingAlarm?.id == alarm.id {
+            router.ringingAlarm = nil
         }
     }
 
