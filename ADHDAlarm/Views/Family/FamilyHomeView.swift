@@ -30,7 +30,7 @@ struct FamilyHomeView: View {
     @ViewBuilder
     private func pairedView(linkId: String) -> some View {
         TabView(selection: $viewModel.selectedTab) {
-            // Tab 0: 見守りダッシュボード
+            // Tab 0: 見守りダッシュボード（タブを開くたびに自動リフレッシュ）
             NavigationStack {
                 FamilyDashboardTab(
                     pairedPersonName: pairedPersonName,
@@ -58,6 +58,11 @@ struct FamilyHomeView: View {
             }
             .tabItem { Label("見守り", systemImage: "eye.fill") }
             .tag(0)
+            .onChange(of: viewModel.selectedTab) { _, newTab in
+                if newTab == 0 {
+                    Task { await viewModel.refresh(linkId: linkId) }
+                }
+            }
 
             // Tab 1: 予定を送る
             NavigationStack {

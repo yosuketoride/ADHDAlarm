@@ -3,6 +3,7 @@ import AlarmKit
 import ActivityKit
 import AppIntents
 import UserNotifications
+import BackgroundTasks
 
 // MARK: - AppDelegate（レビュー指摘 #2）
 // UNUserNotificationCenter.delegate は App.init() ではなく AppDelegate で設定する。
@@ -15,7 +16,39 @@ private final class AppDelegate: NSObject, UIApplicationDelegate {
         UNUserNotificationCenter.current().delegate = ForegroundNotificationDelegate.shared
         // P-9-6: データモデルのマイグレーション（新フィールド追加時に既存データを補完）
         DataMigrationService.migrateIfNeeded()
+        // バックグラウンドで家族からの予定を定期取り込みするタスクを登録
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: "com.yosuke.WasurenboAlarm.syncRemoteEvents",
+            using: nil
+        ) { task in
+            guard let refreshTask = task as? BGAppRefreshTask else { return }
+            Task {
+                let count = await SyncEngine().syncRemoteEvents()
+                if count > 0 {
+                    // フォアグラウンドに通知（AppStateへのアクセスはMainActor経由）
+                    await MainActor.run {
+                        NotificationCenter.default.post(
+                            name: .didReceiveRemoteFamilyEvents,
+                            object: nil,
+                            userInfo: ["count": count]
+                        )
+                    }
+                }
+                refreshTask.setTaskCompleted(success: true)
+            }
+            // タイムアウト時は中断としてマーク
+            refreshTask.expirationHandler = { refreshTask.setTaskCompleted(success: false) }
+            // 次回のBGRefreshをスケジュール
+            AppDelegate.scheduleBGSync()
+        }
         return true
+    }
+
+    /// BGAppRefreshをスケジュールする（最短15分間隔。実際の実行頻度はiOSが決定）
+    static func scheduleBGSync() {
+        let request = BGAppRefreshTaskRequest(identifier: "com.yosuke.WasurenboAlarm.syncRemoteEvents")
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+        try? BGTaskScheduler.shared.submit(request)
     }
 }
 
@@ -52,6 +85,10 @@ struct ADHDAlarmApp: App {
                 .onOpenURL { url in handleOpenURL(url) }
         }
         .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                // バックグラウンド移行時に次回BGSyncをスケジュール
+                AppDelegate.scheduleBGSync()
+            }
             if newPhase == .active {
                 permissionsService.refreshStatuses()
                 checkBatteryLevel()
@@ -224,6 +261,12 @@ struct RootView: View {
             for: ForegroundNotificationDelegate.alarmActionNotification
         )) { notification in
             handleAlarmAction(from: notification, router: router)
+        }
+        // BGSync完了通知: バックグラウンドで新しい家族予定が届いたらバッジを更新
+        .onReceive(NotificationCenter.default.publisher(for: .didReceiveRemoteFamilyEvents)) { notification in
+            if let count = notification.userInfo?["count"] as? Int, count > 0 {
+                appState.unreadFamilyEventCount += count
+            }
         }
         // AlarmKit発火時にフルスクリーンでRingingViewを表示
         .fullScreenCover(item: Binding(

@@ -242,6 +242,13 @@ struct FamilySendTab: View {
                 .foregroundStyle(Color.statusSuccess)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Spacing.lg)
+                .onAppear {
+                    // 2秒後にフォームをリセットして次の送信を可能にする
+                    Task {
+                        try? await Task.sleep(for: .seconds(2))
+                        viewModel.reset()
+                    }
+                }
 
         case .error(let message):
             VStack(spacing: Spacing.sm) {
@@ -353,6 +360,16 @@ private final class FamilySendTabViewModel {
             return trimmed
         }
         return selectedTemplate?.title ?? ""
+    }
+
+    /// 送信完了後にフォームを初期状態に戻す
+    func reset() {
+        selectedTemplate = .medicine
+        customTitle = ""
+        selectedTiming = .in15Minutes
+        preNotificationMinutes = 15
+        customDate = Calendar.current.date(byAdding: .hour, value: 2, to: Date()) ?? Date()
+        sendState = .idle
     }
 
     func selectTemplate(_ template: FamilyQuickTemplate) {

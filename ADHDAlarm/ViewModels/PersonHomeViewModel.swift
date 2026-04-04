@@ -380,6 +380,10 @@ final class PersonHomeViewModel {
         if !idsToCancel.isEmpty {
             try? await AlarmKitScheduler().cancelAll(alarmKitIDs: idsToCancel)
         }
+        // 家族から送られた予定の場合は見守り側にキャンセルを通知する
+        if let remoteEventId = alarm.remoteEventId {
+            try? await FamilyRemoteService.shared.cancelRemoteEvent(id: remoteEventId)
+        }
         VoiceFileGenerator().deleteAudio(alarmID: alarm.id)
         eventStore.delete(id: alarm.id)
         WidgetCenter.shared.reloadAllTimelines()
