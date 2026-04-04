@@ -66,21 +66,35 @@ struct FamilyDashboardTab: View {
 
     private var todaySection: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
+            // 今日の残り予定（未来のみ）
             VStack(alignment: .leading, spacing: Spacing.md) {
                 HStack {
                     Text("今日の予定")
                         .font(.title3.weight(.bold))
                     Spacer()
-                    Text("\(todaysEvents.count)件")
+                    Text("\(upcomingTodayEvents.count)件")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
 
-                if todaysEvents.isEmpty {
+                if upcomingTodayEvents.isEmpty {
                     emptyCard
                 } else {
-                    ForEach(todaysEvents) { event in
-                        dashboardEventRow(event)
+                    ForEach(upcomingTodayEvents) { event in
+                        dashboardEventRow(event, isPast: false)
+                    }
+                }
+            }
+
+            // 今日の済んだ予定（過去分）
+            if !pastTodayEvents.isEmpty {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    Text("今日の済んだ予定")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+
+                    ForEach(pastTodayEvents) { event in
+                        dashboardEventRow(event, isPast: true)
                     }
                 }
             }
@@ -211,10 +225,10 @@ struct FamilyDashboardTab: View {
         .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
     }
 
-    private func dashboardEventRow(_ event: RemoteEventRecord) -> some View {
+    private func dashboardEventRow(_ event: RemoteEventRecord, isPast: Bool = false) -> some View {
         HStack(spacing: Spacing.md) {
             Rectangle()
-                .fill(statusColor(for: event.status))
+                .fill(isPast ? Color.secondary.opacity(0.3) : statusColor(for: event.status))
                 .frame(width: 6)
                 .clipShape(RoundedRectangle(cornerRadius: CornerRadius.pill))
 
@@ -224,6 +238,7 @@ struct FamilyDashboardTab: View {
                         Text(event.fireDate.japaneseTimeString)
                             .font(.headline)
                             .monospacedDigit()
+                            .foregroundStyle(isPast ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                         Text(event.fireDate.japaneseDateString)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -235,6 +250,8 @@ struct FamilyDashboardTab: View {
                     VStack(alignment: .leading, spacing: Spacing.xs) {
                         Text(event.title)
                             .font(.body.weight(.medium))
+                            .foregroundStyle(isPast ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+                            .strikethrough(isPast, color: .secondary)
                             .lineLimit(2)
                             .layoutPriority(1)
 
@@ -330,6 +347,16 @@ struct FamilyDashboardTab: View {
         return events
             .filter { calendar.isDateInToday($0.fireDate) }
             .sorted { $0.fireDate < $1.fireDate }
+    }
+
+    /// 今日の予定のうち、まだ時間が来ていないもの
+    private var upcomingTodayEvents: [RemoteEventRecord] {
+        todaysEvents.filter { $0.fireDate > Date() }
+    }
+
+    /// 今日の予定のうち、すでに時間が過ぎたもの（新しい順）
+    private var pastTodayEvents: [RemoteEventRecord] {
+        todaysEvents.filter { $0.fireDate <= Date() }.reversed()
     }
 
     private var pastEventGroups: [(date: Date, events: [RemoteEventRecord])] {
