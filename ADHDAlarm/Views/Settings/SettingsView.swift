@@ -40,6 +40,9 @@ struct SettingsView: View {
                     // フッター（プライバシー + バージョン）
                     footerSection
 
+                    // モードやり直しボタン（常に表示）
+                    restartOnboardingSection
+
                     #if DEBUG
                     debugSection
                     #endif
@@ -299,6 +302,21 @@ struct SettingsView: View {
         .padding(.top, 4)
     }
 
+    // MARK: - モードやり直し
+
+    private var restartOnboardingSection: some View {
+        SettingsCard {
+            Button {
+                appState.isOnboardingComplete = false
+                appState.appMode = nil
+            } label: {
+                Label("最初の設定をやり直す", systemImage: "arrow.counterclockwise")
+                    .foregroundStyle(.secondary)
+            }
+            .frame(minHeight: 60)
+        }
+    }
+
     // MARK: - デバッグ
 
     #if DEBUG
@@ -309,14 +327,6 @@ struct SettingsView: View {
                 set: { appState.subscriptionTier = $0 ? .pro : .free }
             )) {
                 Label("【DEBUG】PROを有効にする", systemImage: "wrench.fill")
-                    .foregroundStyle(.orange)
-            }
-
-            Button {
-                appState.isOnboardingComplete = false
-                appState.appMode = nil
-            } label: {
-                Label("【DEBUG】オンボーディングをやり直す", systemImage: "arrow.counterclockwise")
                     .foregroundStyle(.orange)
             }
         }
