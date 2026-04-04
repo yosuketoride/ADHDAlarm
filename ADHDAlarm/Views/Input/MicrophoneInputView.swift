@@ -7,12 +7,29 @@ import AVFoundation
 struct MicrophoneInputView: View {
     @State var viewModel: InputViewModel
     @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
     @State private var permissionsService = PermissionsService()
     @State private var showTextFallback = false
     @State private var showManualInput = false
     @State private var showPaywall = false
     @State private var owlBounce = false
     @State private var permissionRefreshID = 0
+
+    /// XP × 感情に応じたふくろうアセット名を返す
+    private func owlImageName(appState: AppState, emotion: String) -> String {
+        let stage: Int
+        switch appState.owlXP {
+        case 0..<100:    stage = 0
+        case 100..<500:  stage = 1
+        case 500..<1000: stage = 2
+        default:         stage = 3
+        }
+        let name = "owl_stage\(stage)_\(emotion)"
+        if UIImage(named: name) != nil { return name }
+        let normal = "owl_stage\(stage)_normal"
+        if UIImage(named: normal) != nil { return normal }
+        return "OwlIcon"
+    }
 
     /// マイク・音声認識の権限が揃っているか
     private var hasSpeechPermission: Bool {
@@ -77,8 +94,8 @@ struct MicrophoneInputView: View {
             // フクロウ + 吹き出しエリア
             VStack(spacing: 16) {
                 ZStack(alignment: .center) {
-                    // フクロウ本体
-                    Image("OwlIcon")
+                    // フクロウ本体（入力待機中 = normal）
+                    Image(owlImageName(appState: appState, emotion: "normal"))
                         .resizable().scaledToFit()
                         .frame(width: 150, height: 150)
                         .scaleEffect(owlBounce ? 1.0 : 0.7)
@@ -141,7 +158,11 @@ struct MicrophoneInputView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 24)
-            .sheet(isPresented: $showManualInput) {
+            .sheet(isPresented: $showManualInput, onDismiss: {
+                if viewModel.confirmationMessage != nil {
+                    dismiss()
+                }
+            }) {
                 NavigationStack {
                     PersonManualInputView(viewModel: viewModel)
                         .navigationTitle("予定を追加")
@@ -291,7 +312,9 @@ struct MicrophoneInputView: View {
                     .padding(.horizontal, 32)
             } else if let error = viewModel.errorMessage {
                 VStack(spacing: 12) {
-                    Image("OwlIcon").resizable().scaledToFit().frame(width: 72, height: 72)
+                    // エラー時 = worried
+                    Image(owlImageName(appState: appState, emotion: "worried"))
+                        .resizable().scaledToFit().frame(width: 72, height: 72)
                     Text(error)
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(.red)

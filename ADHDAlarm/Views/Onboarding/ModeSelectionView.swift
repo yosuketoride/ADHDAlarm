@@ -9,7 +9,7 @@ struct ModeSelectionView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            Image("OwlIcon")
+            Image("owl_stage0_normal")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 160, height: 160)

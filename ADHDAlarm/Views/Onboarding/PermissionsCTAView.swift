@@ -27,7 +27,7 @@ struct PermissionsCTAView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            Image("OwlIcon")
+            Image("owl_stage0_normal")
                 .resizable().scaledToFit()
                 .frame(width: 120, height: 120)
 
