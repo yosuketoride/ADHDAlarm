@@ -4,7 +4,9 @@ import SwiftUI
 /// キーボード入力を極限まで排除し、ボタンタップだけで予定を登録できる
 struct PersonManualInputView: View {
     @State var viewModel: InputViewModel
+    var onSaved: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
 
     // MARK: - 内部状態
 
@@ -24,6 +26,8 @@ struct PersonManualInputView: View {
     @FocusState private var isCustomFocused: Bool
     /// バリデーションエラーのシェイクトリガー
     @State private var shakeTrigger = false
+    /// 時間あり予定のセットする画面（ParseConfirmationView）表示フラグ
+    @State private var showConfirmation = false
 
     // MARK: - 予定テンプレート定義
 
@@ -49,8 +53,9 @@ struct PersonManualInputView: View {
 
     private var fireDateResult: Date? {
         if isToDoMode {
-            // ToDoは「時刻なし」なので、表示や翌日判定に引きずられないよう日付の先頭にそろえる。
-            return Calendar.current.startOfDay(for: Date())
+            // ToDoは時刻に意味がないため現在時刻をそのまま使う。
+            // startOfDay(for:) は環境によって翌日00:00を返すケースがあるため使用しない。
+            return Date()
         }
         if showDatePicker { return pickerDate }
         return selectedTime.map { computeDate(for: $0) }
@@ -294,15 +299,19 @@ struct PersonManualInputView: View {
                 hasExplicitDate: true,
                 isToDo: isToDoMode
             )
-            viewModel.parsedInput = parsed
-            // 設定済みの事前通知タイミングを引き継ぐ
-            viewModel.selectedPreNotificationMinutesList = Set([15])
-            viewModel.selectedFireDate = nil
-            // Write-Through（カレンダー保存・AlarmKit登録）を実行してからdismiss
-            // Task内でviewModelへの強参照を保持するため、dismiss後も処理が完走する
-            Task { @MainActor in
-                await viewModel.confirmAndSchedule()
-                dismiss()
+            viewModel.prepareManualParsedInput(parsed)
+
+            if isToDoMode {
+                // ToDoは事前通知不要のため、セットする画面をスキップして即保存
+                Task { @MainActor in
+                    await viewModel.confirmAndSchedule()
+                    onSaved?()
+                    dismiss()
+                }
+            } else {
+                // 時間あり予定はセットする画面（ParseConfirmationView）を表示して
+                // ユーザーが事前通知時間を個別に設定できるようにする
+                showConfirmation = true
             }
         } label: {
             Text(canConfirm ? "🦉 ふくろうにお願いする" : "予定と時間を選んでね")
@@ -315,6 +324,46 @@ struct PersonManualInputView: View {
         }
         .disabled(!canConfirm)
         .buttonStyle(.plain)
+        .sheet(isPresented: $showConfirmation) {
+            if let parsed = viewModel.parsedInput {
+                ParseConfirmationView(
+                    parsed: parsed,
+                    isLoading: viewModel.isWritingThrough,
+                    errorMessage: viewModel.errorMessage,
+                    selectedMinutes: Binding(
+                        get: { viewModel.selectedPreNotificationMinutesList },
+                        set: { viewModel.selectedPreNotificationMinutesList = $0 }
+                    ),
+                    selectedRecurrence: Binding(
+                        get: { viewModel.selectedRecurrence },
+                        set: { viewModel.selectedRecurrence = $0 }
+                    ),
+                    availableCalendars: viewModel.availableCalendars,
+                    selectedCalendarID: Binding(
+                        get: { viewModel.selectedCalendarID },
+                        set: { viewModel.selectedCalendarID = $0 }
+                    ),
+                    selectedFireDate: Binding(
+                        get: { viewModel.selectedFireDate },
+                        set: { viewModel.selectedFireDate = $0 }
+                    ),
+                    isPro: appState.subscriptionTier == .pro,
+                    onConfirm: {
+                        Task {
+                            await viewModel.confirmAndSchedule()
+                            onSaved?()
+                            showConfirmation = false
+                            dismiss()
+                        }
+                    },
+                    onCancel: {
+                        viewModel.parsedInput = nil
+                        viewModel.errorMessage = nil
+                        showConfirmation = false
+                    }
+                )
+            }
+        }
     }
 
     // MARK: - ヘルパー

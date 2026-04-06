@@ -12,17 +12,8 @@ struct AdvancedSettingsView: View {
 
     var body: some View {
         List {
-            // アラームの鳴り方（お知らせ方法・音の出力先）
+            // アラームの鳴り方（音の出力先）
             Section {
-                Picker("お知らせ方法", selection: Binding(
-                    get: { viewModel.notificationType },
-                    set: { viewModel.notificationType = $0 }
-                )) {
-                    ForEach(NotificationType.allCases, id: \.self) { type in
-                        Text(type.displayName).tag(type)
-                    }
-                }
-
                 Picker("音の出力先", selection: Binding(
                     get: { viewModel.audioOutputMode },
                     set: { viewModel.audioOutputMode = $0 }
@@ -165,6 +156,7 @@ struct AdvancedSettingsView: View {
                             }
                         }
                     }
+                    .contentShape(Rectangle())
                 } else {
                     Button { showPaywall = true } label: {
                         HStack(spacing: 8) {
@@ -191,6 +183,7 @@ struct AdvancedSettingsView: View {
                 } label: {
                     Label("自動化の設定ガイド", systemImage: "wand.and.stars")
                 }
+                .contentShape(Rectangle())
             } header: {
                 Text("自動化")
             } footer: {

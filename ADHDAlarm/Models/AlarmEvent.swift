@@ -175,12 +175,34 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
             return trimmed.isEmpty ? title : trimmed
         }
 
-        if let firstScalar = trimmed.unicodeScalars.first,
-           firstScalar.properties.isEmojiPresentation || firstScalar.properties.isEmoji {
+        if let firstCharacter = trimmed.first,
+           firstCharacter.isStandaloneEmojiLike {
             trimmed.removeFirst()
             trimmed = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
         return trimmed.isEmpty ? title : trimmed
+    }
+
+    /// 表示用の絵文字。未設定・空文字の場合は既定のピンを返す
+    nonisolated var resolvedEmoji: String {
+        guard let eventEmoji, !eventEmoji.isEmpty else { return "📌" }
+        return eventEmoji
+    }
+}
+
+private extension Character {
+    /// 数字のような絵文字互換文字を除外して、単体絵文字だけを判定する
+    var isStandaloneEmojiLike: Bool {
+        let scalars = unicodeScalars
+        guard scalars.contains(where: { $0.properties.isEmojiPresentation || $0.properties.isEmoji }) else {
+            return false
+        }
+
+        let hasAlphanumeric = scalars.contains(where: { scalar in
+            CharacterSet.alphanumerics.contains(scalar)
+        })
+
+        return !hasAlphanumeric
     }
 }

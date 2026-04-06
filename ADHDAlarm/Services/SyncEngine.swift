@@ -140,7 +140,8 @@ actor SyncEngine {
             if let voiceURL = try? await voiceGenerator.generateAudio(
                 text: speechText,
                 character: updated.voiceCharacter,
-                alarmID: updated.id
+                alarmID: updated.id,
+                eventTitle: updated.title
             ) {
                 updated.voiceFileName = voiceURL.lastPathComponent
             }
@@ -165,13 +166,16 @@ actor SyncEngine {
 
         case .orphanedEvent(let ekEvent):
             // AlarmKitからアラームが消えている（通常は起こらないが念のため再登録）
+            // ToDoタスクはAlarmKit登録不要のためスキップ
+            guard !ekEvent.isToDo else { break }
             var alarm = ekEvent
             // 音声ファイルを新規生成
             let speechText = VoiceFileGenerator.speechText(for: alarm)
             if let voiceURL = try? await voiceGenerator.generateAudio(
                 text: speechText,
                 character: alarm.voiceCharacter,
-                alarmID: alarm.id
+                alarmID: alarm.id,
+                eventTitle: alarm.title
             ) {
                 alarm.voiceFileName = voiceURL.lastPathComponent
             }
@@ -268,7 +272,8 @@ actor SyncEngine {
         if let voiceURL = try? await voiceGenerator.generateAudio(
             text: speechText,
             character: alarm.voiceCharacter,
-            alarmID: alarm.id
+            alarmID: alarm.id,
+            eventTitle: alarm.title
         ) {
             alarm.voiceFileName = voiceURL.lastPathComponent
             print("[SyncEngine] 音声ファイル生成: \(voiceURL.lastPathComponent)")
@@ -394,8 +399,12 @@ actor SyncEngine {
                 if event.completionStatus == .completed {
                     // 完了済みToDoは削除
                     await MainActor.run { eventStore.delete(id: event.id) }
+                } else if event.completionStatus == nil && event.fireDate < today {
+                    // 未完了ToDoの fireDate を今日に更新して今日のリストに表示する
+                    var carried = event
+                    carried.fireDate = today
+                    await MainActor.run { eventStore.save(carried) }
                 }
-                // 未完了ToDoは何もしない（持ち越し = 削除しない）
             } else {
                 // 通常アラーム: 3日以上前の完了済みアラームを削除してストレージを節約
                 let threeDaysAgo = Calendar.current.date(byAdding: .day, value: -3, to: today) ?? today

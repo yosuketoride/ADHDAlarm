@@ -19,6 +19,8 @@ struct PersonHomeView: View {
     // レビュー指摘: confirmationDialog は親に1つだけ配置する（EventRow側から移動）
     @State private var eventToDelete: AlarmEvent?
     @State private var eventToActOn: AlarmEvent?
+    // PRO機能ゲート用
+    @State private var showPaywall = false
 
     @MainActor
     init(
@@ -99,9 +101,16 @@ struct PersonHomeView: View {
         }
         // マイク入力シート
         .sheet(isPresented: $viewModel.showMicSheet, onDismiss: {
+            router.isMicSheetOpen = false
             Task { await viewModel.loadEvents() }
         }) {
-            MicrophoneInputView(viewModel: InputViewModel(appState: appState))
+            MicrophoneInputView(
+                viewModel: InputViewModel(appState: appState),
+                onSaved: {
+                    Task { await viewModel.loadEvents() }
+                    viewModel.showMicSheet = false
+                }
+            )
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
@@ -109,13 +118,30 @@ struct PersonHomeView: View {
         .sheet(isPresented: $viewModel.showSettings) {
             SettingsView(viewModel: SettingsViewModel(appState: appState))
         }
+        // カレンダーから取り込む（PRO）
+        .sheet(isPresented: $viewModel.showCalendarImport, onDismiss: {
+            Task { await viewModel.loadEvents() }
+        }) {
+            CalendarImportView()
+                .environment(appState)
+                .presentationDetents([.medium, .large])
+        }
+        // ペイウォール（PROボタンを非PROユーザーがタップした場合）
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
+        }
         // テキスト手動入力シート（P-1-3）
         // onDismiss: confirmAndSchedule()完走後にdismissされるため、ここでloadEventsすれば確実に反映される
         .sheet(isPresented: $viewModel.showManualInput, onDismiss: {
             Task { await viewModel.loadEvents() }
         }) {
             NavigationStack {
-                PersonManualInputView(viewModel: InputViewModel(appState: appState))
+                PersonManualInputView(
+                    viewModel: InputViewModel(appState: appState),
+                    onSaved: {
+                        Task { await viewModel.loadEvents() }
+                    }
+                )
                     .navigationTitle("予定を追加")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
@@ -192,6 +218,13 @@ struct PersonHomeView: View {
                     Button("完了にする") {
                         Task { await viewModel.completeEvent(alarm) }
                         eventToActOn = nil
+                    }
+                    // ToDoタスクは翌日に繰り越すことができる
+                    if alarm.isToDo {
+                        Button("今日はスキップ（明日に繰り越す）") {
+                            viewModel.skipAndCarryOverToDo(alarm)
+                            eventToActOn = nil
+                        }
                     }
                 }
                 if alarm.recurrenceGroupID != nil {
@@ -334,7 +367,7 @@ struct PersonHomeView: View {
     private func nextAlarmCard(alarm: AlarmEvent, minutes: Int) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(alignment: .center, spacing: Spacing.sm) {
-                Text(alarm.eventEmoji ?? "📌")
+                Text(alarm.resolvedEmoji)
                     .font(.system(size: IconSize.lg))
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(nextAlarmTimingText(minutes: minutes, alarm: alarm))
@@ -419,7 +452,7 @@ struct PersonHomeView: View {
                 }
 
                 // 折りたたみボタン
-                if viewModel.hiddenEventCount > 0 && !viewModel.isEventListExpanded {
+                if viewModel.shouldShowExpandButton {
                     Button {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             viewModel.isEventListExpanded = true
@@ -437,10 +470,11 @@ struct PersonHomeView: View {
                         }
                         .frame(minHeight: ComponentSize.small)
                     }
+                    .contentShape(Rectangle())
                     .padding(.horizontal, Spacing.md)
                 }
 
-                if viewModel.isEventListExpanded && viewModel.hiddenEventCount == 0 {
+                if viewModel.shouldShowCollapseButton {
                     Button {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             viewModel.isEventListExpanded = false
@@ -458,6 +492,7 @@ struct PersonHomeView: View {
                         }
                         .frame(minHeight: ComponentSize.small)
                     }
+                    .contentShape(Rectangle())
                     .padding(.horizontal, Spacing.md)
                 }
 
@@ -492,6 +527,17 @@ struct PersonHomeView: View {
                     textLabel: "✏️ テキストで追加",
                     font: .subheadline
                 )
+                // カレンダーから取り込むボタン（PRO機能）
+                Button("📅 カレンダーから取り込む") {
+                    if appState.subscriptionTier == .pro {
+                        viewModel.showCalendarImport = true
+                    } else {
+                        showPaywall = true
+                    }
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .frame(minHeight: 44)
             }
 
             // デイリーミニタスク（P-1-5）: 全完了時のみ
@@ -538,18 +584,65 @@ struct PersonHomeView: View {
                     .padding(.horizontal, Spacing.md)
                 }
 
-                // 📅 カレンダーで先を見るリンク（P-1-8）
-                if let url = URL(string: "calshow://") {
-                    Link(destination: url) {
-                        Text("📅 カレンダーで先の予定を確認する")
-                            .font(.footnote)
-                            .foregroundStyle(lowerSecondaryTextColor)
+                // 明日以降の折りたたみ/展開ボタン
+                if viewModel.shouldShowUpcomingExpandButton {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            viewModel.isUpcomingListExpanded = true
+                        }
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("＋ 残り\(viewModel.hiddenUpcomingCount)件を表示")
+                                .font(.subheadline)
+                                .foregroundStyle(lowerSecondaryTextColor)
+                            Image(systemName: "chevron.down")
+                                .font(.caption)
+                                .foregroundStyle(lowerSecondaryTextColor)
+                            Spacer()
+                        }
+                        .frame(minHeight: ComponentSize.small)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.xs)
-                    .padding(.bottom, Spacing.xl)
+                    .contentShape(Rectangle())
+                    .padding(.horizontal, Spacing.md)
                 }
+
+                if viewModel.shouldShowUpcomingCollapseButton {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            viewModel.isUpcomingListExpanded = false
+                        }
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "chevron.up")
+                                .font(.caption)
+                                .foregroundStyle(lowerSecondaryTextColor)
+                            Text("折りたたむ")
+                                .font(.subheadline)
+                                .foregroundStyle(lowerSecondaryTextColor)
+                            Spacer()
+                        }
+                        .frame(minHeight: ComponentSize.small)
+                    }
+                    .contentShape(Rectangle())
+                    .padding(.horizontal, Spacing.md)
+                }
+
+                // カレンダーから取り込むボタン（PRO機能）
+                Button("📅 カレンダーから取り込む") {
+                    if appState.subscriptionTier == .pro {
+                        viewModel.showCalendarImport = true
+                    } else {
+                        showPaywall = true
+                    }
+                }
+                .font(.footnote)
+                .foregroundStyle(lowerSecondaryTextColor)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 44)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.xl)
             }
         }
     }
@@ -572,7 +665,7 @@ struct PersonHomeView: View {
 
     private var micFAB: some View {
         Button {
-            viewModel.showMicSheet = true
+            viewModel.showMicSheet = true; router.isMicSheetOpen = true
         } label: {
             VStack(spacing: Spacing.xs) {
                 Image(systemName: "mic.fill")
@@ -619,7 +712,7 @@ struct PersonHomeView: View {
         if shouldStackShortcutButtons {
             VStack(spacing: Spacing.sm) {
                 shortcutButton(title: voiceLabel, font: font) {
-                    viewModel.showMicSheet = true
+                    viewModel.showMicSheet = true; router.isMicSheetOpen = true
                 }
                 shortcutButton(title: textLabel, font: font) {
                     viewModel.showManualInput = true
@@ -628,7 +721,7 @@ struct PersonHomeView: View {
         } else {
             HStack(spacing: Spacing.md) {
                 shortcutButton(title: voiceLabel, font: font) {
-                    viewModel.showMicSheet = true
+                    viewModel.showMicSheet = true; router.isMicSheetOpen = true
                 }
 
                 Text("｜")

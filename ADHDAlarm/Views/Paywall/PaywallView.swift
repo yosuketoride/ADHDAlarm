@@ -1,14 +1,86 @@
 import SwiftUI
 import StoreKit
+import UIKit
 
-// MARK: - PaywallView（v2デザイン）
+// MARK: - バリエーション定義（開くたびにランダム切り替え）
+
+/// Paywallのバリエーション。ユーザー層・訴求軸ごとにイラスト・コピーを切り替える。
+/// PRO機能のベネフィットは両バリアントで共通。
+fileprivate struct PaywallVariant {
+    let imageName: String               // Assets.xcassets のアセット名
+    let imageFallbackEmoji: String      // 画像未登録時の絵文字フォールバック
+    let heroBackground: [Color]         // フォールバック時のグラデーション
+    let headline: String
+    let subheadline: String
+    let painHeader: String
+    let painPoints: [String]
+
+    struct Benefit {
+        let icon: String
+        let color: Color
+        let title: String
+        let detail: String
+    }
+
+    /// PROで手に入る未来 — 両バリアント共通
+    static let sharedBenefits: [Benefit] = [
+        Benefit(
+            icon: "phone.badge.waveform.fill",
+            color: .red,
+            title: "異変を家族へ自動でお知らせ（SOS）",
+            detail: "アラームが5分間止まらなかった場合、登録した家族へ自動でメッセージを送信します。"
+        ),
+        Benefit(
+            icon: "waveform.badge.mic",
+            color: .purple,
+            title: "大切な人の「生声」アラーム",
+            detail: "孫や家族の声を録音して、お薬や通院のアラーム音に設定できます。"
+        ),
+        Benefit(
+            icon: "mic.badge.plus",
+            color: .blue,
+            title: "Hey Siriで完全ハンズフリー登録",
+            detail: "「Hey Siri、こえメモにお願い」と話しかけるだけ。操作の手間ゼロ。"
+        ),
+        Benefit(
+            icon: "bell.badge.fill",
+            color: .orange,
+            title: "事前に最大3回お知らせ",
+            detail: "30分前・15分前・5分前と、段階的にリマインドします。"
+        ),
+        Benefit(
+            icon: "calendar.badge.plus",
+            color: .green,
+            title: "Appleカレンダーから予定を取り込む",
+            detail: "iPhoneのカレンダーに入力した予定をワンタップで取り込んで、アラームに変換できます。"
+        ),
+    ]
+
+    /// 高齢者家族向け: 「離れて暮らす親御さんの見守り」訴求
+    static let elderlyFamily = PaywallVariant(
+        imageName: "paywall_elderly_care",
+        imageFallbackEmoji: "👵💊",
+        heroBackground: [Color.orange.opacity(0.25), Color.yellow.opacity(0.15)],
+        headline: "離れて暮らす親御さんの\n「もしも」に、誰よりも早く\n気づけるお守りです。",
+        subheadline: "アラームが5分止まらない。その異変を、あなたのスマホへ自動でお知らせします。",
+        painHeader: "こんな経験ありませんか？",
+        painPoints: [
+            "親がお薬をちゃんと飲んでいるか、毎日心配になる",
+            "大事な通院の日、忘れていないか不安でそわそわする",
+            "何かあったとき、すぐに気づいてあげられないかもしれない"
+        ]
+    )
+}
+
+// MARK: - PaywallView
 
 struct PaywallView: View {
     @Environment(StoreKitService.self) private var storeKit
     @Environment(AppState.self) private var appState
-    @State private var viewModel: PaywallViewModel
+    @State var viewModel: PaywallViewModel
     @Environment(\.dismiss) private var dismiss
 
+    @State private var variant: PaywallVariant = .elderlyFamily
     @State private var selectedProductID: String? = nil
 
     @MainActor
@@ -18,19 +90,12 @@ struct PaywallView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Spacing.xl) {
+            VStack(spacing: 0) {
                 heroSection
-                comparisonSection
-                pricingSection
-                legalSection
-                #if DEBUG
-                debugSection
-                #endif
+                contentSection
             }
-            .padding(.horizontal, Spacing.md)
-            .padding(.top, Spacing.xl)
-            .padding(.bottom, Spacing.xl)
         }
+        .ignoresSafeArea(edges: .top)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             ctaSection
         }
@@ -51,122 +116,209 @@ struct PaywallView: View {
         }
     }
 
-    // MARK: - ヒーローセクション
+    // MARK: - ヒーローセクション（画面上部1/3）
 
     private var heroSection: some View {
-        VStack(spacing: Spacing.md) {
-            // フクロウ画像
+        GeometryReader { geo in
             ZStack(alignment: .bottom) {
-                Image(UIImage(named: "OwlIcon") != nil ? "OwlIcon" : "OwlIcon")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 120, height: 120)
-                    .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
+                heroImage
+                    .frame(maxWidth: .infinity)
+                    .frame(height: geo.size.height)
+                    .clipped()
 
-                // 7日間無料バッジ
-                Text("7日間無料でお試しできます")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.md)
-                    .padding(.vertical, Spacing.xs)
-                    .background(Color.owlAmber)
-                    .clipShape(Capsule())
-                    .offset(y: Spacing.md)
+                // 下部グラデーション: 画像をコンテンツへ自然に繋げる
+                LinearGradient(
+                    colors: [.clear, Color(.systemBackground)],
+                    startPoint: UnitPoint(x: 0.5, y: 0.4),
+                    endPoint: .bottom
+                )
+                .frame(height: 120)
+                .frame(maxWidth: .infinity, alignment: .bottom)
             }
-            .padding(.bottom, Spacing.md)
-
-            // タイトル
-            Text("もっと便利に、もっと安心に")
-                .font(.title2.weight(.bold))
-                .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity)
+        .frame(height: 280)
     }
 
-    // MARK: - 機能比較テーブル
+    @ViewBuilder
+    private var heroImage: some View {
+        if UIImage(named: variant.imageName) != nil {
+            Image(variant.imageName)
+                .resizable()
+                .scaledToFill()
+        } else {
+            // 画像未登録時: グラデーション + 絵文字
+            LinearGradient(
+                colors: variant.heroBackground,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .overlay {
+                Text(variant.imageFallbackEmoji)
+                    .font(.system(size: 110))
+                    .padding(.top, 50)
+            }
+        }
+    }
 
+    // MARK: - コンテンツ（ヘッドライン → ペイン → ベネフィット → 比較表 → 価格）
+
+    private var contentSection: some View {
+        VStack(spacing: 28) {
+            headlineSection
+            painSection
+            benefitsSection
+            comparisonSection
+            pricingSection
+            legalSection
+            #if DEBUG
+            debugSection
+            #endif
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+        .padding(.bottom, 24)
+    }
+
+    // ヘッドライン
+    private var headlineSection: some View {
+        VStack(spacing: 10) {
+            Text(variant.headline)
+                .font(.title2.weight(.bold))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(variant.subheadline)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    // こんな経験ありませんか？（共感ゾーン）
+    private var painSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(variant.painHeader, systemImage: "questionmark.bubble.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(variant.painPoints, id: \.self) { point in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("😔").font(.body)
+                        Text(point)
+                            .font(.callout)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.07))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // PROで手に入る未来
+    private var benefitsSection: some View {
+        let benefits = PaywallVariant.sharedBenefits
+        return VStack(alignment: .leading, spacing: 4) {
+            Label("PROで手に入る未来", systemImage: "star.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 6)
+
+            ForEach(benefits.indices, id: \.self) { i in
+                let b = benefits[i]
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: b.icon)
+                        .font(.title3)
+                        .foregroundStyle(b.color)
+                        .frame(width: 32)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(b.title)
+                            .font(.callout.weight(.semibold))
+                        Text(b.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.vertical, 8)
+
+                if i < benefits.count - 1 {
+                    Divider().padding(.leading, 46)
+                }
+            }
+        }
+    }
+
+    // 無料 vs PRO 比較表（常時表示）
     private var comparisonSection: some View {
         VStack(spacing: 0) {
             // ヘッダー
             HStack {
-                Text("機能")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                Text("機能").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer()
-                Text("無料")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 48)
-                Text("PRO")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(Color.owlAmber)
-                    .frame(width: 48)
+                Text("無料").font(.caption.weight(.semibold)).foregroundStyle(.secondary).frame(width: 52)
+                Text("PRO").font(.caption.weight(.bold)).foregroundStyle(.blue).frame(width: 52)
             }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
-            .background(Color(.tertiarySystemBackground))
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .background(Color.secondary.opacity(0.08))
 
-            comparisonRow("マナーモード貫通アラーム", free: true,  pro: true)
-            comparisonRow("カレンダー選択",           free: false, pro: true)
-            comparisonRow("事前通知を複数回設定",     free: false, pro: true)
-            comparisonRow("音声キャラの切り替え",     free: false, pro: true)
-            comparisonRow("聞き取りやすいこえ",       free: false, pro: true)
+            comparisonRow("マナーモード貫通アラーム",          free: true,  pro: true)
+            comparisonRow("予定の音声入力（マイク）",          free: true,  pro: true)
+            comparisonRow("事前通知（最大3回）",               free: false, pro: true)
+            comparisonRow("カレンダー自由選択",                free: false, pro: true)
+            comparisonRow("Appleカレンダーから取り込む",       free: false, pro: true)
+            comparisonRow("家族の生声アラーム",                free: false, pro: true)
+            comparisonRow("SOS自動通知（見守り）",             free: false, pro: true)
+            comparisonRow("Hey Siriでハンズフリー",           free: false, pro: true)
         }
-        .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
-        .overlay(
-            RoundedRectangle(cornerRadius: CornerRadius.lg)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: BorderWidth.thin)
-        )
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
     }
 
     private func comparisonRow(_ name: String, free: Bool, pro: Bool) -> some View {
         HStack {
-            Text(name)
-                .font(.callout)
-                .layoutPriority(1)
+            Text(name).font(.caption).fixedSize(horizontal: false, vertical: true)
             Spacer()
-            // 無料列
-            Group {
-                if free {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.statusSuccess)
-                } else {
-                    Image(systemName: "minus")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 48)
-            // PRO列
-            Group {
-                if pro {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.statusSuccess)
-                } else {
-                    Image(systemName: "minus")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 48)
+            Image(systemName: free ? "checkmark" : "minus")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(free ? Color.secondary : Color.secondary.opacity(0.3))
+                .frame(width: 52)
+            Image(systemName: pro ? "checkmark.circle.fill" : "minus")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(pro ? Color.blue : Color.secondary.opacity(0.3))
+                .frame(width: 52)
         }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Color(.systemBackground))
-        .overlay(alignment: .bottom) {
-            Divider().padding(.leading, Spacing.md)
-        }
+        .overlay(alignment: .bottom) { Divider().padding(.leading, 14) }
     }
 
     // MARK: - 価格セクション
 
     private var pricingSection: some View {
-        VStack(spacing: Spacing.sm) {
+        VStack(spacing: 12) {
             if viewModel.isLoading {
                 ProgressView("読み込み中…")
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.lg)
-            } else if !viewModel.products.isEmpty {
+                    .padding(.vertical, 20)
+            } else if viewModel.products.isEmpty {
+                EmptyView()
+            } else {
                 ForEach(sortedProducts, id: \.id) { product in
                     productCard(product)
+                }
+
+                if sortedProducts.contains(where: { $0.subscription != nil }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                        Text("7日間の無料体験。いつでもキャンセル可能。")
+                            .font(.callout.weight(.medium))
+                    }
+                    .padding(.top, 4)
                 }
             }
 
@@ -195,51 +347,42 @@ struct PaywallView: View {
     }
 
     private func productCard(_ product: Product) -> some View {
-        let isYearly  = product.subscription?.subscriptionPeriod.unit == .year
-        let isMonthly = product.subscription?.subscriptionPeriod.unit == .month
+        let planType = planType(for: product)
         let isSelected = selectedProductID == product.id
 
         return Button {
             selectedProductID = product.id
         } label: {
-            HStack(spacing: Spacing.md) {
+            HStack(spacing: 0) {
                 // 選択インジケーター
                 ZStack {
                     Circle()
-                        .stroke(isSelected ? Color.owlAmber : Color.secondary.opacity(0.4),
-                                lineWidth: BorderWidth.thick)
+                        .stroke(isSelected ? Color.blue : Color.secondary.opacity(0.4), lineWidth: 2)
                         .frame(width: 22, height: 22)
                     if isSelected {
                         Circle()
-                            .fill(Color.owlAmber)
+                            .fill(Color.blue)
                             .frame(width: 12, height: 12)
                     }
                 }
+                .padding(.trailing, 14)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: Spacing.sm) {
-                        Text(isYearly ? "年額プラン" : isMonthly ? "月額プラン" : "買い切りプラン")
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(planType.label)
                             .font(.callout.weight(.semibold))
-                        if isYearly {
-                            Text("おすすめ")
+                        if let badge = planType.badge {
+                            Text(badge.text)
                                 .font(.caption2.weight(.bold))
                                 .foregroundStyle(.white)
-                                .padding(.horizontal, Spacing.sm)
+                                .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
-                                .background(Color.owlAmber)
+                                .background(badge.color)
                                 .clipShape(Capsule())
                         }
                     }
-                    if isYearly {
-                        Text("月あたり約\(monthlyEquivalent(for: product))　2ヶ月分お得 ✨")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else if isMonthly {
-                        Text("いつでもキャンセル可")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("一度の支払いでずっと使える")
+                    if let note = planType.note(product) {
+                        Text(note)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -250,57 +393,92 @@ struct PaywallView: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(product.displayPrice)
                         .font(.callout.weight(.bold))
-                    Text(isYearly ? "/ 年" : isMonthly ? "/ 月" : "一度きり")
+                    Text(planType.priceUnit)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(Spacing.md)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
             .background(
-                RoundedRectangle(cornerRadius: CornerRadius.lg)
-                    .fill(isSelected ? Color.owlAmber.opacity(0.08) : Color(.secondarySystemBackground))
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(isSelected ? Color.blue.opacity(0.08) : Color.secondary.opacity(0.06))
                     .overlay(
-                        RoundedRectangle(cornerRadius: CornerRadius.lg)
-                            .stroke(isSelected ? Color.owlAmber : Color.clear, lineWidth: BorderWidth.thick)
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
                     )
             )
             .foregroundStyle(.primary)
         }
     }
 
-    /// 年間価格を12分割して月あたり表示
-    private func monthlyEquivalent(for product: Product) -> String {
-        let monthly = product.price / Decimal(12)
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = product.priceFormatStyle.currencyCode
-        formatter.maximumFractionDigits = 0
-        return formatter.string(from: monthly as NSDecimalNumber) ?? product.displayPrice
+    // MARK: - プランタイプ分類
+
+    private struct PlanBadge {
+        let text: String
+        let color: Color
     }
 
-    // MARK: - 法的セクション
+    private struct PlanType {
+        let label: String
+        let priceUnit: String
+        let badge: PlanBadge?
+        let note: (Product) -> String?
+    }
+
+    private func planType(for product: Product) -> PlanType {
+        switch product.subscription?.subscriptionPeriod.unit {
+        case .year:
+            return PlanType(
+                label: "年間プラン",
+                priceUnit: "/ 年",
+                badge: PlanBadge(text: "おすすめ", color: .orange),
+                note: { p in "1ヶ月あたり約\(monthlyEquivalent(for: p))　コーヒー1杯分" }
+            )
+        case .month:
+            return PlanType(
+                label: "月額プラン",
+                priceUnit: "/ 月",
+                badge: nil,
+                note: { _ in nil }
+            )
+        default:
+            return PlanType(
+                label: "買い切りプラン",
+                priceUnit: "一度きり",
+                badge: PlanBadge(text: "ずっと使える", color: .purple),
+                note: { _ in "一度の支払いで、ずっとPROが使えます。" }
+            )
+        }
+    }
+
+    /// 年間価格を12分割して月あたり表示（例: ¥149）
+    private func monthlyEquivalent(for product: Product) -> String {
+        let monthly = product.price / Decimal(12)
+        let intValue = (monthly as NSDecimalNumber).intValue
+        return "¥\(intValue)"
+    }
+
+    // MARK: - 法的セクション（App Store審査必須）
 
     private var legalSection: some View {
-        VStack(spacing: Spacing.sm) {
-            Button("すでに購入済みの方はこちら（購入を復元する）") {
+        VStack(spacing: 10) {
+            Button("購入を復元する") {
                 Task { await viewModel.restorePurchases() }
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
             .disabled(viewModel.isPurchasing)
 
-            HStack(spacing: Spacing.md) {
+            HStack(spacing: 20) {
                 if let url = URL(string: Constants.LegalURL.terms) {
                     Link("利用規約", destination: url)
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                Text("・")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 if let url = URL(string: Constants.LegalURL.privacy) {
-                    Link("プライバシー", destination: url)
-                        .font(.caption)
+                    Link("プライバシーポリシー", destination: url)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -312,24 +490,23 @@ struct PaywallView: View {
         }
     }
 
-    // MARK: - 閉じるボタン
+    // MARK: - 閉じるボタン（ヒーロー上に重ねる）
 
     private var closeButton: some View {
         Button { dismiss() } label: {
             Image(systemName: "xmark.circle.fill")
                 .font(.system(size: 32))
                 .symbolRenderingMode(.palette)
-                .foregroundStyle(Color(.systemGray), Color(.systemGray4))
+                .foregroundStyle(Color.white, Color.black.opacity(0.35))
         }
-        .safeAreaPadding(.top)
-        .padding(.top, Spacing.sm)
-        .padding(.trailing, Spacing.md)
+        .padding(.top, 56)
+        .padding(.trailing, 20)
     }
 
-    // MARK: - 購入CTAボタン（画面下部固定）
+    // MARK: - スティッキーCTAボタン（画面下部に固定）
 
     private var ctaSection: some View {
-        VStack(spacing: Spacing.xs) {
+        VStack(spacing: 6) {
             Button {
                 guard let id = selectedProductID,
                       let product = viewModel.products.first(where: { $0.id == id }) else { return }
@@ -339,44 +516,46 @@ struct PaywallView: View {
                     if viewModel.isPurchasing {
                         ProgressView().tint(.white)
                     } else {
-                        Text("7日間無料でお試しする")
+                        Text("0円で7日間試す")
                             .font(.title3.weight(.bold))
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: ComponentSize.primary)
+                .frame(height: 58)
+                .background(Color.blue)
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
             }
-            .buttonStyle(.large(background: Color.owlAmber))
             .disabled(viewModel.isPurchasing || viewModel.products.isEmpty)
-            .padding(.horizontal, Spacing.md)
-            .padding(.top, Spacing.sm)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
 
             // Apple審査要件: ボタン直下に価格・自動更新を明記
             if let id = selectedProductID,
                let product = viewModel.products.first(where: { $0.id == id }) {
-                let periodText: String? = {
+                let period: String? = {
                     switch product.subscription?.subscriptionPeriod.unit {
                     case .year:  return "年"
                     case .month: return "月"
                     default:     return nil
                     }
                 }()
-                if let periodText {
-                    Text("7日間無料、その後 \(product.displayPrice)/\(periodText)。いつでもキャンセル可能。")
+                if let period {
+                    Text("7日間無料、その後 \(product.displayPrice)/\(period)。いつでもキャンセル可能。")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, Spacing.md)
+                        .padding(.horizontal, 20)
                 } else {
                     Text("一度の購入で永久にご利用いただけます（\(product.displayPrice)）。")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, Spacing.md)
+                        .padding(.horizontal, 20)
                 }
             }
         }
-        .padding(.bottom, Spacing.sm)
+        .padding(.bottom, 4)
         .background(.regularMaterial)
     }
 
@@ -385,24 +564,24 @@ struct PaywallView: View {
     private func successOverlay(_ message: String) -> some View {
         VStack {
             Spacer()
-            HStack(spacing: Spacing.sm) {
+            HStack(spacing: 12) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(Color.statusSuccess)
+                    .foregroundStyle(.green)
                 Text(message)
                     .font(.callout.weight(.medium))
             }
-            .padding(Spacing.lg)
+            .padding(20)
             .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
-            .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.xl)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 24)
+            .padding(.bottom, 40)
         }
-        .task {
-            try? await Task.sleep(for: .seconds(2.5))
-            guard !Task.isCancelled else { return }
-            viewModel.successMessage = nil
-            dismiss()
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                viewModel.successMessage = nil
+                dismiss()
+            }
         }
     }
 
@@ -410,7 +589,7 @@ struct PaywallView: View {
 
     #if DEBUG
     private var debugSection: some View {
-        VStack(spacing: Spacing.sm) {
+        VStack(spacing: 8) {
             Divider()
             Toggle(isOn: Binding(
                 get: { appState.subscriptionTier == .pro },
@@ -420,7 +599,7 @@ struct PaywallView: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
-            .padding(.horizontal, Spacing.xs)
+            .padding(.horizontal, 4)
         }
     }
     #endif

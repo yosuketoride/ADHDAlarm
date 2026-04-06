@@ -25,8 +25,7 @@ final class ForegroundNotificationDelegate: NSObject, UNUserNotificationCenterDe
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        // バナー・サウンド・バッジをすべて表示する
-        completionHandler([.banner, .sound, .badge])
+        completionHandler(Self.presentationOptions(for: notification.request.content.categoryIdentifier))
     }
 
     // MARK: - アクションボタン処理
@@ -59,5 +58,15 @@ final class ForegroundNotificationDelegate: NSObject, UNUserNotificationCenterDe
                 ForegroundNotificationDelegate.alarmKitIDKey: alarmKitIDString ?? ""
             ]
         )
+    }
+
+    /// 通知カテゴリごとの前面表示オプションを返す
+    static func presentationOptions(for categoryIdentifier: String) -> UNNotificationPresentationOptions {
+        // AlarmKitのアラーム通知はRingingViewで対応するためバナー不要。
+        // それ以外（家族お知らせ等）はバナーを表示する。
+        if categoryIdentifier == Constants.Notification.alarmCategoryID {
+            return [.badge]
+        }
+        return [.banner, .sound, .list]
     }
 }

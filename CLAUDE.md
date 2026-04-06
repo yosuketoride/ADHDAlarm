@@ -8,6 +8,7 @@
 ## アーキテクチャの鉄則
 - **EventKit が主（データの真実源）、AlarmKit が従（通知手段）**
 - **Write-Throughのみ**：入力はアプリ内マイクから、外部カレンダーからの吸い込み（双方向同期）は禁止
+  - **例外（手動インポート）**：PRO機能「カレンダーから取り込む」は自動同期ではなくユーザーが明示的に選択して実行する一回限りの取り込みであり、禁止事項の対象外とする
 - **アプリ起動時に強制フル同期**（`scenePhase == .active`でSyncEngine.performFullSync()を必ず呼ぶ）
 - **Protocol指向**：CalendarProviding / AlarmScheduling / VoiceSynthesizing / NLParsing の4プロトコルを介してアクセスする。Serviceクラスを直接参照しない
 

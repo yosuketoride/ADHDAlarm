@@ -196,12 +196,43 @@ struct ParseConfirmationView: View {
             if parsed.recurrenceRule != nil {
                 isDetailExpanded = true
             }
-            // レビュー指摘: 今日の候補時刻が過去の場合、selectedFireDate が nil のままだと
-            // displayFireDate が過去日時を表示してしまう。明日を自動選択しておく。
-            if todayIsPast && selectedFireDate == nil {
-                selectedFireDate = tomorrowFireDate
+            if let initialDate = Self.initialSelectedFireDate(
+                parsed: parsed,
+                currentSelection: selectedFireDate
+            ) {
+                selectedFireDate = initialDate
             }
         }
+    }
+
+    /// 確認画面の初期表示日を決める
+    /// 時間だけ話した場合のみ、過去時刻なら明日へ補正する
+    static func initialSelectedFireDate(
+        parsed: ParsedInput,
+        currentSelection: Date?,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Date? {
+        guard currentSelection == nil else { return nil }
+        guard !parsed.hasExplicitDate else { return nil }
+
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: parsed.fireDate)
+        let todayFireDate = calendar.date(
+            bySettingHour: timeComponents.hour ?? 0,
+            minute: timeComponents.minute ?? 0,
+            second: 0,
+            of: now
+        ) ?? parsed.fireDate
+
+        guard todayFireDate < now else { return nil }
+
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+        return calendar.date(
+            bySettingHour: timeComponents.hour ?? 0,
+            minute: timeComponents.minute ?? 0,
+            second: 0,
+            of: tomorrow
+        ) ?? parsed.fireDate
     }
 
     // MARK: - 今日/明日トグル

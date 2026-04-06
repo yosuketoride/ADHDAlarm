@@ -9,17 +9,25 @@ final class SpeechRecognitionService {
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let audioEngine = AVAudioEngine()
+    private var alarmObserver: NSObjectProtocol?
 
     // MARK: - 録音開始
 
     /// マイクからのリアルタイム文字起こしを AsyncStream で返す
     func startListening() -> AsyncStream<String> {
-        AsyncStream { continuation in
+        // アラーム発火通知を受けたら録音を即時停止する。
+        // fullScreenCover + sheet の競合でonDisappearが呼ばれない場合の保険。
+        alarmObserver = NotificationCenter.default.addObserver(
+            forName: .alarmWillStartPlaying,
+            object: nil,
+            queue: nil  // nilにすることで投稿スレッド（MainActor）上で同期実行される
+        ) { [weak self] _ in
+            self?.stopListening()
+        }
+        return AsyncStream { continuation in
             do {
                 try setupAudioSession()
-                let request = SFSpeechAudioBufferRecognitionRequest()
-                request.shouldReportPartialResults = true
-                request.requiresOnDeviceRecognition = true
+                let request = makeRecognitionRequest()
                 self.recognitionRequest = request
 
                 recognitionTask = recognizer?.recognitionTask(with: request) { result, error in
@@ -55,6 +63,10 @@ final class SpeechRecognitionService {
 
     /// 録音を終了する
     func stopListening() {
+        if let observer = alarmObserver {
+            NotificationCenter.default.removeObserver(observer)
+            alarmObserver = nil
+        }
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
         recognitionRequest?.endAudio()
@@ -70,5 +82,13 @@ final class SpeechRecognitionService {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.record, mode: .measurement, options: .duckOthers)
         try session.setActive(true, options: .notifyOthersOnDeactivation)
+    }
+
+    /// 音声認識リクエストを現在の方針で組み立てる
+    func makeRecognitionRequest() -> SFSpeechAudioBufferRecognitionRequest {
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        request.requiresOnDeviceRecognition = true
+        return request
     }
 }

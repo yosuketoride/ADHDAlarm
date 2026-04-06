@@ -40,6 +40,22 @@ final class NLParserServiceTests: XCTestCase {
         XCTAssertEqual(result?.title, "大阪出張")
     }
 
+    func testInferEmoji_MedicineTitleReturnsPill() {
+        XCTAssertEqual(parser.inferEmoji(from: "薬を飲む"), "💊")
+    }
+
+    func testInferEmoji_HospitalTitleReturnsHospital() {
+        XCTAssertEqual(parser.inferEmoji(from: "病院へ行く"), "🏥")
+    }
+
+    func testInferEmoji_ShoppingTitleReturnsCart() {
+        XCTAssertEqual(parser.inferEmoji(from: "買い物メモ"), "🛒")
+    }
+
+    func testInferEmoji_UnknownTitleReturnsNil() {
+        XCTAssertNil(parser.inferEmoji(from: "読書"))
+    }
+
     // MARK: - 空文字・無効入力
 
     func testReturnsNilForEmptyString() {
@@ -64,6 +80,20 @@ final class NLParserServiceTests: XCTestCase {
     }
 
     // MARK: - 相対時刻: 「X分後」
+
+    func testRelativeSeconds_30sec() {
+        let before = Date()
+        let result = parser.parse(text: "30秒後にテスト")
+        let after = Date()
+
+        XCTAssertNotNil(result)
+        guard let parsed = result else { return }
+
+        let expected = before.addingTimeInterval(30)
+        XCTAssertEqual(parsed.fireDate.timeIntervalSince(expected), 0, accuracy: tolerance)
+        XCTAssertLessThanOrEqual(parsed.fireDate, after.addingTimeInterval(30 + tolerance))
+        XCTAssertEqual(parsed.title, "テスト")
+    }
 
     func testRelativeMinutes_30min() {
         let before = Date()
@@ -157,6 +187,16 @@ final class NLParserServiceTests: XCTestCase {
         let cal = Calendar.current
         let daysDiff = cal.dateComponents([.day], from: cal.startOfDay(for: Date()), to: cal.startOfDay(for: parsed.fireDate)).day
         XCTAssertEqual(daysDiff, 2)
+    }
+
+    func testRelativeDate_DaysLater() {
+        let result = parser.parse(text: "3日後にゆかちゃんとデート")
+        XCTAssertNotNil(result)
+        guard let parsed = result else { return }
+        let cal = Calendar.current
+        let daysDiff = cal.dateComponents([.day], from: cal.startOfDay(for: Date()), to: cal.startOfDay(for: parsed.fireDate)).day
+        XCTAssertEqual(daysDiff, 3)
+        XCTAssertEqual(parsed.title, "ゆかちゃんデート")
     }
 
     // MARK: - 時刻パターン

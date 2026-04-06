@@ -5,6 +5,24 @@ import AVFoundation
 /// 生成したファイルはLibrary/Sounds/WasurebuAlarms/{alarmID}.cafに保存する
 final class VoiceFileGenerator: VoiceSynthesizing {
 
+    private enum SpeechTuning {
+        static let naturalRate: Float = 0.46
+        static let naturalFemalePitch: Float = 0.98
+        static let naturalMalePitch: Float = 0.86
+        static let naturalPreDelay: TimeInterval = 0.12
+        static let naturalPostDelay: TimeInterval = 0.08
+
+        static let clearRate: Float = 0.40
+        static let clearPitch: Float = 0.80
+        static let clearPreDelay: TimeInterval = 0.18
+        static let clearPostDelay: TimeInterval = 0.12
+    }
+
+    private nonisolated static let pronunciationMap: [String: String] = [
+        "MRI": "エムアールアイ",
+        "CT": "シーティー",
+    ]
+
     nonisolated init() {}
 
     // MARK: - VoiceSynthesizing
@@ -103,13 +121,11 @@ final class VoiceFileGenerator: VoiceSynthesizing {
     /// MainActor隔離のままだとデッドロックする（SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor環境）
     private nonisolated func renderSpeech(text: String, character: VoiceCharacter, to outputURL: URL) async throws {
         let synthesizer = AVSpeechSynthesizer()
-        let utterance = AVSpeechUtterance(string: text)
-
-        // 音声キャラに合わせてボイスを選択
-        utterance.voice = VoiceFileGenerator.voice(for: character)
-        utterance.rate  = AVSpeechUtteranceDefaultSpeechRate * 0.85  // ゆっくり・自然に
-        utterance.preUtteranceDelay = 0.3                            // 冒頭に間を置いて自然に
-        utterance.pitchMultiplier = character == .maleButler ? 0.85 : 1.05  // 女性: 少し柔らかく
+        let utterance = VoiceFileGenerator.makeUtterance(
+            text: text,
+            character: character,
+            isClearVoiceEnabled: false
+        )
 
         // AVSpeechSynthesizer.write()でPCMバッファを受け取り、.cafファイルに書き出す
         // レビュー指摘 #2: AVFoundation内部スレッドから並行コールバックが来る可能性があるため
@@ -176,36 +192,170 @@ final class VoiceFileGenerator: VoiceSynthesizing {
 
     /// キャラクターに対応するAVSpeechSynthesisVoiceを選択する（VoiceCharacterPickerの試聴でも使用）
     nonisolated static func voice(for character: VoiceCharacter) -> AVSpeechSynthesisVoice? {
-        // 利用可能な日本語音声から最適なものを選ぶ
-        // iOS 26では音声の種類が増えている可能性があるため、フォールバックあり
         let jaVoices = AVSpeechSynthesisVoice.speechVoices().filter {
             $0.language.hasPrefix("ja")
         }
 
         switch character {
         case .femaleConcierge:
-            // プレミアム音声を優先（ダウンロード済みの場合）
-            let premiumFemale = jaVoices.first {
-                $0.quality == .premium && ($0.identifier.contains("Kyoko") || $0.identifier.contains("O-ren"))
-            }
-            if let voice = premiumFemale { return voice }
-            let female = jaVoices.first { $0.identifier.contains("Kyoko") || $0.identifier.contains("O-ren") }
-            return female ?? AVSpeechSynthesisVoice(language: "ja-JP")
+            return bestJapaneseVoice(
+                from: jaVoices,
+                preferredIdentifiers: ["Kyoko", "O-ren"]
+            ) ?? AVSpeechSynthesisVoice(language: "ja-JP")
 
         case .maleButler:
-            // プレミアム音声を優先（ダウンロード済みの場合）
-            let premiumMale = jaVoices.first { $0.quality == .premium && $0.identifier.contains("Otoya") }
-            if let voice = premiumMale { return voice }
-            let male = jaVoices.first { $0.identifier.contains("Otoya") }
-            return male ?? AVSpeechSynthesisVoice(language: "ja-JP")
+            return bestJapaneseVoice(
+                from: jaVoices,
+                preferredIdentifiers: ["Otoya"]
+            ) ?? AVSpeechSynthesisVoice(language: "ja-JP")
 
         case .customRecording:
-            // 録音ファイルがない場合のフォールバック: さくら音声
-            let premiumFemale = jaVoices.first {
-                $0.quality == .premium && ($0.identifier.contains("Kyoko") || $0.identifier.contains("O-ren"))
+            return bestJapaneseVoice(
+                from: jaVoices,
+                preferredIdentifiers: ["Kyoko", "O-ren"]
+            ) ?? AVSpeechSynthesisVoice(language: "ja-JP")
+        }
+    }
+
+    nonisolated static func makeUtterance(
+        text: String,
+        character: VoiceCharacter,
+        isClearVoiceEnabled: Bool
+    ) -> AVSpeechUtterance {
+        let utterance = AVSpeechUtterance(string: sanitizeForSpeech(text))
+        utterance.voice = voice(for: character)
+        utterance.rate = isClearVoiceEnabled ? SpeechTuning.clearRate : SpeechTuning.naturalRate
+        utterance.pitchMultiplier = pitchMultiplier(
+            for: character,
+            isClearVoiceEnabled: isClearVoiceEnabled
+        )
+        utterance.preUtteranceDelay = isClearVoiceEnabled
+            ? SpeechTuning.clearPreDelay
+            : SpeechTuning.naturalPreDelay
+        utterance.postUtteranceDelay = isClearVoiceEnabled
+            ? SpeechTuning.clearPostDelay
+            : SpeechTuning.naturalPostDelay
+        return utterance
+    }
+
+    nonisolated static func sanitizeForSpeech(_ text: String) -> String {
+        let withoutEmoji = text.filter { !$0.isEmojiLike }
+        let expandedAbbreviations = applyPronunciationMap(to: withoutEmoji)
+        let normalizedBrackets = expandedAbbreviations
+            .replacingOccurrences(of: "（", with: "、")
+            .replacingOccurrences(of: "）", with: "、")
+            .replacingOccurrences(of: "(", with: "、")
+            .replacingOccurrences(of: ")", with: "、")
+        let normalizedPunctuation = normalizedBrackets
+            .replacingOccurrences(of: "！", with: "。")
+            .replacingOccurrences(of: "!", with: "。")
+            .replacingOccurrences(of: "？", with: "。")
+            .replacingOccurrences(of: "?", with: "。")
+            .replacingOccurrences(of: "、", with: "、 ")
+            .replacingOccurrences(of: "。", with: "。 ")
+            .replacingOccurrences(of: "\n", with: "。 ")
+        let collapsedPunctuation = collapseRepeatedPunctuation(in: normalizedPunctuation)
+        let collapsedWhitespace = collapsedPunctuation
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return replaceClockText(in: collapsedWhitespace)
+    }
+
+    private nonisolated static func bestJapaneseVoice(
+        from voices: [AVSpeechSynthesisVoice],
+        preferredIdentifiers: [String]
+    ) -> AVSpeechSynthesisVoice? {
+        let qualityOrder: [AVSpeechSynthesisVoiceQuality] = [.premium, .enhanced, .default]
+
+        for quality in qualityOrder {
+            if let preferred = voices.first(where: { voice in
+                voice.quality == quality &&
+                preferredIdentifiers.contains(where: { voice.identifier.contains($0) })
+            }) {
+                return preferred
             }
-            if let voice = premiumFemale { return voice }
-            return AVSpeechSynthesisVoice(language: "ja-JP")
+        }
+
+        for quality in qualityOrder {
+            if let fallback = voices.first(where: { $0.quality == quality }) {
+                return fallback
+            }
+        }
+
+        return nil
+    }
+
+    private nonisolated static func pitchMultiplier(
+        for character: VoiceCharacter,
+        isClearVoiceEnabled: Bool
+    ) -> Float {
+        switch character {
+        case .maleButler:
+            return isClearVoiceEnabled ? SpeechTuning.clearPitch : SpeechTuning.naturalMalePitch
+        case .femaleConcierge, .customRecording:
+            return isClearVoiceEnabled ? SpeechTuning.clearPitch : SpeechTuning.naturalFemalePitch
+        }
+    }
+
+    private nonisolated static func applyPronunciationMap(to text: String) -> String {
+        pronunciationMap.reduce(text) { partialResult, entry in
+            partialResult.replacingOccurrences(
+                of: entry.key,
+                with: entry.value,
+                options: [.caseInsensitive]
+            )
+        }
+    }
+
+    private nonisolated static func collapseRepeatedPunctuation(in text: String) -> String {
+        var result = ""
+        var lastPunctuation: Character?
+
+        for character in text {
+            if character == "、" || character == "。" {
+                if lastPunctuation == character {
+                    continue
+                }
+                lastPunctuation = character
+                result.append(character)
+                continue
+            }
+
+            if !character.isWhitespace {
+                lastPunctuation = nil
+            }
+            result.append(character)
+        }
+
+        return result
+    }
+
+    private nonisolated static func replaceClockText(in text: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: #"(\d{1,2}):(\d{2})"#) else { return text }
+
+        var result = text
+        let matches = regex.matches(in: result, range: NSRange(result.startIndex..., in: result)).reversed()
+        for match in matches {
+            guard let hourRange = Range(match.range(at: 1), in: result),
+                  let minuteRange = Range(match.range(at: 2), in: result),
+                  let fullRange = Range(match.range, in: result) else { continue }
+
+            let hour = String(result[hourRange])
+            let minute = String(result[minuteRange])
+            let replacement = minute == "00" ? "\(hour)時ちょうど" : "\(hour)時\(minute)分"
+            result.replaceSubrange(fullRange, with: replacement)
+        }
+
+        return result
+    }
+}
+
+private extension Character {
+    var isEmojiLike: Bool {
+        unicodeScalars.contains { scalar in
+            scalar.properties.isEmojiPresentation || scalar.properties.isEmoji
         }
     }
 }

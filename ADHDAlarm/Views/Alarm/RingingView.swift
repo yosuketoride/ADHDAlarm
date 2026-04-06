@@ -16,23 +16,18 @@ struct RingingView: View {
     }
 
     @State private var pendingAlarm: AlarmEvent
-    @State private var showDismissMessage = false
-    @State private var isSkipped = false
-    @State private var isUndone = false
+    @State private var hasDismissed = false          // 二重呼び出し防止
+    @State private var showSkipConfirmation = false  // スキップ確認ダイアログ
     // アニメーション状態
     @State private var appeared = false
     @State private var bubbleBounce = false
     @State private var ripplePulse = false
-    // スキップセクション（5秒後に表示）
-    @State private var showSkipSection = false
 
     // SOSバナー用状態
     @State private var showSuccessBanner = false
     @State private var showErrorBanner = false
     @State private var errorMessage = ""
-    // バナー自動非表示タスク（ビュー破棄時にキャンセルするため参照を保持）
     @State private var bannerHideTask: Task<Void, Never>?
-
 
     var body: some View {
         ZStack {
@@ -62,14 +57,9 @@ struct RingingView: View {
                 .offset(x: 130, y: -160)
                 .ignoresSafeArea()
 
-            if showDismissMessage {
-                dismissView
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            } else {
-                mainContent
-                    .transition(.opacity)
-            }
-            
+            mainContent
+                .transition(.opacity)
+
             // SOS状態バナー
             VStack {
                 if showSuccessBanner {
@@ -90,7 +80,6 @@ struct RingingView: View {
             viewModel.activeAlarm = pendingAlarm
             viewModel.bindAppStateIfNeeded(appState)
             viewModel.configure(
-                notificationType: appState.notificationType,
                 audioOutputMode: appState.audioOutputMode,
                 sosPairingId: appState.sosPairingId,
                 sosEscalationMinutes: appState.sosEscalationMinutes
@@ -105,7 +94,11 @@ struct RingingView: View {
             }
         }
         .onChange(of: viewModel.activeAlarm) { _, newValue in
-            if newValue == nil && !showDismissMessage { onDismissed() }
+            // VMがアラームをnilにした場合（外部からの停止など）も安全に閉じる
+            if newValue == nil && !hasDismissed {
+                hasDismissed = true
+                onDismissed()
+            }
         }
         .onChange(of: viewModel.sosStatus) { _, status in
             switch status {
@@ -119,10 +112,24 @@ struct RingingView: View {
             default: break
             }
         }
-        // 5秒後にスキップセクションを表示（View が消えると自動キャンセル）
-        .task {
-            try? await Task.sleep(for: .seconds(5))
-            withAnimation(.easeInOut(duration: 0.4)) { showSkipSection = true }
+        // スキップ確認ダイアログ
+        .confirmationDialog(
+            "今日はスキップしますか？",
+            isPresented: $showSkipConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("今日は休む", role: .destructive) {
+                guard !hasDismissed else { return }
+                hasDismissed = true
+                viewModel.skip()
+                let title = viewModel.activeAlarm?.title ?? ""
+                ToastWindowManager.shared.show(ToastMessage(
+                    text: title.isEmpty ? "ゆっくり休んでね 🍵" : "「\(title)」\nゆっくり休んでね 🍵",
+                    style: .owlTip
+                ))
+                onDismissed()
+            }
+            Button("やっぱりやる", role: .cancel) {}
         }
         // バナーのボタンから届いたアクションを処理する
         .onReceive(NotificationCenter.default.publisher(
@@ -133,7 +140,6 @@ struct RingingView: View {
             else { return }
             switch actionID {
             case Constants.Notification.actionDismiss:
-                // .foreground オプション付きのためアプリが前面に来る。ユーザーが手動で止める想定
                 break
             case Constants.Notification.actionSnooze:
                 viewModel.snooze()
@@ -146,7 +152,21 @@ struct RingingView: View {
         .onDisappear { bannerHideTask?.cancel() }
         .interactiveDismissDisabled()
         .statusBarHidden(true)
-        .animation(.spring(duration: 0.4), value: showDismissMessage)
+    }
+
+    // MARK: - とめる処理（共通）
+
+    private func performStop() {
+        guard !hasDismissed else { return }
+        hasDismissed = true
+        let sosWasFired = viewModel.sosStatus != .idle
+        viewModel.dismiss()
+        ReviewManager.shared.recordCompletionAndRequestIfNeeded(isSOSFired: sosWasFired)
+        ToastWindowManager.shared.show(ToastMessage(
+            text: "よくできました！ ⭐️ +10ポイント",
+            style: .owlTip
+        ))
+        onDismissed()
     }
 
     // MARK: - メイン画面
@@ -175,18 +195,25 @@ struct RingingView: View {
             .scaleEffect(appeared ? 1.0 : 0.9)
             .opacity(appeared ? 1.0 : 0)
 
-            Spacer()
-
-            // 停止ボタン + スキップセクション（下部）
-            VStack(spacing: Spacing.sm) {
-                stopButton
-                if showSkipSection {
-                    skipSection
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+            // 停止ゾーン：カード下から画面下端まで全体がタップで「とめる」
+            // 寝ぼけていてもどこでも押せるよう、背景全体をタップ領域にする
+            ZStack(alignment: .bottom) {
+                // 背景全体のタップ領域
+                Button(action: performStop) {
+                    Color.clear.contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+
+                // 視覚的なボタン・スキップセクション（前面に重ねる）
+                VStack(spacing: Spacing.sm) {
+                    stopButtonLabel
+                    skipSection
+                }
+                .padding(.horizontal, 32)
+                .padding(.bottom, 56)
             }
-            .padding(.horizontal, 32)
-            .padding(.bottom, 56)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 240)
             .opacity(appeared ? 1.0 : 0)
             .offset(y: appeared ? 0 : 20)
         }
@@ -226,7 +253,6 @@ struct RingingView: View {
 
     // MARK: - フクロウ画像ヘルパー
 
-    /// XP × 感情に応じたふくろうアセット名を返す（RingingView専用）
     private func owlImageName(emotion: String) -> String {
         let stage: Int
         switch appState.owlXP {
@@ -246,23 +272,19 @@ struct RingingView: View {
 
     private var owlWithRipple: some View {
         ZStack {
-            // 波紋（外側）ping
             Circle()
                 .fill(Color.white.opacity(0.35))
                 .frame(width: 160, height: 160)
                 .scaleEffect(ripplePulse ? 1.5 : 1.0)
                 .opacity(ripplePulse ? 0.0 : 0.7)
-            // 波紋（内側）pulse
             Circle()
                 .fill(Color.white.opacity(0.55))
                 .frame(width: 130, height: 130)
                 .scaleEffect(bubbleBounce ? 1.08 : 0.96)
-            // フクロウ背景円
             Circle()
                 .fill(Color.white)
                 .frame(width: 112, height: 112)
                 .shadow(color: .black.opacity(0.10), radius: 14, y: 5)
-            // フクロウ本体（アラーム発火中 = surprised）
             Image(owlImageName(emotion: "surprised"))
                 .resizable().scaledToFit()
                 .frame(width: 88, height: 88)
@@ -288,7 +310,6 @@ struct RingingView: View {
 
     private func standardEventCard(alarm: AlarmEvent, minutesToEvent: Int) -> some View {
         VStack(spacing: 14) {
-            // タイミングバッジ
             HStack(spacing: Spacing.sm) {
                 Circle()
                     .fill(Color(red: 0.95, green: 0.60, blue: 0.15))
@@ -309,7 +330,6 @@ struct RingingView: View {
             .background(Color(red: 1.0, green: 0.93, blue: 0.72))
             .clipShape(Capsule())
 
-            // 予定タイトル
             Text(alarm.title)
                 .font(.system(.title2, design: .rounded).weight(.black))
                 .foregroundStyle(.primary)
@@ -369,70 +389,53 @@ struct RingingView: View {
         .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
     }
 
-    // MARK: - 停止ボタン
+    // MARK: - 停止ボタン（見た目のみ・タップは背景の大きな領域で受ける）
 
-    private var stopButton: some View {
-        Button {
-            let sosWasFired = viewModel.sosStatus != .idle
-            isSkipped = false
-            viewModel.dismiss()
-            withAnimation(.spring(duration: 0.4)) {
-                showDismissMessage = true
-            }
-            ReviewManager.shared.recordCompletionAndRequestIfNeeded(isSOSFired: sosWasFired)
-            // P-9-13: UIは3秒で自動クローズ。Undoは30秒バックグラウンドで継続
-            Task {
-                try? await Task.sleep(for: .seconds(3))
-                if !isUndone { onDismissed() }
-            }
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 30, weight: .bold))
-                Text("とめる")
-                    .font(.title2.weight(.black))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: ComponentSize.actionGiant)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.22, green: 0.78, blue: 0.42),
-                        Color(red: 0.12, green: 0.65, blue: 0.30)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-            .shadow(color: Color(red: 0.12, green: 0.65, blue: 0.30).opacity(0.5), radius: 14, y: 7)
-            .overlay {
-                RoundedRectangle(cornerRadius: 32, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.5), Color.clear],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
-            }
+    private var stopButtonLabel: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 30, weight: .bold))
+            Text("とめる")
+                .font(.title2.weight(.black))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
-        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity)
+        .frame(height: ComponentSize.actionGiant)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.22, green: 0.78, blue: 0.42),
+                    Color(red: 0.12, green: 0.65, blue: 0.30)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .shadow(color: Color(red: 0.12, green: 0.65, blue: 0.30).opacity(0.5), radius: 14, y: 7)
+        .overlay {
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.5), Color.clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+        }
+        // タップ判定を無効化して背景の大きな領域に委譲する
+        .allowsHitTesting(false)
     }
 
-    // MARK: - スキップセクション（5秒後に表示）
+    // MARK: - スキップセクション（常時表示・確認ダイアログあり）
 
     private var skipSection: some View {
-        let snoozeCount = viewModel.activeAlarm?.snoozeCount ?? 0
-
-        return VStack(spacing: Spacing.sm) {
-            // スヌーズボタン（最大3回まで。P-2-2/P-9-15）
-            // P-2-3: 5秒間は透明プレースホルダーとして空間確保
-            if snoozeCount < 3 {
+        VStack(spacing: Spacing.sm) {
+            // スヌーズボタン（最大3回まで）
+            if viewModel.canSnooze {
                 Button {
                     viewModel.snooze()
                     onDismissed()
@@ -440,12 +443,10 @@ struct RingingView: View {
                     HStack(spacing: Spacing.md) {
                         Text("⏱️")
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(snoozeCount == 2
-                                 ? "30分後にまた教えて（最後の1回）"
-                                 : "30分後にまた教えて")
+                            Text(viewModel.snoozeButtonTitle)
                                 .font(.callout.weight(.medium))
-                            if snoozeCount == 2 {
-                                Text("次はパスか完了を選んでね")
+                            if let helper = viewModel.snoozeHelperMessage {
+                                Text(helper)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -460,30 +461,23 @@ struct RingingView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                // スヌーズ上限到達メッセージ（P-9-15）
                 VStack(spacing: 6) {
-                    Text("🦉 何度もお知らせしたよ。今日は無理せず「今回はパス」にしてね")
+                    Text(viewModel.snoozeLimitMessage)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                    Image(systemName: "arrow.down")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    if viewModel.shouldShowSnoozeLimitArrow {
+                        Image(systemName: "arrow.down")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding(.horizontal, 8)
             }
 
-            // スキップボタン
+            // スキップボタン（確認ダイアログを経由する）
             Button {
-                isSkipped = true
-                viewModel.skip()
-                withAnimation(.spring(duration: 0.4)) {
-                    showDismissMessage = true
-                }
-                Task {
-                    try? await Task.sleep(for: .seconds(2.5))
-                    onDismissed()
-                }
+                showSkipConfirmation = true
             } label: {
                 Text("今日は休む（スキップ）")
                     .font(.callout.weight(.medium))
@@ -495,131 +489,9 @@ struct RingingView: View {
         }
     }
 
-    // MARK: - 停止後の画面（おつかれさまです）
-
-    private var dismissView: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 28) {
-                // フクロウ + 吹き出し
-                ZStack(alignment: .topTrailing) {
-                    // 停止後 = happy
-                    Image(owlImageName(emotion: "happy"))
-                        .resizable().scaledToFit()
-                        .frame(width: 120, height: 120)
-
-                    // オレンジ吹き出し
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("おつかれさまです！")
-                            .font(.caption.weight(.bold))
-                            .minimumScaleFactor(0.75)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(Color(red: 0.95, green: 0.60, blue: 0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
-                    .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
-                    .overlay(alignment: .bottomLeading) {
-                        Image(systemName: "triangle.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(Color(red: 0.95, green: 0.60, blue: 0.15))
-                            .rotationEffect(.degrees(30))
-                            .offset(x: 8, y: 7)
-                    }
-                    .offset(x: 80, y: -12)
-                }
-                .frame(height: 120)
-                .padding(.trailing, 80)
-
-                // メッセージカード
-                VStack(spacing: Spacing.md) {
-                    // メインメッセージ
-                    VStack(spacing: Spacing.md) {
-                        Text(isSkipped ? "ゆっくり休んでね" : "よくできました！")
-                            .font(.system(size: 32, weight: .black, design: .rounded))
-                            .foregroundStyle(.primary)
-
-                        Text(isSkipped
-                             ? "「\(pendingAlarm.title)」\n無理せず、今日は休みましょう 🍵"
-                             : "「\(pendingAlarm.title)」\nそろそろ準備を始めましょう！")
-                            .font(.title3.weight(.medium))
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(4)
-                    }
-
-                    // XPバッジ（完了時のみ、P-2-1）
-                    if !isSkipped {
-                        HStack(spacing: Spacing.sm) {
-                            Image(systemName: "star.fill")
-                                .foregroundStyle(.yellow)
-                            Text("+10ポイント！")
-                                .font(.callout.weight(.bold))
-                                .foregroundStyle(Color.owlAmber)
-                        }
-                        .padding(.horizontal, Spacing.md)
-                        .padding(.vertical, Spacing.sm)
-                        .background(Color.owlAmber.opacity(0.12))
-                        .clipShape(Capsule())
-                    }
-
-                    // Undoボタン（P-2-1/P-9-13）
-                    if !isUndone {
-                        Button {
-                            viewModel.undoCompletion(alarm: pendingAlarm)
-                            pendingAlarm = viewModel.activeAlarm ?? pendingAlarm
-                            isUndone = false
-                            isSkipped = false
-                            showSkipSection = true
-                            withAnimation(.spring(duration: 0.35)) {
-                                showDismissMessage = false
-                            }
-                        } label: {
-                            Text("↩ 間違えたので取り消す")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .frame(minHeight: 44)
-                    }
-
-                    // 閉じるボタン（P-9-13: 即座に閉じられる）
-                    Button {
-                        onDismissed()
-                    } label: {
-                        Text("閉じる")
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(.black)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Color.owlAmber)
-                            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.vertical, 28)
-                .frame(maxWidth: .infinity)
-                .background(.background, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.7), lineWidth: 1.5)
-                }
-                .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
-                .padding(.horizontal, Spacing.lg)
-            }
-
-            Spacer()
-        }
-    }
-    
     // MARK: - Helper UIs
-    
+
     private func hideBannersAfterDelay() {
-        // レビュー指摘: 非構造化Taskはビュー破棄後も生き続けタスクリークになる。
-        // タスク参照を保持し、直前のタスクをキャンセルしてから新しいタスクを起動する。
         bannerHideTask?.cancel()
         bannerHideTask = Task {
             try? await Task.sleep(for: .seconds(5))
@@ -630,7 +502,7 @@ struct RingingView: View {
             }
         }
     }
-    
+
     private func sosBanner(isSuccess: Bool, message: String) -> some View {
         HStack(spacing: CornerRadius.md) {
             Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")

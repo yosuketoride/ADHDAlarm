@@ -8,6 +8,8 @@ final class AppRouter {
     var ringingAlarm: AlarmEvent?
     /// バナーのボタンから届いたアクション（RingingViewが開いているときに処理する）
     var pendingAlarmAction: AlarmBannerAction?
+    /// マイクシートが開いているか（アラーム発火時の待機判定に使用）
+    var isMicSheetOpen = false
 
     init() {}
 }

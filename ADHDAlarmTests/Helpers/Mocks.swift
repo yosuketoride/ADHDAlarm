@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 @testable import ADHDAlarm
 
 // MARK: - MockFamilyService
@@ -198,24 +199,151 @@ final class MockCalendarProvider: CalendarProviding {
             CalendarInfo(id: "cal-2", title: "プライベート", colorHex: "#0000FF"),
         ]
     }
+
+    var importCandidates: [ImportCandidate] = []
+    var appendedMarkers: [(ekIdentifier: String, alarmID: UUID)] = []
+
+    func fetchImportCandidates(
+        from: Date,
+        to: Date,
+        excludingEKIdentifiers: Set<String>,
+        calendarIdentifiers: Set<String>?
+    ) async throws -> [ImportCandidate] {
+        if shouldThrow { throw MockError.intentional }
+        return importCandidates.filter { !excludingEKIdentifiers.contains($0.id) }
+    }
+
+    func appendMarker(to ekIdentifier: String, alarmID: UUID) async throws {
+        if shouldThrow { throw MockError.intentional }
+        appendedMarkers.append((ekIdentifier: ekIdentifier, alarmID: alarmID))
+    }
 }
 
 // MARK: - MockVoiceGenerator
 
 final class MockVoiceGenerator: VoiceSynthesizing {
-    var generatedAlarmIDs: [UUID] = []
-    var deletedAlarmIDs: [UUID] = []
+    struct GenerateCall {
+        let text: String
+        let character: VoiceCharacter
+        let alarmID: UUID
+        let eventTitle: String
+    }
+
+    private let lock = NSLock()
+    private var storedGeneratedAlarmIDs: [UUID] = []
+    private var storedGenerateCalls: [GenerateCall] = []
+    private var storedDeletedAlarmIDs: [UUID] = []
     var shouldThrow = false
     var returnURL: URL = URL(fileURLWithPath: "/tmp/mock.caf")
 
+    var generatedAlarmIDs: [UUID] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedGeneratedAlarmIDs
+    }
+
+    var generateCalls: [GenerateCall] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedGenerateCalls
+    }
+
+    var deletedAlarmIDs: [UUID] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedDeletedAlarmIDs
+    }
+
     func generateAudio(text: String, character: VoiceCharacter, alarmID: UUID, eventTitle: String) async throws -> URL {
         if shouldThrow { throw MockError.intentional }
-        generatedAlarmIDs.append(alarmID)
+        lock.lock()
+        storedGeneratedAlarmIDs.append(alarmID)
+        storedGenerateCalls.append(.init(text: text, character: character, alarmID: alarmID, eventTitle: eventTitle))
+        lock.unlock()
         return returnURL
     }
 
     func deleteAudio(alarmID: UUID) {
-        deletedAlarmIDs.append(alarmID)
+        lock.lock()
+        storedDeletedAlarmIDs.append(alarmID)
+        lock.unlock()
+    }
+}
+
+// MARK: - Mock Alarm Audio
+
+final class MockAlarmAudioController: AlarmAudioControlling {
+    struct ConfigureCall {
+        let mode: AVAudioSession.Mode
+        let options: AVAudioSession.CategoryOptions
+        let forceSpeaker: Bool
+    }
+
+    var currentOutputPortTypes: [AVAudioSession.Port] = []
+    var configureCalls: [ConfigureCall] = []
+    var deactivateCallCount = 0
+    var shouldThrowOnConfigure = false
+    var nextPlayer: MockAudioPlayer?
+    let speechSynthesizer = MockSpeechSynthesizer()
+    var createdPlayerURLs: [URL] = []
+
+    func configurePlaybackSession(
+        mode: AVAudioSession.Mode,
+        options: AVAudioSession.CategoryOptions,
+        forceSpeaker: Bool
+    ) throws {
+        if shouldThrowOnConfigure { throw MockError.intentional }
+        configureCalls.append(.init(mode: mode, options: options, forceSpeaker: forceSpeaker))
+    }
+
+    func deactivatePlaybackSession() throws {
+        deactivateCallCount += 1
+    }
+
+    func makeAudioPlayer(url: URL) throws -> AudioPlayerControlling {
+        createdPlayerURLs.append(url)
+        return nextPlayer ?? MockAudioPlayer()
+    }
+
+    func makeSpeechSynthesizer() -> SpeechSynthesizerControlling {
+        speechSynthesizer
+    }
+}
+
+final class MockAudioPlayer: AudioPlayerControlling {
+    var delegate: AVAudioPlayerDelegate?
+    var numberOfLoops: Int = 0
+    var prepareToPlayCallCount = 0
+    var playCallCount = 0
+    var stopCallCount = 0
+    var playShouldSucceed = true
+
+    func prepareToPlay() {
+        prepareToPlayCallCount += 1
+    }
+
+    func play() -> Bool {
+        playCallCount += 1
+        return playShouldSucceed
+    }
+
+    func stop() {
+        stopCallCount += 1
+    }
+}
+
+final class MockSpeechSynthesizer: SpeechSynthesizerControlling {
+    var delegate: AVSpeechSynthesizerDelegate?
+    var spokenUtterances: [AVSpeechUtterance] = []
+    var stopCallCount = 0
+
+    func speak(_ utterance: AVSpeechUtterance) {
+        spokenUtterances.append(utterance)
+    }
+
+    func stopSpeaking(at boundary: AVSpeechBoundary) -> Bool {
+        stopCallCount += 1
+        return true
     }
 }
 
@@ -234,14 +362,16 @@ extension AlarmEvent {
         offsetFromNow: TimeInterval = 3600,
         preNotificationMinutes: Int = 15,
         alarmKitIdentifier: UUID? = nil,
-        voiceFileName: String? = nil
+        voiceFileName: String? = nil,
+        snoozeCount: Int = 0
     ) -> AlarmEvent {
         AlarmEvent(
             title: title,
             fireDate: Date().addingTimeInterval(offsetFromNow),
             preNotificationMinutes: preNotificationMinutes,
             alarmKitIdentifier: alarmKitIdentifier,
-            voiceFileName: voiceFileName
+            voiceFileName: voiceFileName,
+            snoozeCount: snoozeCount
         )
     }
 

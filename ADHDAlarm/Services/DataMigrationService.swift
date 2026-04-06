@@ -31,7 +31,12 @@ final class DataMigrationService {
         // ただし「読み込むだけ」ではディスク上のJSONは古いV1フォーマットのまま残る。
         // レビュー指摘 #5: saveAll() で明示的に書き戻し、次回起動時も正しく読める状態にする。
         let store = AlarmEventStore.shared
-        let events = store.loadAll()
+        let events = store.loadAll().map { alarm -> AlarmEvent in
+            guard alarm.eventEmoji?.isEmpty != false else { return alarm }
+            var updated = alarm
+            updated.eventEmoji = "📌"
+            return updated
+        }
         store.saveAll(events)
         print("DEBUG: DataMigration v1 → v2: \(events.count)件のイベントを書き直しました")
     }

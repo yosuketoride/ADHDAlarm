@@ -4,6 +4,17 @@ import ActivityKit
 import AppIntents
 import UserNotifications
 import BackgroundTasks
+import FirebaseCore
+import FirebaseCrashlytics
+
+enum ForegroundSyncDebouncer {
+    static let minimumInterval: TimeInterval = 60
+
+    /// フォアグラウンド復帰時の再同期を実行してよいか判定する
+    static func shouldRun(now: Date, lastSyncTimestamp: Date) -> Bool {
+        now.timeIntervalSince(lastSyncTimestamp) >= minimumInterval
+    }
+}
 
 // MARK: - AppDelegate（レビュー指摘 #2）
 // UNUserNotificationCenter.delegate は App.init() ではなく AppDelegate で設定する。
@@ -13,6 +24,7 @@ private final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        FirebaseApp.configure()
         UNUserNotificationCenter.current().delegate = ForegroundNotificationDelegate.shared
         // P-9-6: データモデルのマイグレーション（新フィールド追加時に既存データを補完）
         DataMigrationService.migrateIfNeeded()
@@ -67,7 +79,7 @@ struct ADHDAlarmApp: App {
 
     // P-5-4: scenePhase .active の多重発火を防ぐデバウンス用タイムスタンプ
     // コントロールセンター開閉などで .active が連打されても最低60秒は再同期しない
-    @State private var lastSyncTimestamp: Date = .distantPast
+    @State private var lastSyncCheckTimestamp: Date = .distantPast
 
     init() {}
 
@@ -108,8 +120,8 @@ struct ADHDAlarmApp: App {
                 }
                 // P-5-4: 前回同期から60秒未満ならスキップ（多重発火防止）
                 let now = Date()
-                guard now.timeIntervalSince(lastSyncTimestamp) >= 60 else { return }
-                lastSyncTimestamp = now
+                guard ForegroundSyncDebouncer.shouldRun(now: now, lastSyncTimestamp: lastSyncCheckTimestamp) else { return }
+                lastSyncCheckTimestamp = now
                 Task {
                     await syncEngine.performFullSync()
                     let newCount = await syncEngine.syncRemoteEvents()
@@ -194,12 +206,18 @@ struct ADHDAlarmApp: App {
     /// alarmUpdatesを常時監視し、alerting状態になったアラームをRingingViewに渡す
     private func watchAlarmUpdates() async {
         for await alarms in AlarmManager.shared.alarmUpdates {
+            let alertingIDs = Set(alarms.filter { $0.state == .alerting }.map(\.id))
+            PresentedAlarmStore.shared.retainOnly(alertingIDs)
+
             // alerting（発火中）のアラームを探す
             guard let alertingAlarm = alarms.first(where: { $0.state == .alerting }) else {
                 continue
             }
 
-            if await HandledAlarmStore.shared.isHandled(alertingAlarm.id) {
+            if HandledAlarmStore.shared.isHandled(alertingAlarm.id) {
+                continue
+            }
+            if PresentedAlarmStore.shared.isPresented(alertingAlarm.id) {
                 continue
             }
 
@@ -221,6 +239,14 @@ struct ADHDAlarmApp: App {
                 alarmToDisplay.preNotificationMinutes = mappedMinutes
             }
 
+            // マイク録音など他のオーディオセッションを先に停止させる。
+            // マイクシートが開いている場合はシートのcloseアニメーション完了を待つ必要がある。
+            let micSheetOpen = appRouter.isMicSheetOpen
+            NotificationCenter.default.post(name: .alarmWillStartPlaying, object: nil)
+            // SwiftUIのレンダリングサイクルが確実に処理されるよう最低100ms待つ。
+            // マイクシートが開いている場合はcloseアニメーション完了のため500ms待つ。
+            try? await Task.sleep(for: .milliseconds(micSheetOpen ? 500 : 100))
+            PresentedAlarmStore.shared.markPresented(alertingAlarm.id)
             appRouter.ringingAlarm = alarmToDisplay
         }
     }
@@ -331,10 +357,11 @@ struct RootView: View {
         case Constants.Notification.actionSnooze:
             // バックグラウンドでスヌーズ登録：30分後に再アラーム
             Task { @MainActor in
+                guard RingingViewModel.canSnooze(alarm.snoozeCount) else { return }
                 var snoozed = alarm
                 snoozed.snoozeCount = alarm.snoozeCount + 1
                 AlarmEventStore.shared.save(snoozed)
-                let snoozeDate = Date().addingTimeInterval(30 * 60)
+                let snoozeDate = Date().addingTimeInterval(RingingViewModel.snoozeInterval)
                 let snoozeAlarm = AlarmEvent(
                     id: alarm.id,
                     title: alarm.title,
@@ -367,7 +394,10 @@ struct RootView: View {
                 }
             }
         default:
-            break
+            Task { @MainActor in
+                PresentedAlarmStore.shared.markPresented(alarmKitUUID)
+                router.ringingAlarm = alarm
+            }
         }
     }
 

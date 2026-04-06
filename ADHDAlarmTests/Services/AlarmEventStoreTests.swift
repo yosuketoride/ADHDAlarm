@@ -203,9 +203,9 @@ final class AlarmEventStoreTests: XCTestCase {
         let alarm = AlarmEvent(title: "永続化テスト", fireDate: Date())
         store.save(alarm)
 
-        // 新しいAlarmEventStoreインスタンスで読み込む
-        let newStore = AlarmEventStore()
-        let loaded = newStore.loadAll()
+        // キャッシュ破棄後も永続化データから再読込できること
+        store.invalidateCache()
+        let loaded = store.loadAll()
 
         XCTAssertEqual(loaded.count, 1)
         XCTAssertEqual(loaded[0].id, alarm.id)

@@ -10,10 +10,12 @@ final class SyncEngineTests: XCTestCase {
     override func setUp() {
         super.setUp()
         store.saveAll([])
+        UserDefaults.standard.removeObject(forKey: "lastDailyResetDate")
     }
 
     override func tearDown() {
         store.saveAll([])
+        UserDefaults.standard.removeObject(forKey: "lastDailyResetDate")
         super.tearDown()
     }
 
@@ -268,6 +270,25 @@ final class SyncEngineTests: XCTestCase {
         XCTAssertEqual(saved?.title, "お薬の時間")
     }
 
+    func testSyncRemoteEvents_ExpiredPendingEvent_SavesAsMissedWithoutScheduling() async {
+        let record = makeRemoteRecord(
+            title: "期限切れ予定",
+            offsetFromNow: -(16 * 60)
+        )
+        let mockFamily = MockFamilyService()
+        mockFamily.stubPendingEvents = [record]
+
+        let scheduler = MockAlarmScheduler()
+        let engine = makeSyncEngine(alarmScheduler: scheduler, familyService: mockFamily)
+
+        await engine.syncRemoteEvents()
+
+        XCTAssertTrue(scheduler.scheduledAlarms.isEmpty, "15分超過の予定はAlarmKit登録しないこと")
+        let saved = store.find(remoteEventId: record.id)
+        XCTAssertEqual(saved?.completionStatus, .missed, "15分超過の予定はmissedで保存されること")
+        XCTAssertEqual(mockFamily.syncedEventIds, [record.id], "取り込み済みとして同期されること")
+    }
+
     func testSyncRemoteEvents_AlreadySyncedEvent_NotDuplicated() async {
         // Arrange: 既にローカルに同じremoteEventIdで保存済み
         let record = makeRemoteRecord(title: "既存予定")
@@ -361,5 +382,43 @@ final class SyncEngineTests: XCTestCase {
 
         // Act & Assert: クラッシュしない
         await engine.syncRemoteEvents()
+    }
+
+    func testPerformFullSync_DailyResetDeletesCompletedToDo() async {
+        var completedToDo = AlarmEvent(
+            title: "完了済みToDo",
+            fireDate: Date().addingTimeInterval(-3600),
+            isToDo: true
+        )
+        completedToDo.completionStatus = .completed
+        store.save(completedToDo)
+
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? .distantPast
+        UserDefaults.standard.set(yesterday, forKey: "lastDailyResetDate")
+
+        let engine = makeSyncEngine()
+        await engine.performFullSync()
+
+        XCTAssertNil(store.find(id: completedToDo.id), "日付変更時に完了済みToDoは削除されること")
+    }
+
+    func testPerformFullSync_DailyResetKeepsIncompleteToDoForNextDay() async {
+        let pendingToDo = AlarmEvent(
+            title: "持ち越しToDo",
+            fireDate: Date().addingTimeInterval(-3600),
+            isToDo: true
+        )
+        store.save(pendingToDo)
+
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? .distantPast
+        UserDefaults.standard.set(yesterday, forKey: "lastDailyResetDate")
+
+        let engine = makeSyncEngine()
+        await engine.performFullSync()
+
+        let carriedOver = store.find(id: pendingToDo.id)
+        XCTAssertNotNil(carriedOver, "未完了ToDoは翌日に持ち越されること")
+        XCTAssertNil(carriedOver?.completionStatus)
+        XCTAssertTrue(carriedOver?.isToDo == true)
     }
 }

@@ -89,6 +89,58 @@ final class AppleCalendarProvider: CalendarProviding {
             }
     }
 
+    // MARK: - 手動インポート（PRO機能）
+
+    /// 外部カレンダーの取り込み候補を取得する
+    func fetchImportCandidates(
+        from start: Date,
+        to end: Date,
+        excludingEKIdentifiers: Set<String>,
+        calendarIdentifiers: Set<String>?
+    ) async throws -> [ImportCandidate] {
+        // 書き込み可能カレンダーを列挙し、指定がある場合はフィルタリング
+        var writableCalendars = eventStore.calendars(for: .event)
+            .filter { $0.allowsContentModifications }
+        if let ids = calendarIdentifiers {
+            writableCalendars = writableCalendars.filter { ids.contains($0.calendarIdentifier) }
+        }
+        let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: writableCalendars)
+
+        return eventStore.events(matching: predicate)
+            .filter { ek in
+                !ek.isAllDay                                                 // 終日イベント除外
+                && !(ek.title?.isEmpty ?? true)                              // タイトルなし除外
+                && !ek.hasRecurrenceRules                                    // 繰り返し除外（v1対象外）
+                && ek.notes?.contains(Constants.eventMarkerPrefix) != true  // 取り込み済み除外
+                && !excludingEKIdentifiers.contains(ek.eventIdentifier)     // 二重取り込み防止
+            }
+            .sorted { $0.startDate < $1.startDate }
+            .map { ek in
+                ImportCandidate(
+                    id: ek.eventIdentifier,
+                    title: ek.title ?? "",
+                    startDate: ek.startDate,
+                    calendarName: ek.calendar?.title ?? "カレンダー",
+                    calendarIdentifier: ek.calendar?.calendarIdentifier
+                )
+            }
+    }
+
+    /// 既存EKEventのnotesにマーカーを追記する（上書きしない・冪等）
+    func appendMarker(to ekIdentifier: String, alarmID: UUID) async throws {
+        guard let ek = eventStore.event(withIdentifier: ekIdentifier) else {
+            throw CalendarImportError.eventNotFound  // 成功扱いにしない
+        }
+        let marker = Constants.eventMarker(for: alarmID)
+        // 冪等チェック：すでに同じマーカーがあればスキップ
+        if ek.notes?.contains(marker) == true { return }
+        let existing = ek.notes ?? ""
+        let appended = "🦉 ふくろうアプリで管理中\n\(marker)"
+        ek.notes = existing.isEmpty ? appended : "\(existing)\n\n\(appended)"
+        // .thisEvent で繰り返し予定の場合もこの1件のみ変更
+        try eventStore.save(ek, span: .thisEvent)
+    }
+
     // MARK: - Private
 
     /// notesからUUIDを抽出する

@@ -114,7 +114,12 @@ final class NLParserService: NLParsing {
         let now = Date()
         var consumed: [Range<String.Index>] = []
 
-        // ① 「X分後」「X時間後」（相対時刻）→ 日付明示扱い
+        // ① 「X秒後」「X分後」「X時間後」「X日後」（相対時刻/日付）→ 日付明示扱い
+        if let (seconds, range) = matchRelativeSeconds(text) {
+            let date = now.addingTimeInterval(TimeInterval(seconds))
+            return (date, [range], true)
+        }
+
         if let (minutes, range) = matchRelativeMinutes(text) {
             let date = now.addingTimeInterval(TimeInterval(minutes * 60))
             return (date, [range], true)
@@ -126,7 +131,13 @@ final class NLParserService: NLParsing {
             return (date, [range], true)
         }
 
-        // ③ 日付部分と時刻部分を個別に抽出して組み合わせる
+        // ③ 「X日後」→ 日付明示扱い
+        if let (days, range) = matchRelativeDays(text) {
+            let date = calendar.date(byAdding: .day, value: days, to: now) ?? now
+            return (date, [range], true)
+        }
+
+        // ④ 日付部分と時刻部分を個別に抽出して組み合わせる
         var baseDate: Date = now
         var dateConsumed: Range<String.Index>? = nil
         var timeConsumed: Range<String.Index>? = nil
@@ -178,6 +189,14 @@ final class NLParserService: NLParsing {
 
     /// 「30分後」「15分後」→ 分数を返す
     /// レビュー指摘 #4: range(of:)+firstMatch の二重パースを Swift Regex 1回に統一
+    private func matchRelativeSeconds(_ text: String) -> (Int, Range<String.Index>)? {
+        guard let m = text.firstMatch(of: /(\d+)\s*秒後/),
+              let seconds = Int(m.output.1) else { return nil }
+        return (seconds, m.range)
+    }
+
+    /// 「30分後」「15分後」→ 分数を返す
+    /// レビュー指摘 #4: range(of:)+firstMatch の二重パースを Swift Regex 1回に統一
     private func matchRelativeMinutes(_ text: String) -> (Int, Range<String.Index>)? {
         guard let m = text.firstMatch(of: /(\d+)\s*分後/),
               let minutes = Int(m.output.1) else { return nil }
@@ -190,6 +209,13 @@ final class NLParserService: NLParsing {
         guard let m = text.firstMatch(of: /(\d+)\s*時間後/),
               let hours = Int(m.output.1) else { return nil }
         return (hours, m.range)
+    }
+
+    /// 「3日後」「10日後」→ 日数を返す
+    private func matchRelativeDays(_ text: String) -> (Int, Range<String.Index>)? {
+        guard let m = text.firstMatch(of: /(\d+)\s*日後/),
+              let days = Int(m.output.1) else { return nil }
+        return (days, m.range)
     }
 
     /// 「今日」「明日」「明後日」「来週の月曜」などを Date に変換

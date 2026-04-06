@@ -61,9 +61,11 @@ final class PersonHomeViewModel {
 
     // MARK: - UI状態
     var isEventListExpanded = false
+    var isUpcomingListExpanded = false
     var showMicSheet = false
     var showManualInput = false
     var showSettings = false
+    var showCalendarImport = false
     var confirmationMessage: String?
 
     // MARK: - フクロウ状態
@@ -152,15 +154,42 @@ final class PersonHomeViewModel {
         max(0, listTodayEvents.count - maxVisibleEventCount)
     }
 
+    /// 折りたたみ状態で「残り○件を表示」ボタンを出すか
+    var shouldShowExpandButton: Bool {
+        !isEventListExpanded && hiddenEventCount > 0
+    }
+
+    /// 展開状態で「折りたたむ」ボタンを出すか
+    var shouldShowCollapseButton: Bool {
+        isEventListExpanded && hiddenEventCount > 0
+    }
+
     /// 完了済み・スキップ済みの今日の予定（リスト下部に表示）
     /// completionStatus が設定済み、または fireDate 過ぎたもの（後方互換プロキシ）
     var completedTodayEvents: [AlarmEvent] {
-        events.filter { $0.completionStatus != nil || $0.fireDate < Date() }
+        events.filter { $0.completionStatus != nil || (!$0.isToDo && $0.fireDate < Date()) }
     }
 
     /// 明日以降の予定（最大2件）
+    private static let upcomingDefaultCount = 2
+
     var tomorrowEvents: [AlarmEvent] {
-        Array(upcomingEvents.prefix(2))
+        if isUpcomingListExpanded {
+            return upcomingEvents
+        }
+        return Array(upcomingEvents.prefix(Self.upcomingDefaultCount))
+    }
+
+    var hiddenUpcomingCount: Int {
+        max(0, upcomingEvents.count - Self.upcomingDefaultCount)
+    }
+
+    var shouldShowUpcomingExpandButton: Bool {
+        !isUpcomingListExpanded && hiddenUpcomingCount > 0
+    }
+
+    var shouldShowUpcomingCollapseButton: Bool {
+        isUpcomingListExpanded && hiddenUpcomingCount > 0
     }
 
     /// 次の予定（カウントダウン用）
@@ -360,6 +389,32 @@ final class PersonHomeViewModel {
         await prepareCompleteEvent(alarm)
     }
 
+    /// ToDoタスクを今日スキップして翌日に繰り越す
+    func skipAndCarryOverToDo(_ alarm: AlarmEvent) {
+        // 元のToDoをスキップ済みにする
+        var skipped = alarm
+        skipped.completionStatus = .skipped
+        eventStore.save(skipped)
+
+        // 翌日の00:00で同じ内容のToDoを新規作成
+        let tomorrow = Calendar.current.date(
+            byAdding: .day, value: 1,
+            to: Calendar.current.startOfDay(for: Date())
+        )!
+        let carried = AlarmEvent(
+            title: alarm.title,
+            fireDate: tomorrow,
+            calendarIdentifier: alarm.calendarIdentifier,
+            voiceCharacter: alarm.voiceCharacter,
+            eventEmoji: alarm.eventEmoji,
+            isToDo: true
+        )
+        eventStore.save(carried)
+
+        Task { await loadEvents() }
+        showConfirmation("明日に繰り越したよ 🦉")
+    }
+
     func deleteRecurringSeries(_ alarm: AlarmEvent) async {
         guard let groupID = alarm.recurrenceGroupID else {
             await deleteEvent(alarm)
@@ -507,16 +562,24 @@ final class PersonHomeViewModel {
 
     // MARK: - XP管理
 
+    nonisolated static func evolutionStage(for xp: Int) -> Int {
+        switch xp {
+        case 0..<100:    return 0
+        case 100..<500:  return 1
+        case 500..<1000: return 2
+        default:         return 3
+        }
+    }
+
+    /// XPに応じた進化段階
+    var owlEvolutionStage: Int {
+        Self.evolutionStage(for: appState?.owlXP ?? 0)
+    }
+
     /// XP × owlState に応じたふくろうアセット名を返す
     /// フォールバック: normal → OwlIcon の順
     func owlImageName(emotion: OwlState? = nil) -> String {
-        let stage: Int
-        switch appState?.owlXP ?? 0 {
-        case 0..<100:    stage = 0
-        case 100..<500:  stage = 1
-        case 500..<1000: stage = 2
-        default:         stage = 3
-        }
+        let stage = owlEvolutionStage
         let emotionKey = (emotion ?? owlState).assetKey
         let name = "owl_stage\(stage)_\(emotionKey)"
         if UIImage(named: name) != nil { return name }

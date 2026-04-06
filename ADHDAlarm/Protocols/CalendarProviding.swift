@@ -18,6 +18,27 @@ protocol CalendarProviding {
 
     /// 利用可能なカレンダー一覧を取得する（PRO版のカレンダー選択に使用）
     func availableCalendars() async throws -> [CalendarInfo]
+
+    /// 外部カレンダーの取り込み候補を取得する（PRO機能：手動インポート用）
+    /// - 書き込み可能カレンダーのみ（祝日等の読み取り専用を自動除外）
+    /// - 今後の予定のみ（過去は除外）
+    /// - 非終日・非繰り返し・未取り込み済みのみ
+    /// - calendarIdentifiers が nil の場合は全書き込み可能カレンダーを対象にする
+    func fetchImportCandidates(
+        from: Date,
+        to: Date,
+        excludingEKIdentifiers: Set<String>,
+        calendarIdentifiers: Set<String>?
+    ) async throws -> [ImportCandidate]
+
+    /// 既存EKEventのnotesにマーカーを追記する（上書きしない・冪等）
+    /// - イベントが見つからない場合は CalendarImportError.eventNotFound を throw する
+    func appendMarker(to ekIdentifier: String, alarmID: UUID) async throws
+}
+
+/// カレンダー取り込み時のエラー
+enum CalendarImportError: Error {
+    case eventNotFound
 }
 
 /// カレンダー情報の軽量表現

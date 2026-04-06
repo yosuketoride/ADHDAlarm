@@ -16,6 +16,15 @@ struct SettingsView: View {
     @State private var isTesting = false
     private let tester = VolumeTestPlayer()
 
+    private struct VoiceDebugInfo: Identifiable {
+        let identifier: String
+        let name: String
+        let language: String
+        let qualityText: String
+
+        var id: String { identifier }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -136,6 +145,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .contentShape(Rectangle())
             .buttonStyle(.plain)
         }
     }
@@ -167,10 +177,70 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .contentShape(Rectangle())
                 .buttonStyle(.plain)
             }
+
+            #if DEBUG
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("音声デバッグ")
+                    .font(.subheadline.weight(.semibold))
+                Text("使える日本語音声の identifier と quality を確認できます。Siri の「声1 / 声2」の実体確認用です。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                ForEach(availableJapaneseVoices) { voice in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(voice.name) • \(voice.qualityText)")
+                            .font(.caption.weight(.semibold))
+                        Text(voice.identifier)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                        Text(voice.language)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+                }
+            }
+            #endif
         }
     }
+
+    #if DEBUG
+    private var availableJapaneseVoices: [VoiceDebugInfo] {
+        AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("ja") }
+            .map {
+                VoiceDebugInfo(
+                    identifier: $0.identifier,
+                    name: $0.name,
+                    language: $0.language,
+                    qualityText: qualityText(for: $0.quality)
+                )
+            }
+            .sorted {
+                if $0.qualityText == $1.qualityText {
+                    return $0.name.localizedStandardCompare($1.name) == .orderedAscending
+                }
+                return $0.qualityText < $1.qualityText
+            }
+    }
+
+    private func qualityText(for quality: AVSpeechSynthesisVoiceQuality) -> String {
+        switch quality {
+        case .premium:
+            return "premium"
+        case .enhanced:
+            return "enhanced"
+        default:
+            return "default"
+        }
+    }
+    #endif
 
     // MARK: - ③ ふくろうの名前
 
@@ -199,6 +269,7 @@ struct SettingsView: View {
                 }
                 .frame(minHeight: 60)
             }
+            .contentShape(Rectangle())
             .buttonStyle(.plain)
         }
     }
@@ -255,6 +326,7 @@ struct SettingsView: View {
                 }
                 .frame(minHeight: ComponentSize.settingRow)
             }
+            .contentShape(Rectangle())
             .buttonStyle(.plain)
 
             Divider()
@@ -278,6 +350,7 @@ struct SettingsView: View {
                 }
             }
             .frame(minHeight: ComponentSize.settingRow)
+            .contentShape(Rectangle())
         }
     }
 

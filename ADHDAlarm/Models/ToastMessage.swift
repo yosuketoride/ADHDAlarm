@@ -16,3 +16,5 @@ enum ToastStyle {
     /// 画面下部・2秒・成功（緑背景）
     case success
 }
+
+extension ToastStyle: Equatable {}

@@ -106,14 +106,18 @@ final class InputViewModel {
             errorMessage = "うまく聞き取れませんでした。\n「明日の15時にカフェ」のように、\n日時と予定を一緒に話してみてね。"
         } else {
             errorMessage = nil
-            selectedFireDate = nil
-            // 設定で選択済みの事前通知タイミング（複数対応）をデフォルト選択としてセット
-            selectedPreNotificationMinutesList = appState.preNotificationMinutesList
-            // NLParserが解析した繰り返しルールを引き継ぐ
-            selectedRecurrence = parsedInput?.recurrenceRule
+            applyConfirmationDefaults(for: parsedInput)
             // P-1-7: 重複検知インターセプト
             checkForDuplicates()
         }
+    }
+
+    /// 手入力で組み立てた予定を確認画面に渡す
+    func prepareManualParsedInput(_ parsed: ParsedInput) {
+        parsedInput = parsed
+        errorMessage = nil
+        duplicateWarning = nil
+        applyConfirmationDefaults(for: parsedInput)
     }
 
     // MARK: - 重複検知（P-1-7）
@@ -208,7 +212,8 @@ final class InputViewModel {
             if let voiceURL = try? await voiceGenerator.generateAudio(
                 text: speechText,
                 character: alarm.voiceCharacter,
-                alarmID: alarm.id
+                alarmID: alarm.id,
+                eventTitle: alarm.title
             ) {
                 alarm.voiceFileName = voiceURL.lastPathComponent
             }
@@ -222,10 +227,6 @@ final class InputViewModel {
                     for minutes in selectedPreNotificationMinutesList.sorted(by: >) {
                         var tempAlarm = alarm
                         tempAlarm.preNotificationMinutes = minutes
-                        // アラームのみモードではAlarmKitに音声ファイルを渡さない
-                        if appState.notificationType != .alarmAndVoice {
-                            tempAlarm.voiceFileName = nil
-                        }
                         let akID = try await alarmScheduler.schedule(tempAlarm)
                         scheduledIDs.append(akID)
                         minutesMap[akID.uuidString] = minutes
@@ -238,6 +239,8 @@ final class InputViewModel {
                     continue
                 }
             }
+            // ToDoはAlarmKit不要のため、ここでalarmKitSucceededをtrueにしてアーリーリターンを防ぐ
+            if alarm.isToDo { alarmKitSucceeded = true }
 
             // Step 3: EventKitに予定を書き込む（AlarmKit成功後のみ。カレンダー権限なし時はスキップ）
             if index == 0 {
@@ -267,7 +270,11 @@ final class InputViewModel {
         let recurrenceSuffix = recurrence.map { "（\($0.shortDisplayName)）" } ?? ""
         let calendarName = await resolvedCalendarName(id: calendarID)
         let calendarSuffix = calendarName.map { "「\($0)」にも登録しました。" } ?? ""
-        confirmationMessage = "\(resolvedFireDate.naturalJapaneseString)、\(parsed.title)\(recurrenceSuffix)ですね。アラームをセットしました！\(calendarSuffix)バッチリです。"
+        if parsed.isToDo {
+            confirmationMessage = "「\(parsed.title)」をやることリストに追加したよ！\(calendarSuffix)バッチリです。"
+        } else {
+            confirmationMessage = "\(resolvedFireDate.naturalJapaneseString)、\(parsed.title)\(recurrenceSuffix)ですね。アラームをセットしました！\(calendarSuffix)バッチリです。"
+        }
         parsedInput = nil
         transcribedText = ""
 
@@ -293,6 +300,13 @@ final class InputViewModel {
         guard let id else { return nil }
         let calendars = (try? await calendarProvider.availableCalendars()) ?? []
         return calendars.first(where: { $0.id == id })?.title
+    }
+
+    /// 確認画面で使う初期値を現在の設定から反映する
+    private func applyConfirmationDefaults(for parsed: ParsedInput?) {
+        selectedFireDate = nil
+        selectedPreNotificationMinutesList = appState.preNotificationMinutesList
+        selectedRecurrence = parsed?.recurrenceRule
     }
 
     // MARK: - リセット

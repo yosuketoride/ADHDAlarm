@@ -47,7 +47,7 @@ struct EventRow: View {
     private var normalLayout: some View {
         HStack(spacing: Spacing.sm) {
             // 絵文字アイコン（左端・固定20pt・Dynamic Type非スケール）
-            Text(alarm.eventEmoji ?? "📌")
+            Text(alarm.resolvedEmoji)
                 .font(.system(size: 20))
                 .opacity(iconOpacity)
                 .frame(width: 24, alignment: .center)
@@ -95,7 +95,7 @@ struct EventRow: View {
     private var largeTypeLayout: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(alignment: .top, spacing: Spacing.sm) {
-                Text(alarm.eventEmoji ?? "📌")
+                Text(alarm.resolvedEmoji)
                     .font(.system(size: IconSize.xl))
                     .opacity(iconOpacity)
 

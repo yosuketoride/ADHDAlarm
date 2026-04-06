@@ -71,4 +71,59 @@ final class VoiceFileGeneratorTests: XCTestCase {
             XCTAssertFalse(text.isEmpty, "preNotificationMinutes=\(minutes) でテキストが空")
         }
     }
+
+    // MARK: - sanitizeForSpeech（静的メソッド）
+
+    func testSanitizeForSpeech_RemovesEmoji() {
+        let sanitized = VoiceFileGenerator.sanitizeForSpeech("会議😀📅")
+
+        XCTAssertEqual(sanitized, "会議")
+    }
+
+    func testSanitizeForSpeech_ReplacesBracketsWithComma() {
+        let sanitized = VoiceFileGenerator.sanitizeForSpeech("病院（内科）")
+
+        XCTAssertFalse(sanitized.contains("（"))
+        XCTAssertFalse(sanitized.contains("）"))
+        XCTAssertTrue(sanitized.contains("病院、"), "開き括弧が読点に変換されること")
+        XCTAssertTrue(sanitized.contains("内科、"), "閉じ括弧が読点に変換されること")
+    }
+
+    func testSanitizeForSpeech_CollapsesRepeatedPunctuation() {
+        let sanitized = VoiceFileGenerator.sanitizeForSpeech("会議、、。。")
+
+        XCTAssertFalse(sanitized.contains("、、"))
+        XCTAssertFalse(sanitized.contains("。。"))
+        XCTAssertEqual(sanitized, "会議、 。")
+    }
+
+    func testSanitizeForSpeech_ReplacesCommonAbbreviations() {
+        let sanitized = VoiceFileGenerator.sanitizeForSpeech("MRIとCTの検査")
+
+        XCTAssertTrue(sanitized.contains("エムアールアイ"))
+        XCTAssertTrue(sanitized.contains("シーティー"))
+        XCTAssertFalse(sanitized.contains("MRI"))
+        XCTAssertFalse(sanitized.contains("CT"))
+    }
+
+    func testMakeUtterance_UsesSanitizedSpeechString() {
+        let utterance = VoiceFileGenerator.makeUtterance(
+            text: "MRI😀（検査）",
+            character: .femaleConcierge,
+            isClearVoiceEnabled: false
+        )
+
+        XCTAssertEqual(utterance.speechString, "エムアールアイ、 検査、")
+    }
+
+    func testMakeUtterance_ClearVoiceAppliesConfiguredRateAndPitch() {
+        let utterance = VoiceFileGenerator.makeUtterance(
+            text: "テスト",
+            character: .femaleConcierge,
+            isClearVoiceEnabled: true
+        )
+
+        XCTAssertEqual(utterance.rate, 0.40, accuracy: 0.001)
+        XCTAssertEqual(utterance.pitchMultiplier, 0.80, accuracy: 0.001)
+    }
 }

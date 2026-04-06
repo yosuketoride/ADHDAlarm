@@ -6,10 +6,10 @@ import AVFoundation
 /// マイクボタンを押している間だけ録音し、離したら自動でNL解析する
 struct MicrophoneInputView: View {
     @State var viewModel: InputViewModel
+    var onSaved: (() -> Void)? = nil
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     @State private var permissionsService = PermissionsService()
-    @State private var showTextFallback = false
     @State private var showManualInput = false
     @State private var showPaywall = false
     @State private var owlBounce = false
@@ -48,8 +48,7 @@ struct MicrophoneInputView: View {
         !viewModel.isParsing &&
         viewModel.transcribedText.isEmpty &&
         viewModel.errorMessage == nil &&
-        viewModel.parsedInput == nil &&
-        !showTextFallback
+        viewModel.parsedInput == nil
     }
 
     var body: some View {
@@ -78,10 +77,40 @@ struct MicrophoneInputView: View {
         .sheet(isPresented: $showPaywall) {
             PaywallView()
         }
+        .sheet(isPresented: $showManualInput, onDismiss: {
+            if viewModel.confirmationMessage != nil {
+                onSaved?()
+                dismiss()
+            }
+        }) {
+            NavigationStack {
+                PersonManualInputView(viewModel: viewModel, onSaved: onSaved)
+                    .navigationTitle("予定を追加")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("閉じる") { showManualInput = false }
+                        }
+                    }
+            }
+            .presentationDetents([.large])
+        }
+        .onChange(of: viewModel.confirmationMessage) { _, newValue in
+            guard newValue != nil else { return }
+            guard !showManualInput else { return }
+            onSaved?()
+            dismiss()
+        }
         .onAppear {
             withAnimation(.spring(duration: 0.6, bounce: 0.4).delay(0.3)) {
                 owlBounce = true
             }
+        }
+        .onDisappear {
+            // シートが閉じられる時（アラーム割り込み含む）に必ず録音を停止する。
+            // これがないとAVAudioEngine(.record)が動いたままになり、
+            // RingingViewの音声再生(.playback)と競合してアラームが無音になる。
+            viewModel.stopListening()
         }
     }
 
@@ -158,23 +187,6 @@ struct MicrophoneInputView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 24)
-            .sheet(isPresented: $showManualInput, onDismiss: {
-                if viewModel.confirmationMessage != nil {
-                    dismiss()
-                }
-            }) {
-                NavigationStack {
-                    PersonManualInputView(viewModel: viewModel)
-                        .navigationTitle("予定を追加")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("閉じる") { showManualInput = false }
-                            }
-                        }
-                }
-                .presentationDetents([.large])
-            }
         }
     }
 
@@ -256,11 +268,6 @@ struct MicrophoneInputView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
-            } else if showTextFallback {
-                TextInputFallbackView(viewModel: viewModel)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
             } else {
                 microphoneButton
                     .padding(.bottom, 56)
@@ -268,12 +275,9 @@ struct MicrophoneInputView: View {
 
             if viewModel.parsedInput == nil {
                 Button {
-                    withAnimation(.spring(duration: 0.3)) {
-                        showTextFallback.toggle()
-                        viewModel.reset()
-                    }
+                    showManualInput = true
                 } label: {
-                    Text(showTextFallback ? "マイクに切り替える" : "文字で入力する")
+                    Text("文字で入力する")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

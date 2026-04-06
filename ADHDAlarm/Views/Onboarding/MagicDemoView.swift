@@ -195,6 +195,7 @@ struct MagicDemoView: View {
         //
         // 本実装は「警告を出す」ためのヒューリスティックであり、
         // 「マナーモードを確実に検知する」ものではない。
+        // この検知は不確実であり AlarmKit の動作には影響しない。
         // AlarmKit がマナーモードを貫通して鳴ることが本アプリの根幹であるため、
         // この検知ロジックに依存した「アラームが鳴らない」ケースを作ってはいけない。
 
@@ -208,7 +209,8 @@ struct MagicDemoView: View {
             if let url = try? await voiceGenerator.generateAudio(
                 text: VoiceFileGenerator.speechText(for: demoAlarm),
                 character: .femaleConcierge,
-                alarmID: demoAlarm.id
+                alarmID: demoAlarm.id,
+                eventTitle: demoAlarm.title
             ) {
                 demoAlarm.voiceFileName = url.lastPathComponent
             }

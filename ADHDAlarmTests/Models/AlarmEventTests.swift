@@ -17,6 +17,12 @@ final class AlarmEventTests: XCTestCase {
         XCTAssertNil(alarm.alarmKitIdentifier)
         XCTAssertNil(alarm.voiceFileName)
         XCTAssertNil(alarm.calendarIdentifier)
+        XCTAssertEqual(alarm.alarmKitIdentifiers, [])
+        XCTAssertEqual(alarm.alarmKitMinutesMap, [:])
+        XCTAssertNil(alarm.completionStatus)
+        XCTAssertEqual(alarm.snoozeCount, 0)
+        XCTAssertFalse(alarm.isToDo)
+        XCTAssertNil(alarm.undoPendingUntil)
     }
 
     func testInitCustomValues() {
@@ -51,8 +57,9 @@ final class AlarmEventTests: XCTestCase {
     func testEquatableSameID() {
         let id = UUID()
         let date = Date()
-        let a1 = AlarmEvent(id: id, title: "A", fireDate: date)
-        let a2 = AlarmEvent(id: id, title: "A", fireDate: date)
+        let createdAt = Date()
+        let a1 = AlarmEvent(id: id, title: "A", fireDate: date, createdAt: createdAt)
+        let a2 = AlarmEvent(id: id, title: "A", fireDate: date, createdAt: createdAt)
         XCTAssertEqual(a1, a2)
     }
 
@@ -66,15 +73,23 @@ final class AlarmEventTests: XCTestCase {
     // MARK: - Codable
 
     func testCodableRoundTrip() throws {
+        let undoDeadline = Date().addingTimeInterval(300)
         let original = AlarmEvent(
             title: "ランチ",
             fireDate: Date(),
             preNotificationMinutes: 10,
             eventKitIdentifier: "ek-456",
             alarmKitIdentifier: UUID(),
+            alarmKitIdentifiers: [UUID(), UUID()],
+            alarmKitMinutesMap: ["a": 15, "b": 0],
             voiceFileName: "ランチ.caf",
             calendarIdentifier: "cal-2",
-            voiceCharacter: .maleButler
+            voiceCharacter: .maleButler,
+            eventEmoji: "☕",
+            completionStatus: .completed,
+            snoozeCount: 2,
+            isToDo: true,
+            undoPendingUntil: undoDeadline
         )
 
         let data = try JSONEncoder().encode(original)
@@ -85,9 +100,16 @@ final class AlarmEventTests: XCTestCase {
         XCTAssertEqual(decoded.preNotificationMinutes, original.preNotificationMinutes)
         XCTAssertEqual(decoded.eventKitIdentifier, original.eventKitIdentifier)
         XCTAssertEqual(decoded.alarmKitIdentifier, original.alarmKitIdentifier)
+        XCTAssertEqual(decoded.alarmKitIdentifiers, original.alarmKitIdentifiers)
+        XCTAssertEqual(decoded.alarmKitMinutesMap, original.alarmKitMinutesMap)
         XCTAssertEqual(decoded.voiceFileName, original.voiceFileName)
         XCTAssertEqual(decoded.calendarIdentifier, original.calendarIdentifier)
         XCTAssertEqual(decoded.voiceCharacter, original.voiceCharacter)
+        XCTAssertEqual(decoded.eventEmoji, original.eventEmoji)
+        XCTAssertEqual(decoded.completionStatus, original.completionStatus)
+        XCTAssertEqual(decoded.snoozeCount, original.snoozeCount)
+        XCTAssertEqual(decoded.isToDo, original.isToDo)
+        XCTAssertEqual(decoded.undoPendingUntil, original.undoPendingUntil)
     }
 
     func testCodableArrayRoundTrip() throws {
@@ -115,6 +137,50 @@ final class AlarmEventTests: XCTestCase {
         XCTAssertNil(decoded.calendarIdentifier)
     }
 
+    func testBackwardCompatibleDecode_FillsDefaultsForNewFields() throws {
+        let legacyJSON = """
+        {
+          "id": "\(UUID().uuidString)",
+          "title": "旧データ",
+          "fireDate": \(Date().timeIntervalSince1970),
+          "preNotificationMinutes": 15,
+          "voiceCharacter": "female_concierge",
+          "createdAt": \(Date().timeIntervalSince1970)
+        }
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        let decoded = try decoder.decode(AlarmEvent.self, from: legacyJSON)
+
+        XCTAssertEqual(decoded.alarmKitIdentifiers, [])
+        XCTAssertEqual(decoded.alarmKitMinutesMap, [:])
+        XCTAssertNil(decoded.completionStatus)
+        XCTAssertEqual(decoded.snoozeCount, 0)
+        XCTAssertFalse(decoded.isToDo)
+        XCTAssertNil(decoded.undoPendingUntil)
+    }
+
+    func testResolvedEmoji_DefaultsToPinWhenEmojiIsMissingOrEmpty() {
+        let noEmoji = AlarmEvent(title: "予定", fireDate: Date())
+        let emptyEmoji = AlarmEvent(title: "予定", fireDate: Date(), eventEmoji: "")
+        let customEmoji = AlarmEvent(title: "予定", fireDate: Date(), eventEmoji: "💊")
+
+        XCTAssertEqual(noEmoji.resolvedEmoji, "📌")
+        XCTAssertEqual(emptyEmoji.resolvedEmoji, "📌")
+        XCTAssertEqual(customEmoji.resolvedEmoji, "💊")
+    }
+
+    func testDisplayTitle_RemovesLeadingEmoji() {
+        let alarm = AlarmEvent(title: "💊 くすり", fireDate: Date())
+        XCTAssertEqual(alarm.displayTitle, "くすり")
+    }
+
+    func testDisplayTitle_DoesNotStripLeadingDigit() {
+        let alarm = AlarmEvent(title: "5001円", fireDate: Date())
+        XCTAssertEqual(alarm.displayTitle, "5001円")
+    }
+
     // MARK: - VoiceCharacter
 
     func testVoiceCharacterRawValues() {
@@ -128,7 +194,7 @@ final class AlarmEventTests: XCTestCase {
     }
 
     func testVoiceCharacterCaseIterable() {
-        XCTAssertEqual(VoiceCharacter.allCases.count, 2)
+        XCTAssertEqual(VoiceCharacter.allCases.count, 3)
     }
 
     // MARK: - SubscriptionTier

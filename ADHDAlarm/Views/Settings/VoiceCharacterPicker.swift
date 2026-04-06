@@ -7,6 +7,7 @@ struct VoiceCharacterPicker: View {
     let isPro: Bool
     var onUpgradeTapped: (() -> Void)?
 
+    @Environment(AppState.self) private var appState
     @State private var synthesizer = AVSpeechSynthesizer()
     @State private var playingCharacter: VoiceCharacter?
     // レビュー指摘: 連続タップ時の競合を防ぐためTaskの参照を保持してキャンセルする
@@ -103,10 +104,11 @@ struct VoiceCharacterPicker: View {
         // 別キャラ or 停止中 → 停止してから新しい声を再生
         synthesizer.stopSpeaking(at: .immediate)
 
-        let utterance = AVSpeechUtterance(string: sampleText)
-        utterance.voice = VoiceFileGenerator.voice(for: character)
-        utterance.rate  = AVSpeechUtteranceDefaultSpeechRate * 0.85
-        utterance.pitchMultiplier = character == .maleButler ? 0.85 : 1.05
+        let utterance = VoiceFileGenerator.makeUtterance(
+            text: sampleText,
+            character: character,
+            isClearVoiceEnabled: appState.isClearVoiceEnabled
+        )
 
         playingCharacter = character
         synthesizer.speak(utterance)
