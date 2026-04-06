@@ -56,13 +56,13 @@ struct SOSPairingView: View {
                     HStack {
                         Image(systemName: "message.fill")
                             .font(.title2)
-                        Text("家族のLINEを登録する")
+                        Text("お知らせを受け取る家族を登録する")
                             .font(.headline)
                     }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
-                
+
                 Text("QRコードを表示して、ご家族のスマホから連携コードを送信してもらいます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)

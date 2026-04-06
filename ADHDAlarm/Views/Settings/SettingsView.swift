@@ -2,10 +2,12 @@ import SwiftUI
 import AVFoundation
 import AudioToolbox
 
-/// 設定画面（一軍のみ）
+/// 設定画面
 ///
 /// 「開いた瞬間にやることがわかる」設計。
-/// 頻繁に触わない詳細設定は「詳細設定」カードの奥に隠す（段階的開示）。
+/// ・上部カード群：レスキュー / 声 / ふくろう名前 / PRO訴求
+/// ・Listスタイルセクション：一般 / 家族と連携 / 料金プラン / その他
+/// ・末尾：アカウント削除（Apple審査要件: 赤・明確に配置）
 struct SettingsView: View {
     @State var viewModel: SettingsViewModel
     @Environment(AppState.self) private var appState
@@ -14,51 +16,61 @@ struct SettingsView: View {
     @State private var showOwlNameEditor = false
     @State private var owlNameDraft = ""
     @State private var isTesting = false
+    @State private var showDeleteAccountConfirm = false
     private let tester = VolumeTestPlayer()
 
+    #if DEBUG
     private struct VoiceDebugInfo: Identifiable {
         let identifier: String
         let name: String
         let language: String
         let qualityText: String
-
         var id: String { identifier }
     }
+    #endif
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    // ① レスキューカード（最重要: 「鳴らないかも」不安を解消）
+                VStack(spacing: Spacing.lg) {
+                    // ① レスキューカード（最重要）
                     rescueCard
 
-                    // ② 音声キャラクターカード（唯一の「楽しい」設定）
-                    voiceCharacterCard
+                    // ② 声カード（音声キャラクター + 聞き取りやすいこえ）
+                    voiceCard
 
                     // ③ ふくろうの名前
                     owlNameCard
 
-                    // ④ PROプランカード（無料ユーザーのみ）
-                    if !viewModel.isPro {
-                        proCard
-                    }
+                    // ④ PRO訴求カード（無料ユーザーのみ）
+                    if !viewModel.isPro { proCard }
 
-                    // ⑤ 詳細設定カード（控えめに）
-                    advancedCard
+                    // ── 一般 ──
+                    generalSection
 
-                    // フッター（プライバシー + バージョン）
-                    footerSection
+                    // ── 家族と連携 ──
+                    familySection
 
-                    // モードやり直しボタン（常に表示）
-                    restartOnboardingSection
+                    // ── 料金プラン ──
+                    planSection
+
+                    // ── その他 ──
+                    otherSection
+
+                    // ── アカウント削除（Apple審査: 5.1.1 準拠）──
+                    deleteAccountButton
+
+                    // ── やり直し・バージョン ──
+                    restartButton
+                    footerText
 
                     #if DEBUG
                     debugSection
                     #endif
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 20)
-                .padding(.bottom, 8)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.md)
+                .padding(.bottom, Spacing.xl)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("設定")
@@ -78,9 +90,31 @@ struct SettingsView: View {
             Text("8文字までで入力できます。")
         }
         .onChange(of: owlNameDraft) { _, newValue in
-            if newValue.count > 8 {
-                owlNameDraft = String(newValue.prefix(8))
+            if newValue.count > 8 { owlNameDraft = String(newValue.prefix(8)) }
+        }
+        .confirmationDialog(
+            "アカウントを削除しますか？",
+            isPresented: $showDeleteAccountConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("削除する", role: .destructive) {
+                Task {
+                    do {
+                        try await FamilyRemoteService.shared.deleteAccount()
+                        appState.familyLinkId = nil
+                        appState.familyChildLinkIds = []
+                        appState.unreadFamilyEventCount = 0
+                    } catch {
+                        // 削除失敗時も画面は維持する
+                    }
+                }
             }
+            Button("やめる", role: .cancel) {}
+        } message: {
+            Text("この操作は取り消せません。家族との連携が解除されます。")
+        }
+        .task {
+            await viewModel.loadCalendars()
         }
     }
 
@@ -88,8 +122,7 @@ struct SettingsView: View {
 
     private var rescueCard: some View {
         SettingsCard {
-            // ヘッダー
-            HStack(spacing: 10) {
+            HStack(spacing: Spacing.sm) {
                 Image(systemName: "hands.sparkles.fill")
                     .font(.title2)
                     .foregroundStyle(.orange)
@@ -102,13 +135,10 @@ struct SettingsView: View {
                 }
             }
 
-            // 音量テストボタン（最も目立つ特等席）
             Button {
                 guard !isTesting else { return }
                 isTesting = true
-                tester.play {
-                    isTesting = false
-                }
+                tester.play { isTesting = false }
             } label: {
                 Label(
                     isTesting ? "テスト中…" : "音量テストを鳴らす",
@@ -118,9 +148,8 @@ struct SettingsView: View {
             .buttonStyle(.large(background: .orange))
             .disabled(isTesting)
 
-            // 音が小さかった場合の案内
             if !isTesting {
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: Spacing.sm) {
                     Image(systemName: "info.circle")
                         .foregroundStyle(.secondary)
                         .font(.caption)
@@ -132,7 +161,6 @@ struct SettingsView: View {
                 }
             }
 
-            // お助けセンターリンク
             NavigationLink {
                 RescueCenterView()
             } label: {
@@ -150,9 +178,9 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - ② 音声キャラクターカード
+    // MARK: - ② 声カード（音声キャラクター + 聞き取りやすいこえ）
 
-    private var voiceCharacterCard: some View {
+    private var voiceCard: some View {
         SettingsCard {
             VoiceCharacterPicker(
                 selection: Binding(
@@ -163,8 +191,9 @@ struct SettingsView: View {
                 onUpgradeTapped: { showPaywall = true }
             )
 
-            // 家族の生声が選択されている場合は録音管理リンクを表示
+            // カスタム録音が選択されている場合は録音管理リンクを表示
             if viewModel.voiceCharacter == .customRecording && viewModel.isPro {
+                Divider()
                 NavigationLink {
                     CustomVoiceRecorderView()
                 } label: {
@@ -181,16 +210,35 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
             }
 
-            #if DEBUG
             Divider()
 
+            // 聞き取りやすいこえ（詳細設定から昇格）
+            Toggle(isOn: Binding(
+                get: { appState.isClearVoiceEnabled },
+                set: { appState.isClearVoiceEnabled = $0 }
+            )) {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("聞き取りやすいこえ")
+                            .font(.body)
+                        Text("声をゆっくり・低めに読み上げます")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "ear.badge.checkmark")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(minHeight: ComponentSize.settingRow)
+
+            #if DEBUG
+            Divider()
             VStack(alignment: .leading, spacing: 8) {
                 Text("音声デバッグ")
                     .font(.subheadline.weight(.semibold))
-                Text("使える日本語音声の identifier と quality を確認できます。Siri の「声1 / 声2」の実体確認用です。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
+                Text("使える日本語音声のidentifier/qualityを確認できます。")
+                    .font(.caption).foregroundStyle(.secondary)
                 ForEach(availableJapaneseVoices) { voice in
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(voice.name) • \(voice.qualityText)")
@@ -210,38 +258,6 @@ struct SettingsView: View {
         }
     }
 
-    #if DEBUG
-    private var availableJapaneseVoices: [VoiceDebugInfo] {
-        AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.hasPrefix("ja") }
-            .map {
-                VoiceDebugInfo(
-                    identifier: $0.identifier,
-                    name: $0.name,
-                    language: $0.language,
-                    qualityText: qualityText(for: $0.quality)
-                )
-            }
-            .sorted {
-                if $0.qualityText == $1.qualityText {
-                    return $0.name.localizedStandardCompare($1.name) == .orderedAscending
-                }
-                return $0.qualityText < $1.qualityText
-            }
-    }
-
-    private func qualityText(for quality: AVSpeechSynthesisVoiceQuality) -> String {
-        switch quality {
-        case .premium:
-            return "premium"
-        case .enhanced:
-            return "enhanced"
-        default:
-            return "default"
-        }
-    }
-    #endif
-
     // MARK: - ③ ふくろうの名前
 
     private var owlNameCard: some View {
@@ -250,7 +266,7 @@ struct SettingsView: View {
                 owlNameDraft = appState.owlName
                 showOwlNameEditor = true
             } label: {
-                HStack(spacing: 12) {
+                HStack(spacing: Spacing.md) {
                     Image(systemName: "bird.fill")
                         .font(.title2)
                         .foregroundStyle(Color.owlAmber)
@@ -267,100 +283,236 @@ struct SettingsView: View {
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
-                .frame(minHeight: 60)
+                .frame(minHeight: ComponentSize.settingRow)
             }
             .contentShape(Rectangle())
             .buttonStyle(.plain)
         }
     }
 
-    // MARK: - ④ PROプランカード（無料ユーザーのみ）
+    // MARK: - ④ PRO訴求カード（無料ユーザーのみ）
 
     private var proCard: some View {
         SettingsCard {
-            HStack(spacing: 12) {
+            HStack(spacing: Spacing.md) {
                 Image(systemName: "star.fill")
                     .font(.title2)
                     .foregroundStyle(.yellow)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("PROプランで、もっと安心に")
                         .font(.headline)
-                    Text("家族へのSOS自動通知・生声アラームなど")
+                    Text("家族への自動連絡・生声アラームなど")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-            Button {
-                showPaywall = true
-            } label: {
-                Text("PROプランを見る")
-                    .frame(maxWidth: .infinity)
+            Button { showPaywall = true } label: {
+                Text("PROプランを見る").frame(maxWidth: .infinity)
             }
             .buttonStyle(.large(background: .blue))
         }
     }
 
-    // MARK: - ⑤ 詳細設定カード
+    // MARK: - 一般セクション
 
-    private var advancedCard: some View {
-        SettingsCard {
+    private var generalSection: some View {
+        SettingsSection(title: "一般") {
+            // お知らせのタイミング
             NavigationLink {
-                AdvancedSettingsView(viewModel: viewModel)
+                notificationTimingPage
             } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("詳細設定")
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        Text("通知タイミング・カレンダー・Siriなど")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .frame(minHeight: ComponentSize.settingRow)
+                listRow(icon: "bell", title: "お知らせのタイミング")
             }
-            .contentShape(Rectangle())
             .buttonStyle(.plain)
 
-            Divider()
+            Divider().padding(.leading, 52)
 
-            // クリアボイスモード
-            Toggle(isOn: Binding(
-                get: { appState.isClearVoiceEnabled },
-                set: { appState.isClearVoiceEnabled = $0 }
-            )) {
-                Label {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("聞き取りやすいこえ")
-                            .font(.body)
-                        Text("アラームの声をゆっくり・低めに読み上げます")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } icon: {
-                    Image(systemName: "ear.badge.checkmark")
-                        .foregroundStyle(.blue)
+            // カレンダーを選ぶ（PRO）
+            if viewModel.isPro {
+                NavigationLink {
+                    calendarSettingsPage
+                } label: {
+                    listRow(icon: "calendar", title: "カレンダーを選ぶ")
                 }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 52)
             }
-            .frame(minHeight: ComponentSize.settingRow)
-            .contentShape(Rectangle())
+
+            // マイクの使い方
+            NavigationLink {
+                micSettingsPage
+            } label: {
+                listRow(icon: "mic", title: "マイクの使い方",
+                        value: viewModel.micInputMode.displayName)
+            }
+            .buttonStyle(.plain)
+
+            Divider().padding(.leading, 52)
+
+            // アラームの音の出力先
+            NavigationLink {
+                audioOutputPage
+            } label: {
+                listRow(icon: "speaker.wave.2", title: "アラームの音の出力先",
+                        value: viewModel.audioOutputMode.displayName)
+            }
+            .buttonStyle(.plain)
         }
     }
 
-    // MARK: - フッター
+    // MARK: - 家族と連携セクション
 
-    private var footerSection: some View {
-        VStack(spacing: 6) {
+    private var familySection: some View {
+        SettingsSection(title: "家族と連携") {
+            // 家族への自動連絡（SOS）
+            if viewModel.isPro {
+                NavigationLink {
+                    SOSSettingsView(settingsViewModel: viewModel)
+                } label: {
+                    listRow(icon: "bell.badge", title: "家族への自動連絡",
+                            subtitle: "アラームへの応答がない場合に連絡")
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button { showPaywall = true } label: {
+                    listRow(icon: "bell.badge", title: "家族への自動連絡", proLocked: true)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Divider().padding(.leading, 52)
+
+            // 家族から予定を受け取る
+            if viewModel.isPro {
+                NavigationLink {
+                    PersonFamilyLinkView()
+                } label: {
+                    listRow(
+                        icon: "person.2",
+                        title: "家族から予定を受け取る",
+                        subtitle: appState.familyLinkId != nil
+                            ? "連携済み ✓"
+                            : "家族が代わりに予定を登録できます"
+                    )
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button { showPaywall = true } label: {
+                    listRow(icon: "person.2", title: "家族から予定を受け取る", proLocked: true)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: - 料金プランセクション
+
+    private var planSection: some View {
+        SettingsSection(title: "料金プラン") {
+            Button { showPaywall = true } label: {
+                listRow(
+                    icon: "star",
+                    title: "ふくろう PRO",
+                    value: viewModel.isPro ? "PRO" : "無料"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - その他セクション
+
+    private var otherSection: some View {
+        SettingsSection(title: "その他") {
+            // よくある質問（Notionページ、URL確定後に設定）
+            if let url = Constants.LegalURL.faqURL {
+                Link(destination: url) {
+                    listRow(icon: "questionmark.circle", title: "よくある質問")
+                }
+                .foregroundStyle(.primary)
+            } else {
+                listRow(icon: "questionmark.circle", title: "よくある質問")
+                    .foregroundStyle(.tertiary)
+            }
+
+            Divider().padding(.leading, 52)
+
+            // お問い合わせ（mailto:）
+            if let url = Constants.LegalURL.supportMailURL {
+                Link(destination: url) {
+                    listRow(icon: "envelope", title: "お問い合わせ")
+                }
+                .foregroundStyle(.primary)
+            }
+
+            Divider().padding(.leading, 52)
+
+            // 利用規約
+            if let url = URL(string: Constants.LegalURL.terms) {
+                Link(destination: url) {
+                    listRow(icon: "doc.text", title: "利用規約")
+                }
+                .foregroundStyle(.primary)
+            }
+
+            Divider().padding(.leading, 52)
+
+            // プライバシーポリシー
+            if let url = URL(string: Constants.LegalURL.privacy) {
+                Link(destination: url) {
+                    listRow(icon: "lock.shield", title: "プライバシーポリシー")
+                }
+                .foregroundStyle(.primary)
+            }
+
+            Divider().padding(.leading, 52)
+
+            // レビューで応援する
+            if let url = Constants.LegalURL.appStoreReviewURL {
+                Link(destination: url) {
+                    listRow(icon: "heart", title: "レビューで応援する",
+                            subtitle: "ストアでレビューを書いて応援してください")
+                }
+                .foregroundStyle(.primary)
+            } else {
+                listRow(icon: "heart", title: "レビューで応援する",
+                        subtitle: "ストアでレビューを書いて応援してください")
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    // MARK: - アカウント削除ボタン（Apple審査: 5.1.1 準拠 — 明確に配置）
+
+    private var deleteAccountButton: some View {
+        Button(role: .destructive) {
+            showDeleteAccountConfirm = true
+        } label: {
+            Text("アカウントを削除する")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.large(background: Color.red.opacity(0.08), foreground: .red))
+    }
+
+    // MARK: - 最初からやり直しボタン
+
+    private var restartButton: some View {
+        Button {
+            appState.isOnboardingComplete = false
+            appState.appMode = nil
+        } label: {
+            Label("最初の設定をやり直す", systemImage: "arrow.counterclockwise")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - フッター（プライバシー + バージョン）
+
+    private var footerText: some View {
+        VStack(spacing: 4) {
             HStack(spacing: 6) {
-                Image(systemName: "lock.shield")
-                    .foregroundStyle(.secondary)
+                Image(systemName: "lock.shield").foregroundStyle(.secondary)
                 Text("予定データはiPhoneの外には送信されません。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -372,25 +524,138 @@ struct SettingsView: View {
                 .foregroundStyle(.tertiary)
         }
         .multilineTextAlignment(.center)
-        .padding(.top, 4)
     }
 
-    // MARK: - モードやり直し
+    // MARK: - 行ヘルパー（モノクロアイコン + iOS Settingsスタイル）
 
-    private var restartOnboardingSection: some View {
-        SettingsCard {
-            Button {
-                appState.isOnboardingComplete = false
-                appState.appMode = nil
-            } label: {
-                Label("最初の設定をやり直す", systemImage: "arrow.counterclockwise")
+    private func listRow(
+        icon: String,
+        title: String,
+        subtitle: String? = nil,
+        value: String? = nil,
+        proLocked: Bool = false
+    ) -> some View {
+        HStack(spacing: Spacing.md) {
+            // モノクロアイコン（グレー丸角背景）
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Color(.systemGray))
+                .frame(width: 28, height: 28)
+                .background(Color(.systemGray5),
+                            in: RoundedRectangle(cornerRadius: CornerRadius.sm))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(proLocked ? .secondary : .primary)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if proLocked {
+                Text("PRO")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.owlAmber)
+                    .clipShape(Capsule())
+            } else if let value {
+                Text(value)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            .frame(minHeight: 60)
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color(.tertiaryLabel))
         }
+        .frame(minHeight: ComponentSize.settingRow)
+        .padding(.horizontal, Spacing.md)
+        .contentShape(Rectangle())
     }
 
-    // MARK: - デバッグ
+    // MARK: - 詳細ページ定義（NavigationLink先）
+
+    private var notificationTimingPage: some View {
+        List {
+            Section {
+                PreNotificationPicker(
+                    selection: Binding(
+                        get: { viewModel.preNotificationMinutesList },
+                        set: { viewModel.preNotificationMinutesList = $0 }
+                    ),
+                    isPro: viewModel.isPro,
+                    onUpgradeTapped: { showPaywall = true }
+                )
+                .padding(.vertical, Spacing.sm)
+            } footer: {
+                Text("予定を追加するときに個別に変更することもできます。")
+            }
+        }
+        .navigationTitle("お知らせのタイミング")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var calendarSettingsPage: some View {
+        List {
+            Section {
+                Picker("カレンダーを選ぶ", selection: Binding(
+                    get: { viewModel.selectedCalendarID ?? "" },
+                    set: { viewModel.selectedCalendarID = $0.isEmpty ? nil : $0 }
+                )) {
+                    Text("デフォルト").tag("")
+                    ForEach(viewModel.availableCalendars) { cal in
+                        Text(cal.title).tag(cal.id)
+                    }
+                }
+                .pickerStyle(.inline)
+            } header: {
+                Text("予定を書き込むカレンダーを選んでください")
+            }
+        }
+        .navigationTitle("カレンダーを選ぶ")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var micSettingsPage: some View {
+        List {
+            Section {
+                Picker("マイクの使い方", selection: Binding(
+                    get: { viewModel.micInputMode },
+                    set: { viewModel.micInputMode = $0 }
+                )) {
+                    ForEach(MicInputMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .pickerStyle(.inline)
+            }
+        }
+        .navigationTitle("マイクの使い方")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var audioOutputPage: some View {
+        List {
+            Section {
+                Picker("音の出力先", selection: Binding(
+                    get: { viewModel.audioOutputMode },
+                    set: { viewModel.audioOutputMode = $0 }
+                )) {
+                    ForEach(AudioOutputMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                }
+                .pickerStyle(.inline)
+            }
+        }
+        .navigationTitle("アラームの音の出力先")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - デバッグセクション
 
     #if DEBUG
     private var debugSection: some View {
@@ -404,30 +669,75 @@ struct SettingsView: View {
             }
         }
     }
+
+    private var availableJapaneseVoices: [VoiceDebugInfo] {
+        AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("ja") }
+            .map { VoiceDebugInfo(identifier: $0.identifier, name: $0.name,
+                                  language: $0.language, qualityText: qualityText(for: $0.quality)) }
+            .sorted { $0.qualityText == $1.qualityText
+                ? $0.name.localizedStandardCompare($1.name) == .orderedAscending
+                : $0.qualityText < $1.qualityText }
+    }
+
+    private func qualityText(for quality: AVSpeechSynthesisVoiceQuality) -> String {
+        switch quality {
+        case .premium:  return "premium"
+        case .enhanced: return "enhanced"
+        default:        return "default"
+        }
+    }
     #endif
 }
 
-// MARK: - カードコンポーネント
+// MARK: - SettingsSection（グループ化リスト行のコンテナ）
 
-/// 設定画面用の白いカード。余白が文字サイズに連動してスケールする。
+private struct SettingsSection<Content: View>: View {
+    let title: String?
+    @ViewBuilder let content: () -> Content
+
+    init(title: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            if let title {
+                Text(title)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, Spacing.sm)
+            }
+            VStack(spacing: 0) {
+                content()
+            }
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
+        }
+    }
+}
+
+// MARK: - SettingsCard（上部カード群）
+
+/// 設定画面用の白いカード。
+/// レビュー指摘: @ScaledMetric を余白に使うとaccessibility3以上で余白が異常膨張し
+/// コンテンツが画面外に押し出されるレイアウト崩壊が起きる。固定値（Spacing.lg）を使用。
 private struct SettingsCard<Content: View>: View {
-    // レビュー指摘: @ScaledMetric を余白に使うとaccessibility3以上で余白が異常膨張し
-    // コンテンツが画面外に押し出されるレイアウト崩壊が起きる。固定値に変更。
-    private let cardPadding: CGFloat = 20
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: cardPadding * 0.75) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             content()
         }
-        .padding(cardPadding)
+        .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: 20))
+        .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
     }
 }
 
-// MARK: - 爆音テストプレーヤー（設定トップ用）
+// MARK: - VolumeTestPlayer（音量テスト用）
 
 /// 音量テスト: ビープ + TTS音声をAVSpeechSynthesizerで再生する
 private final class VolumeTestPlayer: NSObject, AVSpeechSynthesizerDelegate {
@@ -462,8 +772,10 @@ private final class VolumeTestPlayer: NSObject, AVSpeechSynthesizerDelegate {
         }
     }
 
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
+                            didFinish utterance: AVSpeechUtterance) {
+        try? AVAudioSession.sharedInstance().setActive(false,
+                                                       options: .notifyOthersOnDeactivation)
         speechSynthesizer = nil
         let cb = onFinish
         onFinish = nil

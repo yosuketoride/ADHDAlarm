@@ -74,20 +74,22 @@
 - [s] レビュー依頼: 起動直後・エラー後・スキップ後・ペイウォール後に発火しないこと
 
 ### オンボーディング
-- [s] PermissionsCTAView: 通知プリプロンプト → システムダイアログの順に表示されること
-- [s] PermissionsCTAView: カレンダープリプロンプト → システムダイアログの順に表示されること
+- [x] PermissionsCTAView: 通知プリプロンプト → システムダイアログの順に表示されること
+- [x] PermissionsCTAView: カレンダープリプロンプト → システムダイアログの順に表示されること
 - [r] MagicDemoView: 3秒後にAlarmKitアラームが発火すること
 - [r] MagicDemoView: マナーモード中でもアラームが鳴ること（実機確認必須）
-- [s] MagicDemoView: 「あとで試す」でスキップ可能なこと
+- [x] MagicDemoView: 「あとで試す」でスキップ可能なこと
 - [r] マイクFAB初回: プリプロンプト（録音はサーバーに送られない旨）→ システムダイアログの順
 
 ### アラーム画面（Stage 2 タップボタン化）
 - [s] RingingView: スライドではなく「薬を飲んだ」タップボタン（ComponentSize.actionGiant = 72pt）が表示されること
+  注: 現行実装は「薬を飲んだ」ではなく全幅の「とめる」ボタン表示 (`ComponentSize.actionGiant`) に変わっている
 - [r] 完了タップ: Haptic(.success)が完了確定時（ボタンタップ直後）に鳴ること
 - [s] MagicDemoView（スライドUI）の .selection / .success タイミングが正しいこと
 
 ### 家族モード（追加項目）
 - [s] 予定送信: 時間プリセット（朝/昼/夜）ボタンが3つ表示されること
+  注: 現行 `FamilySendTab` は 朝/昼/夜 ではなく `今から / 15分後 / 30分後 / 1時間後 / カスタム` の選択式
 - [s] 重複検知: 警告バナーではなく「上書きする/やめる」2択が表示されること
 - [s] 重複検知: 選択前は送信ボタンがブロックされること（強行突破不可）
 - [2] 家族がキャンセル: 親のLast Seenが古い場合「電波が届いていない」警告が出ること
@@ -115,6 +117,7 @@
 - [x] クリアボイスモードON時: rate=0.40、pitchMultiplier=0.80 が適用されること
 - [x] クリアボイスモードと高齢者モード（文字拡大）が独立して動作すること（片方だけON可能）
 - [s] 設定画面のラベルにIT用語が1つも使われていないこと（翻訳表に従っていること）
+  注: 現行実装ではカレンダー選択Pickerに `デフォルト` 文言が残っているため、未達
 
 ### オンボーディング（追加項目）
 - [r] MagicDemoでアラームが鳴った後、Stage 2 RingingView まで通り抜けること
@@ -123,22 +126,24 @@
 
 ### プライバシー
 - [r] Stage 1（OSアラーム）: タイトルが「🦉 ふくろうからのお知らせ」
-- [s] Stage 2（RingingView）: タイトルが表示されること
+- [x] Stage 2（RingingView）: タイトルが表示されること
 - [s] 通知バナー: 予定タイトルが含まれないこと
+  注: 現行実装の `AlarmKitScheduler.scheduleActionableNotification()` では `content.title = alarm.title` になっているため、未達
 
 ### ウィジェット
 - [r] Small: カウントダウン数字 + 次の予定タイトル
 - [r] ロック画面: アイコン + 数字のみ
 
 ### ふくろう命名（v11追加）
-- [s] OwlNamingView: PermissionsCTAViewの後、MagicDemoViewの前に表示されること
-- [s] 名前入力: onChange でリアルタイムに「○○って呼んでもらえるの嬉しいよ！」が更新されること
-- [s] 名前未入力でボタンを押した場合: デフォルト「ふくろう」として扱われること
-- [s] PersonHomeView のあいさつ文に `owlName` が埋め込まれること
-- [s] 設定画面から名前を変更できること
+- [x] OwlNamingView: PermissionsCTAViewの後、MagicDemoViewの前に表示されること
+- [x] 名前入力: onChange でリアルタイムに「○○って呼んでもらえるの嬉しいよ！」が更新されること
+- [x] 名前未入力でボタンを押した場合: デフォルト「ふくろう」として扱われること
+- [x] PersonHomeView のあいさつ文に `owlName` が埋め込まれること
+- [x] 設定画面から名前を変更できること
 
 ### EventRow 絵文字アイコン（v11追加）
 - [s] EventRow左端に絵文字アイコン（.title2相当・Dynamic Type追従）が表示されること
+  注: 現行実装は `Text(alarm.resolvedEmoji).font(.system(size: 20))` で固定サイズ表示のため、Dynamic Type 追従までは未確認
 - [x] タイトルから絵文字が自動推定されること（💊薬 / 🏥病院 / 🛒買い物 等）
 - [x] 推定不能の場合: デフォルト 📌 が表示されること（空欄にならない）
 - [s] 完了状態: 絵文字が opacity 0.4 でグレーアウトされること
@@ -148,10 +153,10 @@
 - [s] 右スワイプ: 緑「完了」ボタンが表示されること（allowsFullSwipe: false で誤操作防止）
 - [s] 左スワイプ: 赤「削除」ボタンが表示されること（タップで confirmationDialog を表示）
 - [r] 長押し（1秒）: 完了が発動し Haptic(.medium) が鳴ること
-- [s] 繰り返し予定の削除: 「今回のみ削除」「繰り返しを全部削除」の2択が表示されること
-- [s] 通常予定の削除: 「削除する / やめる」のダイアログが表示されること
+- [x] 繰り返し予定の削除: 「今回のみ削除」「繰り返しを全部削除」の2択が表示されること
+- [x] 通常予定の削除: 「削除する / やめる」のダイアログが表示されること
 - [s] 行内ヒント: 「長押しで完了 ・ 左スワイプで削除」テキストが未完了行に表示されること
-- [s] 完了済み行: 右端にチェックマークアイコンのみ表示（ボタンなし）
+- [x] 完了済み行: 右端にチェックマークアイコンのみ表示（ボタンなし）
 
 ### 連携解除UI（v11追加）
 - [2] 設定 → つながっている家族の設定: ペアリング相手の名前と連携日が表示されること
@@ -174,10 +179,12 @@
 - [s] 対応する AlarmEvent が存在しない孤児 .caf ファイルが削除されること
 - [s] 最終アクセスから14日以上経過したファイルが削除されること
 - [s] クリーンアップ中にUIがブロックされないこと（バックグラウンドスレッド）
+  注: 現時点では専用の `.caf` クリーンアップ実装や実行スケジューラをコードベース内でまだ確認できていない
 
 ### DatePickerアコーディオン（v11追加）
-- [s] FamilySendTab: DatePicker がデフォルトで非表示（折りたたみ状態）なこと
+- [x] FamilySendTab: DatePicker がデフォルトで非表示（折りたたみ状態）なこと
 - [s] 「⚙️ 時間を細かく設定する」タップ → DatePicker がアニメーションで展開されること
+  注: 現行 `FamilySendTab` は `⚙️ 時間を細かく設定する` ボタンではなく、`今から / 15分後 / 30分後 / 1時間後 / カスタム` の選択式
 - [s] プリセット（朝/昼/夜）タップ → 日時が即時設定され、アコーディオンは閉じたままなこと
 
 ### インタラクティブウィジェット（v12追加）
@@ -232,19 +239,21 @@
 - [x] Medium Widget が `.systemMedium` WidgetFamily で定義されていること
 - [s] 左ペインにふくろうの部屋（1/3幅）、右ペインに予定情報（2/3幅）が配置されること
 - [s] XP 0〜99: 部屋にふくろうのみ表示されること
-- [s] XP 100〜: 本棚が出現すること（アイテムがフェードインで追加されること）
-- [s] XP 300〜: 観葉植物が出現すること
-- [s] XP 700〜: ランプが出現すること
-- [s] XP 1000〜: 天体望遠鏡が出現すること
+- [x] XP 100〜: 本棚が出現すること（アイテムがフェードインで追加されること）
+- [x] XP 300〜: 観葉植物が出現すること
+- [x] XP 700〜: ランプが出現すること
+- [x] XP 1000〜: 天体望遠鏡が出現すること
 - [s] owlState が部屋の雰囲気に反映されること（sleepy→暗い / happy→明るい）
 - [x] App Group UserDefaults 経由で owlXP が正しく読み取られること
 - [s] WidgetCenter.shared.reloadAllTimelines がXP更新時に呼ばれること
+  注: `reloadAllTimelines()` の呼び出し自体は複数箇所にあるが、`AppState.addXP()` 直結の保証としては未確認
 
 ### Liquid Glass マテリアル（v13追加）
 - [s] ハーフシート背景が `.regularMaterial` で実装されていること
 - [s] EventRow / テンプレートカードの背景が `.ultraThinMaterial` であること
 - [s] FABボタンの背景が `.thickMaterial` + Circle clip であること
 - [s] RingingViewの背景が `.ultraThickMaterial` + 時間帯オーバーレイの組み合わせであること
+  注: 現行実装は一部に `.regularMaterial` / `.thickMaterial` はあるが、EventRow は独自ガラス背景、FAB は `Color.owlAmber` 背景、RingingView はグラデーション背景で、文言どおりの一致は未確認
 - [x] ウィジェットが `.containerBackground(for: .widget)` を使っていること
 - [s] `Color.white` / `Color(uiColor: .systemBackground)` が背景に直接使われていないこと
 
@@ -316,9 +325,10 @@
 ### v15 追加項目
 
 #### アカウント削除機能（v15追加・App Store 義務）
-- [s] 設定画面の最下部セクションに「アカウントを削除する」ボタンが表示されること
+- [x] 設定画面の最下部セクションに「アカウントを削除する」ボタンが表示されること
 - [s] ボタンが `.statusDanger` 色のテキストスタイル（赤い目立つボタンではないこと）
-- [s] タップ → ActionSheet の確認ダイアログが表示されること（2段階確認）
+- [x] タップ → ActionSheet の確認ダイアログが表示されること（2段階確認）
+  注: 現行実装は `ActionSheet` ではなく `confirmationDialog` を使用
 - [2] 「本当に削除する」確定後: Supabase の全ユーザーデータが削除されること（Edge Function 経由）
 - [s] ローカル UserDefaults が全クリアされること
 - [r] AlarmKit の登録済みアラームがすべてキャンセルされること
@@ -329,11 +339,11 @@
 - [s] 削除完了後: オンボーディング画面に遷移すること
 
 #### Dynamic Type extreme 時のフォールバック（v15追加・S-11修正）
-- [s] `UIApplication.shared.preferredContentSizeCategory >= .accessibilityLarge` の時: 表示件数が画面高さから動的計算されること
-- [s] 最低でも1件は常に表示されること（0件にならないこと）
+- [x] `UIApplication.shared.preferredContentSizeCategory >= .accessibilityLarge` の時: 表示件数が画面高さから動的計算されること
+- [x] 最低でも1件は常に表示されること（0件にならないこと）
 
 #### MagicDemo「音が出ます」警告画面（v15追加・S-21強化）
-- [s] デモボタンタップ前に「音が出ます」警告画面（MagicDemoWarningView）が表示されること
+- [x] デモボタンタップ前に「音が出ます」警告画面（MagicDemoWarningView）が表示されること
 - [x] 警告画面に「🔊 これから音が鳴ります」と「周りに人がいますか？」の説明が含まれること
 - [r] 「鳴らしてみる！」タップ時に `.impact(.medium)` Haptic が鳴ること
 - [r] 「音を出さずにスキップ」タップ → Hapticのみデモに直接進むこと
@@ -378,7 +388,7 @@
 - ~~Undoスナックバー（3秒・スクリーン下部）~~ が表示されないこと（廃止確認）
 
 #### スヌーズ機能（v16 P-2-2）
-- [s] RingingView に「⏱️ 30分後にまた教えて」スヌーズボタンが表示されること
+- [x] RingingView に「⏱️ 30分後にまた教えて」スヌーズボタンが表示されること
 - [x] スヌーズタップ後: AlarmKit に now+30min で再登録されること
 - [x] completionStatus が変更されないこと（nil のまま）
 - [x] 同一予定のスヌーズ最大3回制限が機能すること（4回目はスヌーズ非表示）
@@ -396,14 +406,15 @@
 - [2] Supabase から 404 返却時: そのエントリを破棄して後続処理が継続されること（デッドロックしないこと）
 
 #### PersonManualInputView（v16 P-1-3）
-- [s] MicInputSheet の「テキストで入力する」から PersonManualInputView に遷移できること
-- [s] テンプレート大ボタン（薬・ゴミ・病院・電話・カフェ・その他）が表示されること
-- [s] 時間プリセット（朝・昼・夜・10分後・30分後・1h後・細かく設定）が表示されること
+- [x] MicInputSheet の「テキストで入力する」から PersonManualInputView に遷移できること
+- [x] テンプレート大ボタン（薬・ゴミ・病院・電話・カフェ・その他）が表示されること
+- [x] 時間プリセット（朝・昼・夜・10分後・30分後・1h後・細かく設定）が表示されること
 
 #### 重複検知インターセプト（v16 P-1-7）
-- [s] MicInputSheet で予定確定後、7日以内の類似予定を検索すること
+- [x] MicInputSheet で予定確定後、7日以内の類似予定を検索すること
 - [s] 類似予定発見時: 「すでに○○が登録されてるよ！」ふくろう提案UIが表示されること
-- [s] 「追加しない」「別の予定として追加する」の2択が表示されること
+  注: 現行UIは「🦉 もしかして、もう登録されているかも？」+ 「『○○』（時刻）が見つかりました。」表現で実装されているため、文言一致としては未確認
+- [x] 「追加しない」「別の予定として追加する」の2択が表示されること
 
 #### WidgetGuideView（v16 P-6-1）
 - [r] MagicDemo 後・PersonHome 前にウィジェット設置ガイド画面が表示されること
@@ -444,10 +455,12 @@
 #### Supabase Token 自動リフレッシュ（P-9-5）
 - [s] `ensureValidSession()` が全 API 呼び出し前に実行されること
 - [s] セッション期限5分前に `refreshSession()` が呼ばれること
-- [s] セッションなし時に `signInAnonymously()` が呼ばれること
+  注: 現行 `FamilyRemoteService` には `ensureValidSession()` / `refreshSession()` はなく、各所で `client.auth.session` 取得または `ensureDeviceRegistered()` を使う構成
+- [x] セッションなし時に `signInAnonymously()` が呼ばれること
 
 #### データマイグレーション（P-9-6）
 - [s] `DataMigrationService.migrateIfNeeded()` が `ADHDAlarmApp.init()` の最初に呼ばれること
+  注: 現行実装では `ADHDAlarmApp.init()` ではなく `AppDelegate.didFinishLaunchingWithOptions` の先頭付近で呼ばれている
 - [x] `dataModelVersion` が UserDefaults に保存・比較されること
 - [x] v1→v2マイグレーションで `eventEmoji == nil` が `"📌"` に補完されること
 - [r] 既存データが破壊されずアップデート後も正常動作すること（実機確認必須）
@@ -456,6 +469,7 @@
 - [r] 通話中に RingingView が起動した場合、ふくろうトーストが表示されること
 - [s] `CXCallObserverDelegate` で通話終了を検知していること
 - [s] 通話終了後に `recoverStaleAlarmState()` が呼ばれること
+  注: 現行コードベースでは `CXCallObserverDelegate` / `recoverStaleAlarmState()` の実装をまだ確認できていない
 
 #### マナーモード判定の注記（P-9-8）
 - [x] `outputVolume` によるマナーモード判定コードに⚠️警告コメントが記載されていること
@@ -476,20 +490,19 @@
 - [s] 招待リンク生成時に「iPhoneをお使いの方のみ」のガイドが表示されること
 
 #### ミニタスクの家族同期除外（P-9-12）
-- [s] AlarmEvent に `isMiniTask: Bool` フィールドがあること
-- [2] `isMiniTask == true` のイベントが Supabase に同期されないこと
-- [2] 家族ダッシュボードのフィルタで `isMiniTask == true` が除外されること
+- 現仕様ではデイリーミニタスクは `AlarmEvent` 化せず、`UserDefaults` で1日1回状態のみ管理するためこのセクションは対象外
 
 #### DismissSheet UX 改善（P-9-13）
 - [s] DismissSheet が3秒後（または「閉じる」タップ）で即座に閉じること（10秒ブロックしないこと）
 - [s] PersonHomeView の EventRow 上部に「↩ 取り消す（○秒）」リンクが30秒間表示されること
+  注: 現行実装は EventRow 上部リンクではなく、下部バナーの「もとに戻す」導線で Undo を提供している
 - [2] 30秒後に Supabase PATCH が確定し XP が確定付与されること
 - [s] `undoDeadline` タイマーがバックグラウンドでも継続することを確認すること
 
 #### ToDo 翌日持ち越しルール（P-9-14）
 - [x] `isToDo == true` かつ `completionStatus == nil` の予定が翌日に持ち越されること
 - [s] 持ち越し予定に `isCarriedOver == true` フラグがセットされること
-- [s] EventRow に「🔁 昨日から」バッジが表示されること
+- [x] EventRow に「🔁 昨日から」バッジが表示されること
 - [x] `isToDo == true` かつ `completionStatus == .complete` の予定が日付変更時に削除されること
 
 #### スヌーズ上限 UI（P-9-15）
@@ -695,7 +708,7 @@
 ### WidgetGuideView（追加項目）
 - [x] `TabView(selection:)` を使ったカルーセル（スワイプ式）UIであること
 - [x] ページ数が4ページであること（長押し / + ボタン / アプリ選択 / 配置完了）
-- [s] 各ページに画像プレースホルダー枠と1行のみのテキストが表示されること
+- [x] 各ページに画像プレースホルダー枠と1行のみのテキストが表示されること
 - [x] ページインジケーターが表示されること
 - [x] 「あとでやる」でスキップ可能なこと
 - [s] 設定画面から再閲覧できること
@@ -724,10 +737,12 @@
 - リリース前: 上記3機種全てで06_Checklistの「アラーム停止」「MagicDemo」セクションを通し確認
 
 ### @Observable 並行性（追加項目）
-- [s] SyncEngine が `actor` として定義されていること（`class` ではないこと）
+- [x] SyncEngine が `actor` として定義されていること（`class` ではないこと）
 - [s] @Observable ViewModel のプロパティ更新が MainActor 上で行われていること
-- [s] バックグラウンドからUIへの反映で `await MainActor.run { }` が使われていること
+  注記: 現行コードは `@MainActor` 付きViewModelと非付与ViewModelが混在しているため、この文言のままでは一律に `x` 判定しない
+- [x] バックグラウンドからUIへの反映で `await MainActor.run { }` が使われていること
 - [s] Xcode の strict concurrency チェックでエラー・警告がゼロであること
+  注記: 現在の `xcodebuild` では strict concurrency 関連 warning が残っているため、未達として保留
 
 ### Anonymous認証昇格（追加項目）
 - [s] 匿名ユーザーが Apple ID と連携できる「Apple IDと連携する」ボタンが設定画面に表示されること（匿名ユーザーのみ）

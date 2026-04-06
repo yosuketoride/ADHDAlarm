@@ -70,6 +70,18 @@ enum Constants {
         static let terms   = "https://yosuketoride.github.io/ADHDAlarm/terms"
         /// プライバシーポリシーページのURL
         static let privacy = "https://yosuketoride.github.io/ADHDAlarm/privacy"
+        /// よくある質問ページ（NotionページのURL。確定後に設定）
+        static let faqURL: URL? = nil
+        /// お問い合わせメール（mailto:リンク）
+        static var supportMailURL: URL? {
+            let subject = "【ふくろう】お問い合わせ"
+            guard let encoded = subject.addingPercentEncoding(
+                withAllowedCharacters: .urlQueryAllowed
+            ) else { return nil }
+            return URL(string: "mailto:yosuketoride@gmail.com?subject=\(encoded)")
+        }
+        /// App Storeレビューページ（リリース後にApp Store IDを設定）
+        static let appStoreReviewURL: URL? = nil
     }
 
     // MARK: - 通知アクション（バナーの「止める / あとで / 今日は休む」ボタン）
