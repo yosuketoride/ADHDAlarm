@@ -8,6 +8,8 @@ struct NextAlarmEntry: TimelineEntry {
     let nextAlarm: WidgetAlarmEvent?
     /// 大サイズウィジェット用: 今日の予定一覧
     let todayAlarms: [WidgetAlarmEvent]
+    /// 小ウィジェット吹き出し用コメント（30秒ごとに切り替わる）
+    let comment: String
 }
 
 // MARK: - Provider
@@ -27,23 +29,72 @@ struct NextAlarmProvider: TimelineProvider {
 
     func placeholder(in context: Context) -> NextAlarmEntry {
         let alarm = makePlaceholderAlarm()
-        return NextAlarmEntry(date: Date(), nextAlarm: alarm, todayAlarms: [alarm])
+        return NextAlarmEntry(date: Date(), nextAlarm: alarm, todayAlarms: [alarm],
+                              comment: "今日もよろしくね！")
     }
 
     func getSnapshot(in context: Context, completion: @escaping (NextAlarmEntry) -> Void) {
         let alarm = WidgetDataProvider.nextAlarm()
         let today = WidgetDataProvider.todayAlarmsAll()
-        completion(NextAlarmEntry(date: Date(), nextAlarm: alarm, todayAlarms: today))
+        let comment = NextAlarmProvider.makeComment(for: alarm, at: Date(), index: 0)
+        completion(NextAlarmEntry(date: Date(), nextAlarm: alarm, todayAlarms: today, comment: comment))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NextAlarmEntry>) -> Void) {
         let alarm = WidgetDataProvider.nextAlarm()
         let today = WidgetDataProvider.todayAlarmsAll()
-        let entry = NextAlarmEntry(date: Date(), nextAlarm: alarm, todayAlarms: today)
+        let now = Date()
 
-        // 次のアラームの時刻に更新、なければ1時間後に再チェック
-        let nextRefresh = alarm?.fireDate ?? Date().addingTimeInterval(3600)
-        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
+        // 30秒刻みで12エントリ（6分分）生成 → 偶数回は予定情報、奇数回は120パターンコメント
+        var entries: [NextAlarmEntry] = []
+        for i in 0..<12 {
+            let entryDate = now.addingTimeInterval(Double(i) * 30)
+            let comment = NextAlarmProvider.makeComment(for: alarm, at: entryDate, index: i)
+            entries.append(NextAlarmEntry(date: entryDate, nextAlarm: alarm, todayAlarms: today, comment: comment))
+        }
+
+        // 6分後に次のタイムラインを再生成
+        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(360))))
+    }
+
+    /// コメント生成ロジック（index偶数=予定情報、奇数=120パターン）
+    static func makeComment(for alarm: WidgetAlarmEvent?, at date: Date, index: Int) -> String {
+        if index % 2 == 0 {
+            // 偶数: 次の予定情報
+            return alarmComment(for: alarm)
+        } else {
+            // 奇数: 時間帯×気分の120パターンからランダム選択
+            let mood = WidgetOwlComments.OwlMood.from(alarm: alarm)
+            return WidgetOwlComments.pick(at: date, mood: mood, seed: index / 2)
+        }
+    }
+
+    /// 次の予定情報コメント（今日/明日/それ以降を区別）
+    private static func alarmComment(for alarm: WidgetAlarmEvent?) -> String {
+        guard let alarm = alarm else {
+            return "今日は予定\nないね〜"
+        }
+        let minutes = Int(alarm.fireDate.timeIntervalSinceNow / 60)
+        if minutes < 0 {
+            return "もう時間！\n急いで！"
+        } else if minutes < 10 {
+            return "急いで！\nもうすぐだよ！"
+        } else if minutes < 60 {
+            let t = String(alarm.title.prefix(8))
+            return "\(t)\nもうすぐだよ"
+        } else if Calendar.current.isDateInToday(alarm.fireDate) {
+            let t = String(alarm.title.prefix(5))
+            return "今日は\(t)\nがあるよ"
+        } else if Calendar.current.isDateInTomorrow(alarm.fireDate) {
+            let t = String(alarm.title.prefix(5))
+            return "明日は\(t)\nがあるよ"
+        } else {
+            let fmt = DateFormatter()
+            fmt.locale = Locale(identifier: "ja_JP")
+            fmt.dateFormat = "M/d"
+            let t = String(alarm.title.prefix(5))
+            return "\(t)\n\(fmt.string(from: alarm.fireDate))にあるよ"
+        }
     }
 }
 
@@ -88,54 +139,43 @@ struct NextAlarmWidgetView: View {
     }
 
     var body: some View {
-        if family == .systemLarge {
+        switch family {
+        case .systemLarge:
             largeView
-        } else if let alarm = entry.nextAlarm {
-            switch family {
-            case .systemMedium: mediumView(alarm: alarm)
-            default:            smallView(alarm: alarm)
+        case .systemMedium:
+            if let alarm = entry.nextAlarm {
+                mediumView(alarm: alarm)
+            } else {
+                // 中ウィジェット・予定なし
+                smallView(alarm: nil)
             }
-        } else {
-            emptyView
+        default:
+            // 小ウィジェット: 予定あり・なし両対応
+            smallView(alarm: entry.nextAlarm)
         }
     }
 
-    // Small: ふくろう + 残り時間（大）+ タイトル
-    private func smallView(alarm: WidgetAlarmEvent) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // 上段: ふくろう + 残り時間
-            HStack(alignment: .center, spacing: 6) {
-                Image(owlImageName(for: alarm))
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 52, height: 52)
-                Spacer()
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(alarm.fireDate.remainingString)
-                        .font(.title2.weight(.black))
-                        .foregroundStyle(.blue)
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    Text(alarm.fireDate.widgetTimeString)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
+    // MARK: - Small: 部屋背景 ＋ フクロウどーん ＋ 吹き出しオーバーレイ
+    // VStack分割をやめてoverlayにすることでフクロウが widget 全体を使えるようになる
+    private func smallView(alarm: WidgetAlarmEvent?) -> some View {
+        Image(owlImageName(for: alarm))
+            .resizable()
+            .scaledToFit()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, 10)    // フクロウを少し下げて吹き出しの余地を作る
+            .padding(.bottom, -4) // 下端ぎりぎりまで
+            .overlay(alignment: .top) {
+                // 吹き出しをフクロウの上に重ねる（フクロウPNGの透明上部に収まる）
+                SpeechBubble(text: entry.comment)
+                    .padding(.horizontal, 8)
+                    .padding(.top, 8)
             }
-
-            Spacer(minLength: 6)
-
-            // 下段: タイトル（大きく・主役）
-            Text(alarm.title)
-                .font(.system(.title3, design: .rounded).weight(.black))
-                .foregroundStyle(.primary)
-                .lineLimit(3)
-                .minimumScaleFactor(0.65)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(12)
-        .containerBackground(.fill.tertiary, for: .widget)
+            // 部屋背景（Light/Dark は Assets で自動切替）
+            .containerBackground(for: .widget) {
+                Image("room_background")
+                    .resizable()
+                    .scaledToFill()
+            }
     }
 
     // Medium: ふくろうの部屋 + 予定情報 + 完了ボタン
@@ -187,25 +227,41 @@ struct NextAlarmWidgetView: View {
 
     private func owlRoomView(alarm: WidgetAlarmEvent?) -> some View {
         let xp = owlXP
-        let isSleepy = alarm == nil || alarm!.fireDate.timeIntervalSinceNow > 3600
         let isWorried = alarm != nil && alarm!.fireDate.timeIntervalSinceNow < 600
 
         return ZStack {
-            // Layer 1: 背景レイヤー (後日画像アセットに差し替え可能)
-            GeometryReader { geo in
-                VStack(spacing: 0) {
-                    Color(isSleepy ? .gray : .orange).opacity(0.2)
-                    Color.brown.opacity(0.3).frame(height: geo.size.height * 0.4)
-                }
-            }
-            .ignoresSafeArea()
+            // Layer 1: 部屋背景画像（Light/Dark は Assets で自動切り替え）
+            Image("room_background")
+                .resizable()
+                .scaledToFill()
+                .clipped()
 
-            // Layer 2: アイテムアイコン
+            // Layer 2: XP解放アイテム（画像アセット使用）
             ZStack {
-                if xp >= 100 { Text("🪵").font(.system(size: 30)).offset(x: -25, y: -20) } // 本棚 奥
-                if xp >= 300 { Text("🪴").font(.system(size: 24)).offset(x: 30, y: 15) }   // 観葉植物 手前
-                if xp >= 700 { Text("🕯️").font(.system(size: 20)).offset(x: -15, y: -5) }  // ランプ
-                if xp >= 1000 { Text("🔭").font(.system(size: 28)).offset(x: 20, y: -15) } // 望遠鏡 奥
+                if xp >= 100 {
+                    Image("room_shelf")
+                        .resizable().scaledToFit()
+                        .frame(width: 40, height: 40)
+                        .offset(x: -28, y: -22)
+                }
+                if xp >= 300 {
+                    Image("room_plant")
+                        .resizable().scaledToFit()
+                        .frame(width: 36, height: 36)
+                        .offset(x: 32, y: 18)
+                }
+                if xp >= 700 {
+                    Image("room_lamp")
+                        .resizable().scaledToFit()
+                        .frame(width: 32, height: 32)
+                        .offset(x: -16, y: -6)
+                }
+                if xp >= 1000 {
+                    Image("room_telescope")
+                        .resizable().scaledToFit()
+                        .frame(width: 38, height: 38)
+                        .offset(x: 22, y: -18)
+                }
             }
 
             // Layer 3: ふくろうキャラ
@@ -321,21 +377,49 @@ struct NextAlarmWidgetView: View {
         }
     }
 
-    // 予定なし（タップで音声入力またはアプリを開く）
-    private var emptyView: some View {
-        VStack(spacing: 8) {
-            owlRoomView(alarm: nil) // 簡易表示
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal, 10)
-                .padding(.top, 10)
+}
 
-            Text("\(owlName)と一緒にのんびりしてね")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            
-            Spacer(minLength: 0)
+// MARK: - 吹き出しコンポーネント（小ウィジェット用）
+// レイアウト: 本体（フル幅・オレンジ）＋下向きしっぽ → フクロウの頭に向かって話しかける形
+private struct SpeechBubble: View {
+    let text: String
+    // owlAmber (#F5A623)
+    private static let amber = Color(red: 0.961, green: 0.651, blue: 0.137)
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // 吹き出し本体
+            Text(text)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(.black)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Self.amber)
+                )
+            // 下向きしっぽ（フクロウの頭に向かって）
+            DownTriangle()
+                .fill(Self.amber)
+                .frame(width: 14, height: 8)
+                .offset(x: 10)   // 少し右寄りにしてフクロウ頭部に向ける
         }
-        .containerBackground(.fill.tertiary, for: .widget)
+    }
+}
+
+// 下向き三角形（▼）
+private struct DownTriangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        p.closeSubpath()
+        return p
     }
 }
 
