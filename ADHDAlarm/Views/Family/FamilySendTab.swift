@@ -150,31 +150,11 @@ struct FamilySendTab: View {
 
     private var timingSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("いつ届ける？")
+            Text("いつの予定？")
                 .font(.headline)
 
-            ForEach(FamilySendTimingOption.allCases) { option in
-                Button {
-                    viewModel.selectedTiming = option
-                } label: {
-                    HStack(spacing: Spacing.md) {
-                        Image(systemName: viewModel.selectedTiming == option ? "largecircle.fill.circle" : "circle")
-                            .foregroundStyle(viewModel.selectedTiming == option ? Color.owlAmber : .secondary)
-                        Text(option.label)
-                            .font(.body.weight(.medium))
-                            .foregroundStyle(.primary)
-                        Spacer()
-                    }
-                    .padding(.horizontal, Spacing.md)
-                    .frame(minHeight: ComponentSize.settingRow)
-                    .background(
-                        RoundedRectangle(cornerRadius: CornerRadius.md)
-                            .fill(.background)
-                            .shadow(color: .black.opacity(0.03), radius: 6, y: 2)
-                    )
-                }
-                .buttonStyle(.plain)
-            }
+            // 朝・昼・夜 + 相対時間 + 細かく設定（本人側UIに準拠）
+            timeGrid
 
             if viewModel.selectedTiming == .custom {
                 DatePicker(
@@ -188,6 +168,65 @@ struct FamilySendTab: View {
                 .background(familyCardBackground)
             }
         }
+    }
+
+    private var timeGrid: some View {
+        VStack(spacing: 12) {
+            // 絶対時刻プリセット（朝・昼・夜）
+            HStack(spacing: 12) {
+                timingButton(.morning)
+                timingButton(.noon)
+                timingButton(.evening)
+            }
+            // 相対時間プリセット
+            HStack(spacing: 12) {
+                timingButton(.relative(10))
+                timingButton(.relative(30))
+                timingButton(.relative(60))
+            }
+            // 細かく設定（DatePicker開閉）
+            Button {
+                viewModel.selectedTiming = viewModel.selectedTiming == .custom ? .morning : .custom
+            } label: {
+                Text(viewModel.selectedTiming == .custom ? "閉じる" : "⚙️ 細かく設定")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(viewModel.selectedTiming == .custom ? .white : .secondary)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+                    .background(
+                        viewModel.selectedTiming == .custom ? Color.owlAmber : Color(.tertiarySystemBackground),
+                        in: RoundedRectangle(cornerRadius: 12)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func timingButton(_ option: FamilySendTimingOption) -> some View {
+        let isSelected = viewModel.selectedTiming == option
+        return Button {
+            viewModel.selectedTiming = option
+        } label: {
+            VStack(spacing: 4) {
+                Text(option.emoji)
+                    .font(.title3)
+                Text(option.label)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(isSelected ? .white : .primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                if !option.timeDescription.isEmpty {
+                    Text(option.timeDescription)
+                        .font(.caption2)
+                        .foregroundStyle(isSelected ? .white.opacity(0.8) : .secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 72)
+            .background(isSelected ? Color.owlAmber : Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
     }
 
     private var summaryCard: some View {
@@ -209,17 +248,33 @@ struct FamilySendTab: View {
 
     private var notificationTimingSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("アラームを鳴らすタイミング")
+            Text("予定の何分前に知らせる？")
                 .font(.headline)
 
-            Picker("通知タイミング", selection: $viewModel.preNotificationMinutes) {
-                Text("時間ちょうど").tag(0)
-                Text("5分前").tag(5)
-                Text("15分前").tag(15)
-                Text("30分前").tag(30)
+            // 本人側UIに合わせて 0/1/5/10/15/30/60 分の7択をチップで選ぶ
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Spacing.sm) {
+                    ForEach([0, 1, 5, 10, 15, 30, 60], id: \.self) { minutes in
+                        Button {
+                            viewModel.preNotificationMinutes = minutes
+                        } label: {
+                            Text(minutes == 0 ? "時間ちょうど" : "\(minutes)分前")
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(viewModel.preNotificationMinutes == minutes ? .white : .primary)
+                                .padding(.horizontal, Spacing.md)
+                                .padding(.vertical, Spacing.sm)
+                                .background(
+                                    viewModel.preNotificationMinutes == minutes
+                                        ? Color.owlAmber
+                                        : Color(.secondarySystemBackground),
+                                    in: Capsule()
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, Spacing.xs)
             }
-            .pickerStyle(.segmented)
-            .frame(minHeight: 60)
         }
     }
 
@@ -338,7 +393,7 @@ private final class FamilySendTabViewModel {
 
     var selectedTemplate: FamilyQuickTemplate? = .medicine
     var customTitle: String = ""
-    var selectedTiming: FamilySendTimingOption = .in15Minutes
+    var selectedTiming: FamilySendTimingOption = .morning  // デフォルトは次の朝
     var preNotificationMinutes: Int = 15
     var customDate: Date = Calendar.current.date(byAdding: .hour, value: 2, to: Date()) ?? Date()
     var sendState: SendState = .idle
@@ -350,15 +405,27 @@ private final class FamilySendTabViewModel {
     }
 
     var scheduledDate: Date {
+        let cal = Calendar.current
+        let now = Date()
         switch selectedTiming {
-        case .now:
-            return Date()
-        case .in15Minutes:
-            return Calendar.current.date(byAdding: .minute, value: 15, to: Date()) ?? Date()
-        case .in30Minutes:
-            return Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date()
-        case .in1Hour:
-            return Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
+        case .morning:
+            // 今日の8時がすでに過ぎていたら明日の朝に
+            var comp = cal.dateComponents([.year, .month, .day], from: now)
+            comp.hour = 8; comp.minute = 0
+            let today8 = cal.date(from: comp)!
+            return today8 > now ? today8 : cal.date(byAdding: .day, value: 1, to: today8)!
+        case .noon:
+            var comp = cal.dateComponents([.year, .month, .day], from: now)
+            comp.hour = 12; comp.minute = 0
+            let today12 = cal.date(from: comp)!
+            return today12 > now ? today12 : cal.date(byAdding: .day, value: 1, to: today12)!
+        case .evening:
+            var comp = cal.dateComponents([.year, .month, .day], from: now)
+            comp.hour = 19; comp.minute = 0
+            let today19 = cal.date(from: comp)!
+            return today19 > now ? today19 : cal.date(byAdding: .day, value: 1, to: today19)!
+        case .relative(let minutes):
+            return now.addingTimeInterval(Double(minutes) * 60)
         case .custom:
             return customDate
         }
@@ -380,7 +447,7 @@ private final class FamilySendTabViewModel {
     func reset() {
         selectedTemplate = .medicine
         customTitle = ""
-        selectedTiming = .in15Minutes
+        selectedTiming = .morning
         preNotificationMinutes = 15
         customDate = Calendar.current.date(byAdding: .hour, value: 2, to: Date()) ?? Date()
         sendState = .idle
@@ -450,22 +517,51 @@ private enum FamilyQuickTemplate: CaseIterable, Identifiable {
     }
 }
 
-private enum FamilySendTimingOption: CaseIterable, Identifiable {
-    case now
-    case in15Minutes
-    case in30Minutes
-    case in1Hour
+private enum FamilySendTimingOption: Equatable, Identifiable {
+    case morning
+    case noon
+    case evening
+    case relative(Int)  // N分後
     case custom
 
-    var id: String { label }
+    var id: String {
+        switch self {
+        case .morning:         return "morning"
+        case .noon:            return "noon"
+        case .evening:         return "evening"
+        case .relative(let m): return "relative_\(m)"
+        case .custom:          return "custom"
+        }
+    }
+
+    var emoji: String {
+        switch self {
+        case .morning:         return "☀️"
+        case .noon:            return "🕛"
+        case .evening:         return "🌙"
+        case .relative(let m): return m < 60 ? "⏱" : "⏰"
+        case .custom:          return ""
+        }
+    }
 
     var label: String {
         switch self {
-        case .now: return "今から"
-        case .in15Minutes: return "15分後"
-        case .in30Minutes: return "30分後"
-        case .in1Hour: return "1時間後"
-        case .custom: return "カスタム"
+        case .morning:         return "朝"
+        case .noon:            return "昼"
+        case .evening:         return "夜"
+        case .relative(let m): return m >= 60 ? "1時間後" : "\(m)分後"
+        case .custom:          return "細かく設定"
+        }
+    }
+
+    /// グリッドボタン内のサブテキスト（時刻の目安）
+    var timeDescription: String {
+        switch self {
+        case .morning:         return "8:00"
+        case .noon:            return "12:00"
+        case .evening:         return "19:00"
+        case .relative(let m): return m >= 60 ? "1時間後" : "\(m)分後"
+        case .custom:          return ""
         }
     }
 }
