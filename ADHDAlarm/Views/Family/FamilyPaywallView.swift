@@ -18,7 +18,7 @@ struct FamilyPaywallView: View {
             .padding(.top, Spacing.xl)
             .padding(.bottom, Spacing.xl)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(.background)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             ctaSection
         }
@@ -86,7 +86,7 @@ struct FamilyPaywallView: View {
         }
         .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
         .overlay {
             RoundedRectangle(cornerRadius: CornerRadius.lg)
                 .stroke(accent.opacity(0.18), lineWidth: 1)

@@ -20,7 +20,7 @@ struct FamilySettingsTab: View {
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.lg)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(.background)
         .alert("お知らせ", isPresented: Binding(
             get: { alertMessage != nil },
             set: { if !$0 { alertMessage = nil } }

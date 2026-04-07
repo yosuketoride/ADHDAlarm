@@ -9,6 +9,7 @@ final class FamilyHomeViewModel {
 
     var selectedTab = 0
     var isLoadingEvents = false
+    var shouldShowFirstCompletionBanner = false
 
     // MARK: - ダッシュボードデータ
 
@@ -24,9 +25,11 @@ final class FamilyHomeViewModel {
     private let service: FamilyScheduling
     /// isPro判定・PRO伝播反映のためにAppStateを参照する
     private var appState: AppState?
+    private let defaults: UserDefaults
 
-    init(service: FamilyScheduling? = nil) {
+    init(service: FamilyScheduling? = nil, defaults: UserDefaults = .standard) {
         self.service = service ?? FamilyRemoteService.shared
+        self.defaults = defaults
     }
 
     /// AppStateをバインドする（初回のみ有効）
@@ -57,12 +60,9 @@ final class FamilyHomeViewModel {
             }
             applyFamilyPremiumIfNeeded(links: links)
 
-            // 予定取得はPROのみ（Freeはダッシュボードに表示しないのでAPIコスト節約）
-            if appState?.subscriptionTier == .pro {
-                sentEvents = try await service.fetchSentEvents(linkId: linkId)
-            } else {
-                sentEvents = []
-            }
+            // 無料版でも「今日の反応状況」は確認できるよう一覧を取得する
+            sentEvents = try await service.fetchSentEvents(linkId: linkId)
+            updateFirstCompletionBannerIfNeeded(events: sentEvents)
             lastSeen = try? await service.fetchLastSeen(linkId: linkId)
         } catch {
             // 接続エラーは静かに無視（ダッシュボードがゼロ件のまま表示される）
@@ -75,6 +75,11 @@ final class FamilyHomeViewModel {
         await loadEvents(linkId: linkId)
     }
 
+    /// 初回の✓✓到着バナーを閉じる
+    func dismissFirstCompletionBanner() {
+        shouldShowFirstCompletionBanner = false
+    }
+
     // MARK: - Private
 
     /// ペアリングリンクのis_premiumを確認してAppStateに反映する
@@ -85,6 +90,25 @@ final class FamilyHomeViewModel {
         if links.contains(where: { $0.isPremium }) {
             appState?.subscriptionTier = .pro
         }
+    }
+
+    /// 無料版で初めて完了反応を受け取ったときだけ案内バナーを表示する
+    private func updateFirstCompletionBannerIfNeeded(events: [RemoteEventRecord]) {
+        guard appState?.subscriptionTier == .free else {
+            shouldShowFirstCompletionBanner = false
+            return
+        }
+        guard !defaults.bool(forKey: Constants.Keys.familyFirstCompletedBannerShown) else {
+            shouldShowFirstCompletionBanner = false
+            return
+        }
+        guard events.contains(where: { $0.status == "completed" }) else {
+            shouldShowFirstCompletionBanner = false
+            return
+        }
+
+        defaults.set(true, forKey: Constants.Keys.familyFirstCompletedBannerShown)
+        shouldShowFirstCompletionBanner = true
     }
 
     // refreshTask は @MainActor 隔離のため deinit からは直接参照できない

@@ -5,6 +5,7 @@ import SwiftUI
 /// ペアリング済み   → 3タブ（見守り / 送る / 設定）
 struct FamilyHomeView: View {
     @Environment(AppState.self) private var appState
+    @Environment(NetworkMonitorService.self) private var networkMonitor
     @State private var viewModel = FamilyHomeViewModel()
     @State private var showFamilyPaywall = false
     @AppStorage("family_paired_person_name") private var pairedPersonName = "お母さん"
@@ -38,6 +39,8 @@ struct FamilyHomeView: View {
                     events: viewModel.sentEvents,
                     sosMessage: viewModel.sosMessage,
                     isPro: appState.subscriptionTier == .pro,
+                    showFirstCompletionBanner: viewModel.shouldShowFirstCompletionBanner,
+                    onDismissFirstCompletionBanner: { viewModel.dismissFirstCompletionBanner() },
                     onUpgradeTapped: { showFamilyPaywall = true }
                 )
                 .navigationTitle("\(pairedPersonName)さんの様子")
@@ -82,6 +85,11 @@ struct FamilyHomeView: View {
             .tabItem { Label("設定", systemImage: "gearshape.fill") }
             .tag(2)
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if networkMonitor.isOffline {
+                offlineBanner
+            }
+        }
         .task {
             viewModel.bindAppStateIfNeeded(appState)
             await viewModel.loadEvents(linkId: linkId)
@@ -89,5 +97,21 @@ struct FamilyHomeView: View {
         .sheet(isPresented: $showFamilyPaywall) {
             FamilyPaywallView()
         }
+    }
+
+    private var offlineBanner: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: "wifi.slash")
+                .font(.callout.weight(.semibold))
+            Text("インターネットにつながっていません。最新の予定や見守り状況の読み込みが遅れることがあります。")
+                .font(.footnote.weight(.medium))
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Color.black.opacity(0.82))
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.yellow.opacity(0.88))
     }
 }

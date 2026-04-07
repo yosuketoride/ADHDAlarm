@@ -29,7 +29,7 @@ struct FamilySendTab: View {
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.lg)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(.background)
         .sheet(isPresented: $showConfirmation) {
             confirmationSheet
         }

@@ -20,6 +20,7 @@ enum Constants {
         static let familyLinkId           = "family_link_id"
         static let familyChildLinkIds     = "family_child_link_ids"
         static let unreadFamilyEventCount = "unread_family_event_count"
+        static let familyFirstCompletedBannerShown = "family_first_completed_banner_shown"
         // モード選択
         static let appMode                = "app_mode"
         // フクロウキャラクター

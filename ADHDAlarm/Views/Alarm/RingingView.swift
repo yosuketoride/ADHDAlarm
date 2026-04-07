@@ -7,6 +7,7 @@ struct RingingView: View {
     @State private var viewModel: RingingViewModel
     @Environment(AppState.self) private var appState
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     var onDismissed: () -> Void = {}
 
     init(alarm: AlarmEvent, onDismissed: @escaping () -> Void = {}) {
@@ -29,9 +30,14 @@ struct RingingView: View {
     @State private var errorMessage = ""
     @State private var bannerHideTask: Task<Void, Never>?
 
+    /// 減動作・低電力時は装飾アニメーションを止める
+    private var shouldReduceMotionEffects: Bool {
+        accessibilityReduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
+    }
+
     var body: some View {
         ZStack {
-            // 暖かいグラデーション背景
+            // 時間です画面の土台
             LinearGradient(
                 colors: [
                     Color(red: 0.98, green: 0.90, blue: 0.88),
@@ -42,6 +48,10 @@ struct RingingView: View {
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
+
+            Rectangle()
+                .fill(.ultraThickMaterial)
+                .ignoresSafeArea()
 
             // 装飾: 光のぼかし
             Circle()
@@ -85,12 +95,16 @@ struct RingingView: View {
                 sosEscalationMinutes: appState.sosEscalationMinutes
             )
             viewModel.startAudioPlayback()
-            withAnimation(.spring(duration: 0.5, bounce: 0.3)) { appeared = true }
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true).delay(0.3)) {
-                bubbleBounce = true
+            withAnimation(.easeOut(duration: shouldReduceMotionEffects ? 0.2 : 0.5)) {
+                appeared = true
             }
-            withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false).delay(0.5)) {
-                ripplePulse = true
+            if !shouldReduceMotionEffects {
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true).delay(0.3)) {
+                    bubbleBounce = true
+                }
+                withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false).delay(0.5)) {
+                    ripplePulse = true
+                }
             }
         }
         .onChange(of: viewModel.activeAlarm) { _, newValue in
@@ -178,7 +192,7 @@ struct RingingView: View {
             // 吹き出し + フクロウ（上部）
             VStack(spacing: 0) {
                 speechBubble
-                    .offset(y: bubbleBounce ? -6 : 0)
+                    .offset(y: shouldReduceMotionEffects ? 0 : (bubbleBounce ? -6 : 0))
                     .padding(.bottom, Spacing.md)
                 owlWithRipple
             }
@@ -225,7 +239,7 @@ struct RingingView: View {
         VStack(spacing: 0) {
             ZStack {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Color.white)
+                    .fill(.regularMaterial)
                     .shadow(color: .black.opacity(0.12), radius: 14, y: 5)
 
                 HStack(spacing: 12) {
@@ -244,7 +258,7 @@ struct RingingView: View {
 
             // 吹き出しのしっぽ
             Triangle()
-                .fill(Color.white)
+                .fill(.regularMaterial)
                 .frame(width: 28, height: 14)
                 .shadow(color: .black.opacity(0.06), radius: 3, y: 3)
         }
@@ -272,15 +286,17 @@ struct RingingView: View {
 
     private var owlWithRipple: some View {
         ZStack {
-            Circle()
-                .fill(Color.white.opacity(0.35))
-                .frame(width: 160, height: 160)
-                .scaleEffect(ripplePulse ? 1.5 : 1.0)
-                .opacity(ripplePulse ? 0.0 : 0.7)
-            Circle()
-                .fill(Color.white.opacity(0.55))
-                .frame(width: 130, height: 130)
-                .scaleEffect(bubbleBounce ? 1.08 : 0.96)
+            if !shouldReduceMotionEffects {
+                Circle()
+                    .fill(Color.white.opacity(0.35))
+                    .frame(width: 160, height: 160)
+                    .scaleEffect(ripplePulse ? 1.5 : 1.0)
+                    .opacity(ripplePulse ? 0.0 : 0.7)
+                Circle()
+                    .fill(Color.white.opacity(0.55))
+                    .frame(width: 130, height: 130)
+                    .scaleEffect(bubbleBounce ? 1.08 : 0.96)
+            }
             Circle()
                 .fill(Color.white)
                 .frame(width: 112, height: 112)
@@ -341,7 +357,7 @@ struct RingingView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.lg)
-        .background(.background, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.7), lineWidth: 1.5)
@@ -381,7 +397,7 @@ struct RingingView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.lg)
-        .background(.background, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.7), lineWidth: 1.5)
@@ -456,7 +472,7 @@ struct RingingView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Spacing.md)
                     .frame(minHeight: ComponentSize.small)
-                    .background(Color(.secondarySystemBackground).opacity(0.8))
+                    .background(.regularMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
                 }
                 .buttonStyle(.plain)

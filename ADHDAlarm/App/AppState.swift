@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import SwiftUI
+import WidgetKit
 
 /// アプリ全体のグローバル状態
 /// @Observableにより、依存するViewが自動的に再描画される
@@ -24,6 +25,7 @@ final class AppState {
         didSet {
             UserDefaults.standard.set(owlXP, forKey: Constants.Keys.owlXP)
             UserDefaults(suiteName: Constants.appGroupID)?.set(owlXP, forKey: Constants.Keys.owlXP)
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
     var owlStage: Int {

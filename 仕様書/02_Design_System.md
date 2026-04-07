@@ -345,6 +345,34 @@ Button(action: { ... }) { ... }
 // owlAmber背景（opaque）は例外として .black テキストを使う（WCAG 8.3:1）
 ```
 
+### 13-4-B. 背景統一の適用優先順位（v16運用メモ）
+
+> **実装優先範囲（このラウンド）:**
+> 設定画面・家族画面・RingingView を先にそろえる。
+> `PersonHomeView` / `TimeOfDayBackground` は見た目の影響が大きいため、同じルールを即時強制しない。
+
+**目的:**
+- 第一目的は**UI階層の統一**。設定画面の各階層、家族画面、RingingView の「面の作り方」をそろえる
+- 第二目的として Light / Dark 両対応と可読性を安定させる
+- 「`Color.white` を1文字でも使わない」こと自体は目的ではない
+
+**このラウンドで統一対象にするもの:**
+- 画面全体の土台になる背景面
+- カード・セクションコンテナの背景面
+- シート・モーダル・全画面カバーの背景面
+
+**このラウンドで統一対象にしないもの:**
+- 白のハイライト
+- グラデーション内の装飾色
+- アイコン塗りや縁線
+- `PersonHomeView` / `TimeOfDayBackground` の世界観を支える背景演出
+
+**実装ルール（対象画面限定）:**
+- 設定画面・家族画面・RingingView の主要背景面では `Color.white` / `Color(uiColor: .systemBackground)` の直書きを避ける
+- 代わりに `.background` / `.secondarySystemBackground` / material / `Color.Theme` を使う
+- テキスト色は `.primary` / `.secondary` を基本にし、`owlAmber` 背景のみ黒を明示する
+- 見た目をそろえる単位は「画面」「カード」「セクション」。装飾レイヤーまで一度に統一しない
+
 ### 13-4. シャドウとエレベーション
 
 ```swift

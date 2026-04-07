@@ -479,7 +479,7 @@ final class RingingViewModel: NSObject {
     private func syncReactionToRemote(alarm: AlarmEvent, status: String) {
         guard let remoteId = alarm.remoteEventId else { return }
         Task {
-            try? await FamilyRemoteService.shared.updateRemoteEventStatus(id: remoteId, status: status)
+            await OfflineActionQueue.shared.sendOrEnqueueStatusUpdate(eventID: remoteId, status: status)
         }
     }
 

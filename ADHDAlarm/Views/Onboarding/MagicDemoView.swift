@@ -3,15 +3,12 @@ import AVFoundation
 
 /// オンボーディング: Aha体験（マナーモード貫通デモ）
 struct MagicDemoView: View {
-    let hapticOnly: Bool
-
     @Environment(AppState.self) private var appState
     @State private var countdown = 3
     @State private var isCounting = false
     @State private var showRinging = false
     @State private var showSoundCheckDialog = false
     @State private var showLowVolumeNote = false
-    @State private var showHapticFollowUp = false
     // レビュー指摘: Timer はTask.sleep(async/await)と混在させず Task に統一する
     @State private var countdownTask: Task<Void, Never>?
     @State private var demoAlarm = AlarmEvent(
@@ -33,12 +30,8 @@ struct MagicDemoView: View {
 
             Spacer().frame(height: Spacing.xl)
 
-            if showHapticFollowUp {
-                hapticFollowUpSection
-            } else if isCounting {
+            if isCounting {
                 countingSection
-            } else if hapticOnly {
-                hapticStandbySection
             } else {
                 normalDemoSection
             }
@@ -63,9 +56,6 @@ struct MagicDemoView: View {
             Button("鳴らなかった") { openNotificationSettings() }
         }
         .onDisappear { countdownTask?.cancel() }
-        .task {
-            if hapticOnly { await runHapticDemo() }
-        }
     }
 
     // MARK: - コンテンツセクション
@@ -111,16 +101,6 @@ struct MagicDemoView: View {
         }
     }
 
-    private var hapticStandbySection: some View {
-        VStack(spacing: Spacing.sm) {
-            Text("振動でお知らせします")
-                .font(.title2.bold())
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Spacing.md)
-            Spacer()
-        }
-    }
-
     private var countingSection: some View {
         VStack(spacing: Spacing.sm) {
             if showLowVolumeNote {
@@ -146,45 +126,11 @@ struct MagicDemoView: View {
         .padding(.horizontal, Spacing.md)
     }
 
-    private var hapticFollowUpSection: some View {
-        VStack(spacing: 0) {
-            // P-6-4: Hapticデモのフォローアップテキスト
-            VStack(spacing: Spacing.sm) {
-                Text("今は振動だけでしたが、")
-                    .font(.title2.bold())
-                    .multilineTextAlignment(.center)
-                Text("本当はマナーモードでも\n必ず音が鳴るアラームです。\n明日を楽しみにしていてください！")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, Spacing.md)
-
-            Spacer()
-
-            Button("わかった！🦉") { navigateToWidgetGuide() }
-                .frame(maxWidth: .infinity)
-                .frame(height: ComponentSize.primary)
-                .background(Color.owlAmber)
-                .foregroundStyle(.black)
-                .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
-                .padding(.horizontal, Spacing.md)
-                .padding(.bottom, Spacing.xl)
-        }
-    }
-
     // MARK: - デモロジック
 
     private func startDemo() {
         let session = AVAudioSession.sharedInstance()
         let outputVolume = session.outputVolume
-        let hasOutputDevice = !session.currentRoute.outputs.isEmpty
-
-        // フロー③: 出力デバイスなし → Hapticのみ
-        guard hasOutputDevice else {
-            Task { await runHapticDemo() }
-            return
-        }
         // ⚠️⚠️⚠️ マナーモード検知の制限について（実装者必読）⚠️⚠️⚠️ P-9-8
         //
         // iOS には公開APIでマナーモード状態を確実に取得する方法が存在しない。
@@ -229,32 +175,6 @@ struct MagicDemoView: View {
             isCounting = false
             showRinging = true
         }
-    }
-
-    /// Hapticのみのデモ（出力デバイスなし or hapticOnly=true）
-    private func runHapticDemo() async {
-        // prepare() を先に呼んでTaptic Engineを起動状態にする（呼ばないと最初の振動が不発になる）
-        let generator = UIImpactFeedbackGenerator(style: .heavy)
-        generator.prepare()
-
-        countdown = 3
-        isCounting = true
-        for i in stride(from: 3, through: 1, by: -1) {
-            countdown = i
-            try? await Task.sleep(for: .seconds(1))
-            guard !Task.isCancelled else { return }
-        }
-        // 振動3回（毎回 prepare して取りこぼしを減らす）
-        try? await Task.sleep(for: .milliseconds(120))
-        for index in 0..<3 {
-            generator.prepare()
-            generator.impactOccurred()
-            if index < 2 {
-                try? await Task.sleep(for: .milliseconds(550))
-            }
-        }
-        isCounting = false
-        withAnimation { showHapticFollowUp = true }
     }
 
     private func navigateToWidgetGuide() {

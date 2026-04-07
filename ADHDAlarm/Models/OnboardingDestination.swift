@@ -6,6 +6,6 @@ enum OnboardingDestination: Hashable {
     case permissionsCTA
     case owlNaming
     case magicDemoWarning
-    case magicDemo(hapticOnly: Bool)
+    case magicDemo
     case widgetGuide
 }

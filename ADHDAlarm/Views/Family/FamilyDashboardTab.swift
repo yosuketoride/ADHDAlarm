@@ -7,12 +7,18 @@ struct FamilyDashboardTab: View {
     var events: [RemoteEventRecord] = []
     var sosMessage: String? = nil
     var isPro: Bool = false
+    var showFirstCompletionBanner: Bool = false
+    var onDismissFirstCompletionBanner: () -> Void = {}
     var onUpgradeTapped: () -> Void = {}
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 headerCard
+
+                if showFirstCompletionBanner {
+                    firstCompletionBanner
+                }
 
                 if let sosMessage, !sosMessage.isEmpty {
                     if isPro {
@@ -29,6 +35,49 @@ struct FamilyDashboardTab: View {
             .padding(.vertical, Spacing.lg)
         }
         .background(Color(.systemGroupedBackground))
+    }
+
+    private var firstCompletionBanner: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(alignment: .top, spacing: Spacing.md) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.green)
+                    .frame(width: 44, height: 44)
+                    .background(Color.green.opacity(0.12), in: Circle())
+
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("✓✓ が届きました")
+                        .font(.headline)
+                    Text("\(pairedPersonName)さんが予定を終えました。PROにすると、過去7日間の記録やSOSもまとめて見守れます。")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: Spacing.sm) {
+                Button("あとで") {
+                    onDismissFirstCompletionBanner()
+                }
+                .font(.callout.weight(.semibold))
+                .frame(minHeight: 44)
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Button("PROを見る") {
+                    onDismissFirstCompletionBanner()
+                    onUpgradeTapped()
+                }
+                .font(.callout.weight(.semibold))
+                .frame(minHeight: 44)
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
     }
 
     private var headerCard: some View {

@@ -75,6 +75,7 @@ struct ADHDAlarmApp: App {
 
     private let syncEngine         = SyncEngine()
     private let permissionsService = PermissionsService()
+    private let networkMonitor     = NetworkMonitorService()
     @State private var storeKit    = StoreKitService()
 
     // P-5-4: scenePhase .active の多重発火を防ぐデバウンス用タイムスタンプ
@@ -89,6 +90,7 @@ struct ADHDAlarmApp: App {
                 .environment(appState)
                 .environment(appRouter)
                 .environment(permissionsService)
+                .environment(networkMonitor)
                 .environment(storeKit)
                 .task { await startupTasks() }
                 // AlarmKit発火監視: alerting状態になったらRingingViewを表示
@@ -123,6 +125,7 @@ struct ADHDAlarmApp: App {
                 guard ForegroundSyncDebouncer.shouldRun(now: now, lastSyncTimestamp: lastSyncCheckTimestamp) else { return }
                 lastSyncCheckTimestamp = now
                 Task {
+                    await OfflineActionQueue.shared.flush()
                     await syncEngine.performFullSync()
                     let newCount = await syncEngine.syncRemoteEvents()
                     if newCount > 0 {
@@ -420,7 +423,10 @@ struct RootView: View {
 
         if let remoteEventId = alarm.remoteEventId {
             Task {
-                try? await FamilyRemoteService.shared.updateRemoteEventStatus(id: remoteEventId, status: "completed")
+                await OfflineActionQueue.shared.sendOrEnqueueStatusUpdate(
+                    eventID: remoteEventId,
+                    status: "completed"
+                )
             }
         }
 
@@ -444,7 +450,7 @@ struct RootView: View {
         case .permissionsCTA:   PermissionsCTAView()
         case .owlNaming:        OwlNamingView()
         case .magicDemoWarning: MagicDemoWarningView()
-        case .magicDemo(let hapticOnly): MagicDemoView(hapticOnly: hapticOnly)
+        case .magicDemo:        MagicDemoView()
         case .widgetGuide:      WidgetGuideView()
         }
     }

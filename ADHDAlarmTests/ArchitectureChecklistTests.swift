@@ -155,11 +155,13 @@ final class ArchitectureChecklistTests: XCTestCase {
 
     func testWidget_TimelineRefreshStillDependsOnAppSideReloads() throws {
         let providerSource = try sourceText(relativePath: "ADHDAlarmWidget/WidgetDataProvider.swift")
+        let appStateSource = try sourceText(relativePath: "ADHDAlarm/App/AppState.swift")
         let alarmStoreSource = try sourceText(relativePath: "ADHDAlarm/Services/AlarmEventStore.swift")
         let inputSource = try sourceText(relativePath: "ADHDAlarm/ViewModels/InputViewModel.swift")
         let ringingSource = try sourceText(relativePath: "ADHDAlarm/ViewModels/RingingViewModel.swift")
 
         XCTAssertTrue(providerSource.contains("読み取りのみ"), "ウィジェット側は読み取り専用を維持すること")
+        XCTAssertTrue(appStateSource.contains("WidgetCenter.shared.reloadAllTimelines()"))
         XCTAssertTrue(alarmStoreSource.contains("WidgetCenter.shared.reloadAllTimelines()"))
         XCTAssertTrue(inputSource.contains("WidgetCenter.shared.reloadAllTimelines()"))
         XCTAssertTrue(ringingSource.contains("WidgetCenter.shared.reloadAllTimelines()"))
@@ -270,7 +272,7 @@ final class ArchitectureChecklistTests: XCTestCase {
         XCTAssertTrue(source.contains("Text(\"これから音が鳴ります\")"))
         XCTAssertTrue(source.contains("周りに人がいますか？"))
         XCTAssertTrue(source.contains("Button(\"🔔 鳴らしてみる！\")"))
-        XCTAssertTrue(source.contains("Button(\"音を出さずにスキップ →\")"))
+        XCTAssertTrue(source.contains("Button(\"あとで試す →\")"))
         XCTAssertTrue(appSource.contains("case .magicDemoWarning: MagicDemoWarningView()"))
         XCTAssertTrue(owlNamingSource.contains("appState.onboardingPath.append(OnboardingDestination.magicDemoWarning)"))
     }
@@ -281,7 +283,7 @@ final class ArchitectureChecklistTests: XCTestCase {
 
         XCTAssertTrue(owlNamingSource.contains("appState.onboardingPath.append(OnboardingDestination.magicDemoWarning)"))
         XCTAssertTrue(appSource.contains("case .magicDemoWarning: MagicDemoWarningView()"))
-        XCTAssertTrue(appSource.contains("case .magicDemo(let hapticOnly): MagicDemoView(hapticOnly: hapticOnly)"))
+        XCTAssertTrue(appSource.contains("case .magicDemo:        MagicDemoView()"))
     }
 
     func testPersonHomeViewModel_DynamicTypeExtremeUsesScreenHeightBasedCount() throws {
@@ -314,11 +316,29 @@ final class ArchitectureChecklistTests: XCTestCase {
         XCTAssertTrue(combined.contains("await MainActor.run"))
     }
 
+    func testProject_DefaultActorIsolationIsMainActor() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm.xcodeproj/project.pbxproj")
+
+        XCTAssertTrue(source.contains("SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;"))
+    }
+
     func testFamilyRemoteService_SignsInAnonymouslyWhenSessionIsMissing() throws {
         let source = try sourceText(relativePath: "ADHDAlarm/Services/FamilyRemoteService.swift")
 
         XCTAssertTrue(source.contains("if let existing = try? await client.auth.session"))
         XCTAssertTrue(source.contains("session = try await client.auth.signInAnonymously()"))
+    }
+
+    func testOfflineActionQueue_FlushesBeforeForegroundSync() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/ADHDAlarmApp.swift")
+
+        guard let flushRange = source.range(of: "await OfflineActionQueue.shared.flush()"),
+              let syncRange = source.range(of: "await syncEngine.performFullSync()")
+        else {
+            return XCTFail("オフラインキューflushとフル同期呼び出しが見つかりません")
+        }
+
+        XCTAssertLessThan(flushRange.lowerBound, syncRange.lowerBound)
     }
 
     func testWidgetGuideView_HasImagePlaceholderFrameAndSingleInstructionText() throws {
@@ -328,6 +348,17 @@ final class ArchitectureChecklistTests: XCTestCase {
         XCTAssertTrue(source.contains("Text(\"（ここに画像が入ります）\")"))
         XCTAssertTrue(source.contains("Text(instruction)"))
         XCTAssertTrue(source.contains(".aspectRatio(16.0 / 9.0, contentMode: .fit)"))
+    }
+
+    func testWidgetGuideView_CanBeReopenedFromSettings() throws {
+        let settingsSource = try sourceText(relativePath: "ADHDAlarm/Views/Settings/SettingsView.swift")
+        let widgetGuideSource = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/WidgetGuideView.swift")
+
+        XCTAssertTrue(settingsSource.contains("@State private var showWidgetGuide = false"))
+        XCTAssertTrue(settingsSource.contains("listRow(icon: \"rectangle.stack.badge.plus\", title: \"ウィジェットの置き方\")"))
+        XCTAssertTrue(settingsSource.contains(".sheet(isPresented: $showWidgetGuide)"))
+        XCTAssertTrue(widgetGuideSource.contains("var onFinished: (() -> Void)? = nil"))
+        XCTAssertTrue(widgetGuideSource.contains("onFinished?()"))
     }
 
     func testMicrophoneInputView_CanOpenPersonManualInputView() throws {
@@ -412,7 +443,7 @@ final class ArchitectureChecklistTests: XCTestCase {
         let source = try sourceText(relativePath: "ADHDAlarm/Views/Dashboard/EventRow.swift")
 
         XCTAssertTrue(source.contains("Text(alarm.resolvedEmoji)"))
-        XCTAssertTrue(source.contains(".font(.system(size: 20))"))
+        XCTAssertTrue(source.contains(".font(.title2)"))
         XCTAssertTrue(source.contains("Image(systemName: \"checkmark.circle.fill\")"))
         XCTAssertTrue(source.contains("frame(width: 60, height: 60)"))
     }
@@ -497,6 +528,23 @@ final class ArchitectureChecklistTests: XCTestCase {
         XCTAssertTrue(viewModelSource.contains("\"30分後にまた教えて\""))
     }
 
+    func testRingingView_ReducesDecorativeMotionForAccessibilityAndLowPower() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Alarm/RingingView.swift")
+
+        XCTAssertTrue(source.contains("@Environment(\\.accessibilityReduceMotion) private var accessibilityReduceMotion"))
+        XCTAssertTrue(source.contains("accessibilityReduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled"))
+        XCTAssertTrue(source.contains("if !shouldReduceMotionEffects {"))
+        XCTAssertTrue(source.contains("withAnimation(.easeOut(duration: shouldReduceMotionEffects ? 0.2 : 0.5))"))
+    }
+
+    func testPersonHomeView_UsesOpacityOnlyForCollapsedListsWhenReduceMotionIsEnabled() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Dashboard/PersonHomeView.swift")
+
+        XCTAssertTrue(source.contains("accessibilityReduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity)"))
+        XCTAssertTrue(source.contains("withAnimation(expandCollapseAnimation)"))
+        XCTAssertTrue(source.contains(".transition(eventListTransition)"))
+    }
+
     func testEventRow_ShowsCarriedOverBadge() throws {
         let source = try sourceText(relativePath: "ADHDAlarm/Views/Dashboard/EventRow.swift")
 
@@ -520,6 +568,365 @@ final class ArchitectureChecklistTests: XCTestCase {
         XCTAssertTrue(source.contains(".confirmationDialog("))
         XCTAssertTrue(source.contains("Button(\"削除する\", role: .destructive)"))
         XCTAssertTrue(source.contains("Button(\"やめる\", role: .cancel)"))
+    }
+
+    func testPersonWelcomeView_HasWingFlapAnimation() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/PersonWelcomeView.swift")
+
+        XCTAssertTrue(source.contains("@State private var wingFlap = false"))
+        XCTAssertTrue(source.contains(".scaleEffect(wingFlap ? 1.05 : 1.0)"))
+        XCTAssertTrue(source.contains(".easeInOut(duration: 1.5).repeatForever(autoreverses: true)"))
+        XCTAssertTrue(source.contains(".onAppear { wingFlap = true }"))
+    }
+
+    func testExistingUsers_SeeModeSelectionOnlyAndSkipRemainingOnboarding() throws {
+        let appSource = try sourceText(relativePath: "ADHDAlarm/ADHDAlarmApp.swift")
+        let modeSource = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/ModeSelectionView.swift")
+
+        XCTAssertTrue(appSource.contains("if !appState.isOnboardingComplete || appState.appMode == nil"))
+        XCTAssertTrue(appSource.contains("ModeSelectionView()"))
+        XCTAssertTrue(modeSource.contains("if appState.isOnboardingComplete {"))
+        XCTAssertTrue(modeSource.contains("// 既存ユーザー: モード変更のみ。RootView が自動切替"))
+        XCTAssertTrue(modeSource.contains("return"))
+        XCTAssertTrue(modeSource.contains("appState.onboardingPath.append(OnboardingDestination.personWelcome)"))
+    }
+
+    func testExistingUserModeSelectionButtonUsesKonoSetteiDeTsukau() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/ModeSelectionView.swift")
+
+        XCTAssertTrue(source.contains("Button(appState.isOnboardingComplete ? \"この設定で使う\" : \"🦉 はじめる\")"))
+    }
+
+    func testFamilyDashboard_FreeTierLocksSOSAndHistoryButStillShowsTodaySection() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Family/FamilyDashboardTab.swift")
+        let homeSource = try sourceText(relativePath: "ADHDAlarm/Views/Family/FamilyHomeView.swift")
+
+        XCTAssertTrue(source.contains("todaySection"))
+        XCTAssertTrue(source.contains("Text(\"今日の予定\")"))
+        XCTAssertTrue(source.contains("if isPro {"))
+        XCTAssertTrue(source.contains("lockedSOSBanner"))
+        XCTAssertTrue(source.contains("lockedHistoryCard"))
+        XCTAssertTrue(source.contains("Button(\"PROを見る\")"))
+        XCTAssertTrue(source.contains("Button(\"PROプランを見る\")"))
+        XCTAssertTrue(homeSource.contains("onUpgradeTapped: { showFamilyPaywall = true }"))
+        XCTAssertTrue(homeSource.contains(".sheet(isPresented: $showFamilyPaywall)"))
+        XCTAssertTrue(homeSource.contains("FamilyPaywallView()"))
+    }
+
+    func testFamilyDashboard_ShowsFirstCompletionBannerOnlyForOneTimeFreeTierUpsell() throws {
+        let dashboardSource = try sourceText(relativePath: "ADHDAlarm/Views/Family/FamilyDashboardTab.swift")
+        let homeSource = try sourceText(relativePath: "ADHDAlarm/Views/Family/FamilyHomeView.swift")
+        let viewModelSource = try sourceText(relativePath: "ADHDAlarm/ViewModels/FamilyHomeViewModel.swift")
+        let constantsSource = try sourceText(relativePath: "ADHDAlarm/App/Constants.swift")
+
+        XCTAssertTrue(dashboardSource.contains("var showFirstCompletionBanner: Bool = false"))
+        XCTAssertTrue(dashboardSource.contains("Text(\"✓✓ が届きました\")"))
+        XCTAssertTrue(dashboardSource.contains("Button(\"あとで\")"))
+        XCTAssertTrue(dashboardSource.contains("Button(\"PROを見る\")"))
+        XCTAssertTrue(homeSource.contains("showFirstCompletionBanner: viewModel.shouldShowFirstCompletionBanner"))
+        XCTAssertTrue(homeSource.contains("viewModel.dismissFirstCompletionBanner()"))
+        XCTAssertTrue(viewModelSource.contains("sentEvents = try await service.fetchSentEvents(linkId: linkId)"))
+        XCTAssertTrue(viewModelSource.contains("events.contains(where: { $0.status == \"completed\" })"))
+        XCTAssertTrue(viewModelSource.contains("Constants.Keys.familyFirstCompletedBannerShown"))
+        XCTAssertTrue(constantsSource.contains("static let familyFirstCompletedBannerShown"))
+    }
+
+    func testSettingsFamilyAndRingingBackgrounds_FollowCurrentSurfaceRules() throws {
+        let settingsSource = try sourceText(relativePath: "ADHDAlarm/Views/Settings/SettingsView.swift")
+        let familyPaywallSource = try sourceText(relativePath: "ADHDAlarm/Views/Family/FamilyPaywallView.swift")
+        let familySettingsSource = try sourceText(relativePath: "ADHDAlarm/Views/Family/FamilySettingsTab.swift")
+        let familySendSource = try sourceText(relativePath: "ADHDAlarm/Views/Family/FamilySendTab.swift")
+        let ringingSource = try sourceText(relativePath: "ADHDAlarm/Views/Alarm/RingingView.swift")
+
+        XCTAssertTrue(settingsSource.contains(".background(.background)"))
+        XCTAssertTrue(settingsSource.contains(".background(.regularMaterial)"))
+        XCTAssertFalse(settingsSource.contains(".background(Color(.systemBackground))"))
+
+        XCTAssertTrue(familyPaywallSource.contains(".background(.background)"))
+        XCTAssertTrue(familyPaywallSource.contains(".background(.regularMaterial, in: RoundedRectangle(cornerRadius: CornerRadius.lg))"))
+        XCTAssertFalse(familyPaywallSource.contains(".background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: CornerRadius.lg))"))
+
+        XCTAssertTrue(familySettingsSource.contains(".background(.background)"))
+        XCTAssertTrue(familySendSource.contains(".background(.background)"))
+
+        XCTAssertTrue(ringingSource.contains("Rectangle()"))
+        XCTAssertTrue(ringingSource.contains(".fill(.ultraThickMaterial)"))
+        XCTAssertTrue(ringingSource.contains(".fill(.regularMaterial)"))
+        XCTAssertTrue(ringingSource.contains(".background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))"))
+        XCTAssertTrue(ringingSource.contains(".background(.regularMaterial)"))
+    }
+
+    func testFamilyPaywall_CanBeDismissedLater() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Family/FamilyPaywallView.swift")
+
+        XCTAssertTrue(source.contains("Button(\"あとで\")"))
+        XCTAssertTrue(source.contains("dismiss()"))
+    }
+
+    func testToastWindowManager_RendersAboveFullScreenCover() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Services/ToastWindowManager.swift")
+
+        XCTAssertTrue(source.contains("window.windowLevel = .alert + 1"))
+        XCTAssertTrue(source.contains("/// .fullScreenCover（RingingView）の上にも表示できる"))
+    }
+
+    func testDashboard_DoesNotShowLegacyLevelNumberUI() throws {
+        let appSources = try appSourceFiles()
+        let combined = try appSources
+            .map { try sourceText(relativePath: relativePath(for: $0)) }
+            .joined(separator: "\n")
+
+        XCTAssertFalse(combined.contains("Lv."))
+        XCTAssertFalse(combined.contains("Level"))
+        XCTAssertFalse(combined.contains("レベル"))
+    }
+
+    func testFamilyUnlink_ClearsLocalLinkIdentifiers() throws {
+        let settingsSource = try sourceText(relativePath: "ADHDAlarm/Views/Settings/SettingsView.swift")
+        let familyLinkSource = try sourceText(relativePath: "ADHDAlarm/Views/Settings/FamilyLinkView.swift")
+        let personFamilyLinkSource = try sourceText(relativePath: "ADHDAlarm/Views/Settings/PersonFamilyLinkView.swift")
+        let familySettingsSource = try sourceText(relativePath: "ADHDAlarm/Views/Family/FamilySettingsTab.swift")
+        let combined = [settingsSource, familyLinkSource, personFamilyLinkSource, familySettingsSource].joined(separator: "\n")
+
+        XCTAssertTrue(combined.contains("appState.familyLinkId = nil"))
+        XCTAssertTrue(combined.contains("appState.familyChildLinkIds = []"))
+        XCTAssertTrue(combined.contains("appState.familyChildLinkIds.removeAll"))
+    }
+
+    func testLowBatteryCheck_ShowsToastOnlyWhenBatteryIsLowAndAlarmExists() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/ADHDAlarmApp.swift")
+
+        XCTAssertTrue(source.contains("let level = UIDevice.current.batteryLevel"))
+        XCTAssertTrue(source.contains("guard level > 0, level < 0.10 else { return }"))
+        XCTAssertTrue(source.contains("$0.fireDate > Date() && $0.completionStatus == nil && !$0.isToDo"))
+        XCTAssertTrue(source.contains("ToastWindowManager.shared.show(ToastMessage("))
+        XCTAssertTrue(source.contains("充電残量が少なくなっています。充電してからアラームを使ってね"))
+    }
+
+    func testDeleteAccount_ClearsFamilyLinksWithoutDeletingLocalAlarmData() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Settings/SettingsView.swift")
+
+        XCTAssertTrue(source.contains("try await FamilyRemoteService.shared.deleteAccount()"))
+        XCTAssertTrue(source.contains("appState.familyLinkId = nil"))
+        XCTAssertTrue(source.contains("appState.familyChildLinkIds = []"))
+        XCTAssertFalse(source.contains("AlarmEventStore.shared.delete"))
+        XCTAssertFalse(source.contains("eventStore.delete"))
+        XCTAssertFalse(source.contains("loadAll().removeAll"))
+    }
+
+    func testReviewRequests_AreTriggeredOnlyAfterCompletionFlow() throws {
+        let ringingSource = try sourceText(relativePath: "ADHDAlarm/Views/Alarm/RingingView.swift")
+        let reviewSource = try sourceText(relativePath: "ADHDAlarm/Services/ReviewManager.swift")
+        let paywallSource = try sourceText(relativePath: "ADHDAlarm/Views/Paywall/PaywallView.swift")
+        let appSource = try sourceText(relativePath: "ADHDAlarm/ADHDAlarmApp.swift")
+
+        XCTAssertTrue(ringingSource.contains("ReviewManager.shared.recordCompletionAndRequestIfNeeded(isSOSFired: sosWasFired)"))
+        XCTAssertFalse(ringingSource.contains("viewModel.skip()\n        ReviewManager.shared"))
+        XCTAssertTrue(reviewSource.contains("/// 「とめる」ボタンを押して予定が完了した直後にのみリクエストを発火する。"))
+        XCTAssertTrue(reviewSource.contains("guard !isSOSFired else { return }"))
+        XCTAssertFalse(paywallSource.contains("requestReview"))
+        XCTAssertFalse(paywallSource.contains("ReviewManager.shared"))
+        XCTAssertFalse(appSource.contains("ReviewManager.shared.recordCompletionAndRequestIfNeeded"))
+    }
+
+    func testPaywallPurchase_UnlocksProFeaturesBySettingSubscriptionTierToPro() throws {
+        let paywallViewModelSource = try sourceText(relativePath: "ADHDAlarm/ViewModels/PaywallViewModel.swift")
+        let settingsViewModelSource = try sourceText(relativePath: "ADHDAlarm/ViewModels/SettingsViewModel.swift")
+        let inputViewModelSource = try sourceText(relativePath: "ADHDAlarm/ViewModels/InputViewModel.swift")
+
+        XCTAssertTrue(paywallViewModelSource.contains("appState.subscriptionTier = .pro"))
+        XCTAssertTrue(paywallViewModelSource.contains("successMessage = \"PROプランへのアップグレードが完了しました！\""))
+        XCTAssertTrue(settingsViewModelSource.contains("var isPro: Bool { appState.subscriptionTier == .pro }"))
+        XCTAssertTrue(inputViewModelSource.contains("guard appState.subscriptionTier.canSelectCalendar else { return }"))
+    }
+
+    func testRingingView_UsesLargeTypeFallbackAboveAccessibility3() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Alarm/RingingView.swift")
+
+        XCTAssertTrue(source.contains("if dynamicTypeSize >= .accessibility3 {"))
+        XCTAssertTrue(source.contains("largeTypeEventCard(alarm: alarm, minutesToEvent: minutesToEvent)"))
+        XCTAssertTrue(source.contains("Text(\"今\")"))
+        XCTAssertTrue(source.contains("Text(\"分\")"))
+    }
+
+    func testRingingView_LargeTypeKeepsCountdownLargerThanEventTitle() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Alarm/RingingView.swift")
+
+        XCTAssertTrue(source.contains(".font(.system(size: 84, weight: .black, design: .rounded))"))
+        XCTAssertTrue(source.contains(".font(.system(size: 88, weight: .black, design: .rounded))"))
+        XCTAssertTrue(source.contains("Text(alarm.title)"))
+        XCTAssertTrue(source.contains(".font(.title2.weight(.black))"))
+    }
+
+    func testMagicDemoCompletion_UsesSameTenXPPathAsRealAlarmCompletion() throws {
+        let magicDemoSource = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/MagicDemoView.swift")
+        let ringingSource = try sourceText(relativePath: "ADHDAlarm/Views/Alarm/RingingView.swift")
+        let viewModelSource = try sourceText(relativePath: "ADHDAlarm/ViewModels/RingingViewModel.swift")
+
+        XCTAssertTrue(magicDemoSource.contains("RingingView(alarm: demoAlarm)"))
+        XCTAssertTrue(ringingSource.contains("viewModel.dismiss()"))
+        XCTAssertTrue(viewModelSource.contains("appState?.addXP(10)"))
+        XCTAssertTrue(ringingSource.contains("text: \"よくできました！ ⭐️ +10ポイント\""))
+    }
+
+    func testWidgetOwlRoom_UsesOneThirdAndTwoThirdsSplitLayout() throws {
+        let source = try sourceText(relativePath: "ADHDAlarmWidget/ADHDAlarmWidget.swift")
+
+        XCTAssertTrue(source.contains("HStack(spacing: 0)"))
+        XCTAssertTrue(source.contains("owlRoomView(alarm: alarm)"))
+        XCTAssertTrue(source.contains(".frame(maxWidth: 140)"))
+        XCTAssertTrue(source.contains("// 左ペイン（1/3）: ふくろうの部屋（箱庭）"))
+        XCTAssertTrue(source.contains("// 右ペイン（2/3）: 残り時間 + タイトル + 事前通知"))
+    }
+
+    func testWidgetOwlRoom_ShowsOnlyOwlBelowOneHundredXP() throws {
+        let source = try sourceText(relativePath: "ADHDAlarmWidget/ADHDAlarmWidget.swift")
+
+        XCTAssertTrue(source.contains("if xp >= 100 { Text(\"🪵\")"))
+        XCTAssertTrue(source.contains("if xp >= 300 { Text(\"🪴\")"))
+        XCTAssertTrue(source.contains("if xp >= 700 { Text(\"🕯️\")"))
+        XCTAssertTrue(source.contains("if xp >= 1000 { Text(\"🔭\")"))
+        XCTAssertTrue(source.contains("Image(owlImageName(for: alarm))"))
+    }
+
+    func testManualInputTimePresets_SetDateImmediatelyAndClosePicker() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Input/PersonManualInputView.swift")
+
+        XCTAssertTrue(source.contains("timeButton(.morning)"))
+        XCTAssertTrue(source.contains("timeButton(.noon)"))
+        XCTAssertTrue(source.contains("timeButton(.evening)"))
+        XCTAssertTrue(source.contains("selectedTime = preset"))
+        XCTAssertTrue(source.contains("showDatePicker = false"))
+    }
+
+    func testDashboardExpandCollapse_UsesEaseInOutPointThreeAnimation() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Dashboard/PersonHomeView.swift")
+
+        XCTAssertTrue(source.contains("withAnimation(.easeInOut(duration: 0.3)) {"))
+        XCTAssertTrue(source.contains("viewModel.isEventListExpanded = true"))
+        XCTAssertTrue(source.contains("viewModel.isEventListExpanded = false"))
+    }
+
+    func testDashboardExpandCollapse_PersistsWithSceneStorage() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Dashboard/PersonHomeView.swift")
+
+        XCTAssertTrue(source.contains("@SceneStorage(\"isEventListExpanded\")"))
+        XCTAssertTrue(source.contains("storedIsEventListExpanded = true"))
+        XCTAssertTrue(source.contains("storedIsEventListExpanded = false"))
+    }
+
+    func testManualInputFineTuning_ExpandsDatePickerWithAnimation() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Input/PersonManualInputView.swift")
+
+        XCTAssertTrue(source.contains("Text(showDatePicker ? \"閉じる\" : \"⚙️ 細かく設定\")"))
+        XCTAssertTrue(source.contains("withAnimation(.spring(duration: 0.2)) {"))
+        XCTAssertTrue(source.contains("showDatePicker.toggle()"))
+        XCTAssertTrue(source.contains("DatePicker("))
+    }
+
+    func testFamilyUnlinkButtons_UseDestructiveRole() throws {
+        let familyLinkSource = try sourceText(relativePath: "ADHDAlarm/Views/Settings/FamilyLinkView.swift")
+        let personLinkSource = try sourceText(relativePath: "ADHDAlarm/Views/Settings/PersonFamilyLinkView.swift")
+        let sosSource = try sourceText(relativePath: "ADHDAlarm/Views/Settings/SOSPairingView.swift")
+
+        XCTAssertTrue(familyLinkSource.contains("Button(role: .destructive)"))
+        XCTAssertTrue(personLinkSource.contains("Button(role: .destructive)"))
+        XCTAssertTrue(sosSource.contains("Button(role: .destructive)"))
+        XCTAssertTrue(familyLinkSource.contains("Label(\"連携を解除する\""))
+    }
+
+    func testPersonHomeView_BlocksInteractionWhenPermissionsAreDenied() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Dashboard/PersonHomeView.swift")
+
+        XCTAssertTrue(source.contains("@Environment(PermissionsService.self) private var permissionsService"))
+        XCTAssertTrue(source.contains("if permissionsService.hasDeniedPermissions"))
+        XCTAssertTrue(source.contains("Text(\"設定の確認が必要です\")"))
+        XCTAssertTrue(source.contains("Button(\"設定アプリを開く\")"))
+        XCTAssertTrue(source.contains("UIApplication.openSettingsURLString"))
+    }
+
+    func testPersonHomeView_AllowsCompletingMissedEventsFromActionDialog() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Dashboard/PersonHomeView.swift")
+
+        XCTAssertTrue(source.contains("if alarm.completionStatus == nil || alarm.completionStatus == .missed"))
+        XCTAssertTrue(source.contains("Button(\"完了にする\")"))
+        XCTAssertTrue(source.contains("if alarm.completionStatus == .missed {"))
+    }
+
+    func testFamilyHomeView_ShowsOfflineYellowBannerFromNetworkMonitor() throws {
+        let appSource = try sourceText(relativePath: "ADHDAlarm/ADHDAlarmApp.swift")
+        let homeSource = try sourceText(relativePath: "ADHDAlarm/Views/Family/FamilyHomeView.swift")
+        let monitorSource = try sourceText(relativePath: "ADHDAlarm/Services/NetworkMonitorService.swift")
+
+        XCTAssertTrue(appSource.contains("private let networkMonitor     = NetworkMonitorService()"))
+        XCTAssertTrue(appSource.contains(".environment(networkMonitor)"))
+        XCTAssertTrue(homeSource.contains("@Environment(NetworkMonitorService.self) private var networkMonitor"))
+        XCTAssertTrue(homeSource.contains("if networkMonitor.isOffline"))
+        XCTAssertTrue(homeSource.contains("wifi.slash"))
+        XCTAssertTrue(homeSource.contains("最新の予定や見守り状況の読み込みが遅れることがあります。"))
+        XCTAssertTrue(homeSource.contains(".background(Color.yellow.opacity(0.88))"))
+        XCTAssertTrue(monitorSource.contains("final class NetworkMonitorService"))
+        XCTAssertTrue(monitorSource.contains("NWPathMonitor()"))
+    }
+
+    func testAlarmKitScheduler_ActionableNotificationUsesGenericPrivacyTitle() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Services/AlarmKitScheduler.swift")
+
+        XCTAssertTrue(source.contains("content.title = \"🦉 ふくろうからのお知らせ\""))
+        XCTAssertFalse(source.contains("content.title = alarm.title"))
+    }
+
+    func testSettingsView_CalendarPickerAvoidsDefaultITLabel() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Settings/SettingsView.swift")
+
+        XCTAssertTrue(source.contains("Text(\"自動で選ぶ\").tag(\"\")"))
+        XCTAssertFalse(source.contains("Text(\"デフォルト\").tag(\"\")"))
+    }
+
+    func testOwlAmberButtonsAndBadges_AvoidWhiteText() throws {
+        let onboarding = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/WidgetGuideView.swift")
+        let modeSelection = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/ModeSelectionView.swift")
+        let permissions = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/PermissionsCTAView.swift")
+        let welcome = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/PersonWelcomeView.swift")
+        let magicDemo = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/MagicDemoView.swift")
+        let magicWarning = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/MagicDemoWarningView.swift")
+        let eventRow = try sourceText(relativePath: "ADHDAlarm/Views/Dashboard/EventRow.swift")
+        let settings = try sourceText(relativePath: "ADHDAlarm/Views/Settings/SettingsView.swift")
+        let voicePicker = try sourceText(relativePath: "ADHDAlarm/Views/Settings/VoiceCharacterPicker.swift")
+        let combined = [onboarding, modeSelection, permissions, welcome, magicDemo, magicWarning, eventRow, settings, voicePicker].joined(separator: "\n")
+
+        XCTAssertFalse(combined.contains(".background(Color.owlAmber)\n                    .foregroundStyle(.white)"))
+        XCTAssertFalse(combined.contains(".background(Color.owlAmber)\n                .foregroundStyle(.white)"))
+        XCTAssertTrue(onboarding.contains(".background(Color.owlAmber)\n                .foregroundStyle(.black)"))
+        XCTAssertTrue(modeSelection.contains(".background(Color.owlAmber)\n            .foregroundStyle(.black)"))
+        XCTAssertTrue(permissions.contains(".background(Color.owlAmber)\n                .foregroundStyle(.black)"))
+        XCTAssertTrue(welcome.contains(".background(Color.owlAmber)\n            .foregroundStyle(.black)"))
+        XCTAssertTrue(magicDemo.contains(".background(Color.owlAmber)\n                    .foregroundStyle(.black)"))
+        XCTAssertTrue(magicWarning.contains(".background(Color.owlAmber)\n                .foregroundStyle(.black)"))
+        XCTAssertTrue(settings.contains(".foregroundStyle(.black)\n                    .padding(.horizontal, 6)\n                    .padding(.vertical, 2)\n                    .background(Color.owlAmber)"))
+        XCTAssertTrue(voicePicker.contains(".foregroundStyle(.black)\n                        .padding(.horizontal, 6)\n                        .padding(.vertical, 2)\n                        .background(Color.owlAmber)"))
+        XCTAssertTrue(eventRow.contains(".foregroundStyle(.black)\n                    .padding(.horizontal, 6)\n                    .padding(.vertical, 2)\n                    .background(isCarriedOver ? Color.secondary : Color.owlAmber)"))
+    }
+
+    func testEventRow_EmojiIconFollowsDynamicTypeAndCompletedOpacityRule() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Dashboard/EventRow.swift")
+
+        XCTAssertTrue(source.contains("Text(alarm.resolvedEmoji)"))
+        XCTAssertTrue(source.contains(".font(.title2)"))
+        XCTAssertTrue(source.contains("if isPast { return 0.4 }"))
+        XCTAssertFalse(source.contains(".font(.system(size: 20))"))
+    }
+
+    func testSettingsView_ShowsDeleteProgressOverlayAndReturnsToOnboardingAfterAccountDeletion() throws {
+        let source = try sourceText(relativePath: "ADHDAlarm/Views/Settings/SettingsView.swift")
+
+        XCTAssertTrue(source.contains("@State private var isDeletingAccount = false"))
+        XCTAssertTrue(source.contains("if isDeletingAccount {"))
+        XCTAssertTrue(source.contains("Text(\"削除中...\")"))
+        XCTAssertTrue(source.contains(".interactiveDismissDisabled(isDeletingAccount)"))
+        XCTAssertTrue(source.contains(".disabled(isDeletingAccount)"))
+        XCTAssertTrue(source.contains("appState.isOnboardingComplete = false"))
+        XCTAssertTrue(source.contains("appState.appMode = nil"))
     }
 
     // MARK: - Helpers
