@@ -119,7 +119,7 @@ struct FamilySendTab: View {
                             .background(
                                 viewModel.selectedTemplate == template
                                 ? Color.owlAmber
-                                : Color(.secondarySystemBackground),
+                                : Color(.systemBackground),
                                 in: RoundedRectangle(cornerRadius: CornerRadius.lg)
                             )
                         }
@@ -223,7 +223,7 @@ struct FamilySendTab: View {
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: 72)
-            .background(isSelected ? Color.owlAmber : Color(.secondarySystemBackground))
+            .background(isSelected ? Color.owlAmber : Color(.systemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
@@ -266,7 +266,7 @@ struct FamilySendTab: View {
                                 .background(
                                     viewModel.preNotificationMinutes == minutes
                                         ? Color.owlAmber
-                                        : Color(.secondarySystemBackground),
+                                        : Color(.systemBackground),
                                     in: Capsule()
                                 )
                         }
