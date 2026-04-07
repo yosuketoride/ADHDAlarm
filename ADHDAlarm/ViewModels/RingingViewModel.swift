@@ -349,7 +349,6 @@ final class RingingViewModel: NSObject {
             playPraisePhrase()
             return
         }
-        print("✅ [RingingViewModel/dismiss] ローカル完了保存 alarmID=\(alarm.id) remoteEventId=\(alarm.remoteEventId ?? "nil")")
         // watchAlarmUpdatesの再検知を防ぐためにHandledAlarmStoreへ登録する
         let alarmKitIDs = !alarm.alarmKitIdentifiers.isEmpty
             ? alarm.alarmKitIdentifiers
@@ -357,6 +356,7 @@ final class RingingViewModel: NSObject {
         alarmKitIDs.forEach { HandledAlarmStore.shared.markHandled($0) }
         // completionStatus を .completed に更新して永続化
         recordCompletion(for: alarm, status: .completed)
+        print("✅ [RingingViewModel/dismiss] ローカル完了保存 alarmID=\(alarm.id) remoteEventId=\(alarm.remoteEventId ?? "nil")")
         print("🔄 [RingingViewModel/dismiss] remote へ completed 送信を開始 remoteEventId=\(alarm.remoteEventId ?? "nil")")
         syncReactionToRemote(alarm: alarm, status: "completed")
         appState?.addXP(10)

@@ -101,6 +101,8 @@ actor OfflineActionQueue {
     }
 
     private func debugLogQueueSize() {
+        #if DEBUG
         print("[OfflineActionQueue] queue size: \(queuedActions.count)")
+        #endif
     }
 }
