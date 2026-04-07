@@ -281,7 +281,7 @@ struct FamilyDashboardTab: View {
     private func dashboardEventRow(_ event: RemoteEventRecord, isPast: Bool = false) -> some View {
         HStack(spacing: Spacing.md) {
             Rectangle()
-                .fill(isPast ? Color.secondary.opacity(0.3) : statusColor(for: event.status))
+                .fill(isPast ? Color.secondary.opacity(0.3) : statusColor(for: event))
                 .frame(width: 6)
                 .clipShape(RoundedRectangle(cornerRadius: CornerRadius.pill))
 
@@ -309,7 +309,7 @@ struct FamilyDashboardTab: View {
                             .layoutPriority(1)
 
                         HStack(spacing: Spacing.sm) {
-                            statusChip(for: event.status)
+                            statusChip(for: event)
                             if let note = event.note, !note.isEmpty {
                                 Text(note)
                                     .font(.caption)
@@ -336,18 +336,21 @@ struct FamilyDashboardTab: View {
         .shadow(color: .black.opacity(0.03), radius: 6, y: 2)
     }
 
-    private func statusChip(for status: String) -> some View {
-        Text(statusLabel(for: status))
+    private func statusChip(for event: RemoteEventRecord) -> some View {
+        Text(statusLabel(for: event))
             .font(.caption.weight(.semibold))
             .foregroundStyle(.white)
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)
-            .background(statusColor(for: status), in: Capsule())
+            .background(statusColor(for: event), in: Capsule())
     }
 
-    private func statusColor(for status: String) -> Color {
-        switch status {
-        case "pending", "alerting":
+    private func statusColor(for event: RemoteEventRecord) -> Color {
+        switch event.status {
+        case "pending":
+            // fireDate を過ぎていれば未対応（赤）、それ以外は待機中（琥珀）
+            return Date() >= event.fireDate ? .statusDanger : .owlAmber
+        case "alerting":
             return .owlAmber
         case "synced":
             return .statusSuccess
@@ -366,10 +369,18 @@ struct FamilyDashboardTab: View {
         }
     }
 
-    private func statusLabel(for status: String) -> String {
-        switch status {
+    private func statusLabel(for event: RemoteEventRecord) -> String {
+        switch event.status {
         case "pending":
-            return "待機中"
+            let now = Date()
+            let notificationDate = event.fireDate.addingTimeInterval(-Double(event.preNotificationMinutes) * 60)
+            if now >= event.fireDate {
+                return "未対応"
+            } else if now >= notificationDate {
+                return "反応待ち"
+            } else {
+                return "通知前"
+            }
         case "alerting":
             return "通知中"
         case "synced":
@@ -387,7 +398,7 @@ struct FamilyDashboardTab: View {
         case "cancelled":
             return "取消済み"
         default:
-            return status
+            return event.status
         }
     }
 

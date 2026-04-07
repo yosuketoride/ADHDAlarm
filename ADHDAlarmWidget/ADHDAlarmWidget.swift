@@ -69,31 +69,31 @@ struct NextAlarmProvider: TimelineProvider {
         }
     }
 
-    /// 次の予定情報コメント（今日/明日/それ以降を区別）
+    /// 次の予定情報コメント（できるだけ1行に収まる文字数に調整）
     private static func alarmComment(for alarm: WidgetAlarmEvent?) -> String {
         guard let alarm = alarm else {
-            return "今日は予定\nないね〜"
+            return "今日は予定ないね〜"
         }
         let minutes = Int(alarm.fireDate.timeIntervalSinceNow / 60)
         if minutes < 0 {
-            return "もう時間！\n急いで！"
+            return "もう時間！急いで！"
         } else if minutes < 10 {
-            return "急いで！\nもうすぐだよ！"
+            return "急いで！もうすぐだよ！"
         } else if minutes < 60 {
-            let t = String(alarm.title.prefix(8))
-            return "\(t)\nもうすぐだよ"
+            let t = String(alarm.title.prefix(7))
+            return "\(t)もうすぐ！"
         } else if Calendar.current.isDateInToday(alarm.fireDate) {
-            let t = String(alarm.title.prefix(5))
-            return "今日は\(t)\nがあるよ"
+            let t = String(alarm.title.prefix(7))
+            return "今日は\(t)だよ"
         } else if Calendar.current.isDateInTomorrow(alarm.fireDate) {
-            let t = String(alarm.title.prefix(5))
-            return "明日は\(t)\nがあるよ"
+            let t = String(alarm.title.prefix(7))
+            return "明日は\(t)だよ"
         } else {
             let fmt = DateFormatter()
             fmt.locale = Locale(identifier: "ja_JP")
             fmt.dateFormat = "M/d"
-            let t = String(alarm.title.prefix(5))
-            return "\(t)\n\(fmt.string(from: alarm.fireDate))にあるよ"
+            let t = String(alarm.title.prefix(8))
+            return "\(t) \(fmt.string(from: alarm.fireDate))だね"
         }
     }
 }
@@ -156,19 +156,18 @@ struct NextAlarmWidgetView: View {
     }
 
     // MARK: - Small: 部屋背景 ＋ フクロウどーん ＋ 吹き出しオーバーレイ
-    // VStack分割をやめてoverlayにすることでフクロウが widget 全体を使えるようになる
+    // scaleEffect(0.80, anchor: .bottom): レイアウトはフルサイズのまま、
+    // 見た目だけ80%に縮小して下端固定→フクロウが下寄りに小さく表示される
     private func smallView(alarm: WidgetAlarmEvent?) -> some View {
         Image(owlImageName(for: alarm))
             .resizable()
             .scaledToFit()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.top, 10)    // フクロウを少し下げて吹き出しの余地を作る
-            .padding(.bottom, -4) // 下端ぎりぎりまで
+            .scaleEffect(0.80, anchor: .bottom)
             .overlay(alignment: .top) {
-                // 吹き出しをフクロウの上に重ねる（フクロウPNGの透明上部に収まる）
                 SpeechBubble(text: entry.comment)
-                    .padding(.horizontal, 8)
-                    .padding(.top, 8)
+                    .padding(.horizontal, -12)  // widget角丸の内側まで広げる
+                    .padding(.top, -6)
             }
             // 部屋背景（Light/Dark は Assets で自動切替）
             .containerBackground(for: .widget) {
@@ -390,7 +389,7 @@ private struct SpeechBubble: View {
         VStack(spacing: 0) {
             // 吹き出し本体
             Text(text)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(.black)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
@@ -400,11 +399,11 @@ private struct SpeechBubble: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Self.amber)
+                        .fill(Self.amber.opacity(0.82))
                 )
             // 下向きしっぽ（フクロウの頭に向かって）
             DownTriangle()
-                .fill(Self.amber)
+                .fill(Self.amber.opacity(0.82))
                 .frame(width: 14, height: 8)
                 .offset(x: 10)   // 少し右寄りにしてフクロウ頭部に向ける
         }

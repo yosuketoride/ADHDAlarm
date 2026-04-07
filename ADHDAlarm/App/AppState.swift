@@ -193,5 +193,11 @@ final class AppState {
         self.familyLinkId = defaults.string(forKey: Constants.Keys.familyLinkId)
         self.familyChildLinkIds = defaults.stringArray(forKey: Constants.Keys.familyChildLinkIds) ?? []
         self.unreadFamilyEventCount = defaults.integer(forKey: Constants.Keys.unreadFamilyEventCount)
+
+        // didSet は init 内では呼ばれないため、App Group に現在の XP を手動で同期する
+        // これによりウィジェットが常に最新のステージを表示できる
+        let appGroup = UserDefaults(suiteName: Constants.appGroupID)
+        appGroup?.set(self.owlXP, forKey: Constants.Keys.owlXP)
+        appGroup?.set(self.owlName, forKey: Constants.Keys.owlName)
     }
 }

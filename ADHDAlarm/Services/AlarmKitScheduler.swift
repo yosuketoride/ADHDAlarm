@@ -67,7 +67,7 @@ final class AlarmKitScheduler: AlarmScheduling {
         fireDate: Date
     ) async {
         let content = UNMutableNotificationContent()
-        content.title = alarm.title
+        content.title = "🦉 ふくろうからのお知らせ"
         content.body = alarm.preNotificationMinutes == 0
             ? "時間になりました"
             : "あと\(alarm.preNotificationMinutes)分です"

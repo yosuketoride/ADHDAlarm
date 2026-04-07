@@ -267,6 +267,48 @@ WITH CHECK (
 
 ---
 
+#### P-9-1b. アラーム完了状態の正規状態遷移表（⚠️ 実装の真実源）
+
+> **背景:** `completionStatus == nil` が「スケジュール済み」と「通知後・反応待ち」を兼ねており、
+> 表示レイヤーで時刻ベースの分岐が必要になる。将来的には enum を分割すべきだが、
+> Phase 1 では **表示のみ** を修正し、モデル変更は Phase 2 以降に先送りする。
+
+##### 自分の予定（PersonHomeView / RingingView）
+
+| 状態名 | 条件 | 表示 | `completionStatus` |
+|--------|------|------|--------------------|
+| **通知前** | `now < fireDate - preNotificationMinutes` | カウントダウン（通知まであとX分） | `nil` |
+| **反応待ち** | `fireDate - preNotificationMinutes <= now < fireDate` | カウントダウン（本番まであとX分） | `nil` |
+| **アラーム発火中** | AlarmKit が `.alerting` を返す | RingingView 表示 | `nil` |
+| **完了** | ユーザーがスライドして停止 | ✅ マーク | `.completed` |
+| **スキップ** | 「今日は休む」ボタン押下 | ⏭ マーク | `.skipped` |
+| **スヌーズ中** | 「あとで」ボタン押下 | ⏱ 再通知時刻表示 | `.snoozed(until:)` |
+| **未対応** | `now >= fireDate` かつ停止されていない | ⚠️ 未対応 | `nil`（将来 `.missed`） |
+
+**カウントダウンの基準時刻:**
+- 表示する残り時間 = `(fireDate - preNotificationMinutes * 60) - now`（通知が鳴るまでの時間）
+- 通知後（反応待ち）は `fireDate - now`（本番開始まで）に切り替える
+
+##### 家族から受信した予定（FamilyDashboardTab）
+
+| 状態名 | `status` 文字列 | 条件 | 表示テキスト | 色 |
+|--------|----------------|------|------------|-----|
+| **通知前** | `"pending"` | `now < fireDate - preNotificationMinutes` | 通知前 | owlAmber |
+| **反応待ち** | `"pending"` | `fireDate - preNotificationMinutes <= now < fireDate` | 反応待ち | owlAmber |
+| **未対応** | `"pending"` | `now >= fireDate` | 未対応 | statusDanger |
+| **通知中** | `"alerting"` | AlarmKit 発火中 | 通知中 | owlAmber |
+| **完了** | `"completed"` | ユーザーが停止 | 完了 | statusSuccess |
+| **スキップ** | `"skipped"` | 「今日は休む」 | スキップ | statusSkipped |
+| **スヌーズ中** | `"snoozed"` | 「あとで」 | あとで | statusWarning |
+| **取消済み** | `"cancelled"` | 家族が取消 | 取消済み | secondary |
+
+> **Phase 1 実装方針（表示のみ・モデル変更なし）:**
+> - `statusLabel(for event: RemoteEventRecord)` に `event` を渡して時刻ベース分岐を追加
+> - `statusChip(for event: RemoteEventRecord)` の引数を `status: String` → `event: RemoteEventRecord` に変更
+> - モデル（`RemoteEventRecord.status`）は変更しない
+
+---
+
 #### P-9-2. スヌーズ時の家族ダッシュボード表示定義（⚠️ 仕様追加）
 
 **スヌーズステータスの追加（家族Tab 0 の左ボーダー色・ステータステキスト）:**

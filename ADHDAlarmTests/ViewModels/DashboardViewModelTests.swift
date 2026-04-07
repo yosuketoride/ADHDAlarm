@@ -298,6 +298,25 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertEqual(appState.owlXP, 10, "翌日は再び+5XPされること")
     }
 
+    func testCompleteEvent_MissedAlarmCanBeCompletedAndAwardsXP() async throws {
+        let appState = AppState()
+        var missed = AlarmEvent.makeTest(title: "取りこぼした予定", offsetFromNow: -1800)
+        missed.completionStatus = .missed
+        store.save(missed)
+
+        let viewModel = PersonHomeViewModel(eventStore: store)
+        viewModel.bindAppStateIfNeeded(appState)
+        await viewModel.loadEvents()
+
+        await viewModel.completeEvent(missed)
+
+        try await Task.sleep(for: .seconds(3.2))
+
+        let saved = try XCTUnwrap(store.find(id: missed.id))
+        XCTAssertEqual(saved.completionStatus, .completed, "missed状態から完了に更新できること")
+        XCTAssertEqual(appState.owlXP, 10, "後から完了にした場合も+10XPされること")
+    }
+
     // MARK: - deleteEvent
 
     func testDeleteEvent_HidesImmediatelyAndRemovesFromStoreAfterUndoWindow() async throws {

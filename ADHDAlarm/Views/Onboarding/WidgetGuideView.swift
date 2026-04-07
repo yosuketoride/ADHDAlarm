@@ -4,6 +4,7 @@ import SwiftUI
 struct WidgetGuideView: View {
     @Environment(AppState.self) private var appState
     @State private var currentPage = 0
+    var onFinished: (() -> Void)? = nil
 
     private let pageInstructions = [
         "① ホーム画面の何もないところを\n長押しします",
@@ -85,5 +86,6 @@ struct WidgetGuideView: View {
     private func finishOnboarding() {
         appState.isOnboardingComplete = true
         appState.onboardingPath = NavigationPath()
+        onFinished?()
     }
 }
