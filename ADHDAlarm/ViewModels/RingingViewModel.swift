@@ -118,12 +118,12 @@ final class RingingViewModel: NSObject {
 
     /// アラーム画面が表示されたとき音声を再生する
     func startAudioPlayback() {
-        closeReason = .pending  // 新しい鳴動セッション開始時にリセット
         guard !isPlaybackStarted else {
             print("【音声再生】startAudioPlayback() の二重呼び出しを防止した")
             return
         }
         isPlaybackStarted = true
+        closeReason = .pending  // 本当に新しい鳴動セッションを開始するときだけ pending に戻す
         // イヤホン切断監視を開始
         NotificationCenter.default.addObserver(
             self,
