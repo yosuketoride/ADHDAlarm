@@ -122,11 +122,15 @@ final class PersonHomeViewModel {
     }
 
     /// 未完了の今日の予定（表示対象）
-    /// completionStatus が設定済みのものは明示的に完了 or スキップ → 未完了リストから除外
+    /// completionStatus が .completed / .skipped / .missed のものを除外
+    /// .awaitingResponse は通知済み未対応なので未完了側に残す（過去時刻でも表示）
     /// P-9-14: ToDoタスクは最上部に表示（時刻に関係なく）
     private var incompleteTodayEvents: [AlarmEvent] {
         let todos = events.filter { $0.isToDo && $0.completionStatus == nil }
-        let timed = events.filter { !$0.isToDo && $0.completionStatus == nil && $0.fireDate >= Date() }
+        let timed = events.filter { !$0.isToDo && (
+            // 未発火スケジュール済み（nil）または反応待ち（awaitingResponse）
+            $0.completionStatus == nil || $0.completionStatus == .awaitingResponse
+        )}
         return todos + timed
     }
 
@@ -165,9 +169,13 @@ final class PersonHomeViewModel {
     }
 
     /// 完了済み・スキップ済みの今日の予定（リスト下部に表示）
-    /// completionStatus が設定済み、または fireDate 過ぎたもの（後方互換プロキシ）
+    /// .completed / .skipped / .missed のみ完了扱い。
+    /// .awaitingResponse や nil は完了扱いしない（fireDate による後方互換ロジックを廃止）
     var completedTodayEvents: [AlarmEvent] {
-        events.filter { $0.completionStatus != nil || (!$0.isToDo && $0.fireDate < Date()) }
+        events.filter {
+            guard let status = $0.completionStatus else { return false }
+            return status != .awaitingResponse
+        }
     }
 
     /// 明日以降の予定（最大2件）

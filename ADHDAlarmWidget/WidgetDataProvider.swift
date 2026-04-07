@@ -31,11 +31,20 @@ enum WidgetDataProvider {
             .first
     }
 
-    /// 今日の未来アラームをすべて返す（早い順）- Medium ウィジェット用
+    /// 今日の未完了アラームをすべて返す（早い順）- Medium ウィジェット用
+    /// スケジュール済み（nil・未来）と反応待ち（awaitingResponse・今日中）を含む
     static func todayAlarms() -> [WidgetAlarmEvent] {
-        let end = Calendar.current.startOfDay(for: Date()).addingTimeInterval(86400)
+        let start = Calendar.current.startOfDay(for: Date())
+        let end = start.addingTimeInterval(86400)
         return loadAll()
-            .filter { $0.completionStatus == nil && $0.fireDate > Date() && $0.fireDate < end }
+            .filter {
+                // スケジュール済み：未来かつ今日中
+                let isScheduled = $0.completionStatus == nil && $0.fireDate > Date() && $0.fireDate < end
+                // 反応待ち：今日中（過去時刻でも表示）
+                let isAwaiting = $0.completionStatus == .awaitingResponse
+                    && $0.fireDate >= start && $0.fireDate < end
+                return isScheduled || isAwaiting
+            }
             .sorted { $0.fireDate < $1.fireDate }
     }
 

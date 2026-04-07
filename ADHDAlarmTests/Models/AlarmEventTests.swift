@@ -161,6 +161,18 @@ final class AlarmEventTests: XCTestCase {
         XCTAssertNil(decoded.undoPendingUntil)
     }
 
+    // MARK: - awaitingResponse
+
+    func testCompletionStatus_AwaitingResponse_CodableRoundTrip() throws {
+        var alarm = AlarmEvent(title: "テスト", fireDate: Date())
+        alarm.completionStatus = .awaitingResponse
+
+        let data = try JSONEncoder().encode(alarm)
+        let decoded = try JSONDecoder().decode(AlarmEvent.self, from: data)
+
+        XCTAssertEqual(decoded.completionStatus, .awaitingResponse)
+    }
+
     func testResolvedEmoji_DefaultsToPinWhenEmojiIsMissingOrEmpty() {
         let noEmoji = AlarmEvent(title: "予定", fireDate: Date())
         let emptyEmoji = AlarmEvent(title: "予定", fireDate: Date(), eventEmoji: "")

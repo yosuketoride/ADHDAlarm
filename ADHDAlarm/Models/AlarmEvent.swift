@@ -3,11 +3,12 @@ import Foundation
 // MARK: - 完了状態
 
 /// アラームの完了状態
-/// nil = まだ発火していない or 未対応（後方互換）
+/// nil = スケジュール済み（未発火）または未対応（後方互換）
 enum CompletionStatus: String, Codable {
-    case completed  // ユーザーが「とめる」を押した
-    case skipped    // ユーザーが「スキップ」を選んだ
-    case missed     // P-5-1: 15分以上遅延して届いたリモート予定（AlarmKit未登録のまま保存）
+    case completed         // ユーザーが「とめる」を押した
+    case skipped           // ユーザーが「スキップ」を選んだ
+    case awaitingResponse  // 通知済みだがユーザーがまだ操作していない（反応待ち）※書き込みは Phase 2-B で追加予定
+    case missed            // P-5-1: 15分以上遅延して届いたリモート予定（AlarmKit未登録のまま保存）
 }
 
 /// アプリのコアドメインモデル。

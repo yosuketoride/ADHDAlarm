@@ -13,6 +13,7 @@ enum WidgetVoiceCharacter: String, Codable {
 enum WidgetCompletionStatus: String, Codable {
     case completed
     case skipped
+    case awaitingResponse  // 通知済みだがユーザーがまだ操作していない（反応待ち）
 }
 
 struct WidgetAlarmEvent: Identifiable, Codable {

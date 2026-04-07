@@ -342,6 +342,62 @@ final class DashboardViewModelTests: XCTestCase {
         XCTAssertNil(store.find(id: alarm.id), "Undo猶予後はストアから削除されること")
     }
 
+    // MARK: - awaitingResponse 状態テスト
+
+    func testAwaitingResponse_NotInCompletedEvents() async {
+        // 今日の過去時刻（1時）の予定が awaitingResponse なら completedTodayEvents に入らない
+        var alarm = AlarmEvent.makeToday(hour: 1, title: "通知済み未対応")
+        alarm.completionStatus = .awaitingResponse
+        store.save(alarm)
+
+        let viewModel = PersonHomeViewModel(eventStore: store)
+        await viewModel.loadEvents()
+
+        XCTAssertFalse(viewModel.completedTodayEvents.contains { $0.id == alarm.id },
+                       "awaitingResponse の予定が completedTodayEvents に誤分類されている")
+    }
+
+    func testAwaitingResponse_RemainsInVisibleEvents() async {
+        // 今日の過去時刻（1時）の予定が awaitingResponse なら画面上に残る
+        var alarm = AlarmEvent.makeToday(hour: 1, title: "通知済み未対応")
+        alarm.completionStatus = .awaitingResponse
+        store.save(alarm)
+
+        let viewModel = PersonHomeViewModel(eventStore: store)
+        await viewModel.loadEvents()
+
+        // visibleEvents（incompleteTodayEvents から featuredを除いたリスト）に含まれること
+        let allVisible = viewModel.visibleEvents + viewModel.featuredEvents
+        XCTAssertTrue(allVisible.contains { $0.id == alarm.id },
+                      "awaitingResponse の予定がホーム画面から消えている")
+    }
+
+    func testPastNilEvent_NotInCompletedEvents() async {
+        // 過去時刻 + nil の予定（旧データ後方互換）は completedTodayEvents に入らない
+        let alarm = AlarmEvent.makeToday(hour: 1, title: "過去nil予定")
+        // completionStatus == nil のまま（書き込みなし）
+        store.save(alarm)
+
+        let viewModel = PersonHomeViewModel(eventStore: store)
+        await viewModel.loadEvents()
+
+        XCTAssertFalse(viewModel.completedTodayEvents.contains { $0.id == alarm.id },
+                       "過去時刻 + nil の予定が completedTodayEvents に誤分類されている")
+    }
+
+    func testNextAlarm_ExcludesAwaitingResponse() async {
+        // awaitingResponse は未来時刻でも nextAlarm に含まない
+        var alarm = AlarmEvent.makeToday(hour: 23, title: "反応待ち")
+        alarm.completionStatus = .awaitingResponse
+        store.save(alarm)
+
+        let viewModel = PersonHomeViewModel(eventStore: store)
+        await viewModel.loadEvents()
+
+        XCTAssertNil(viewModel.nextAlarm,
+                     "awaitingResponse の予定が nextAlarm に誤って含まれている")
+    }
+
     private func clearDashboardDefaults() {
         let keys = [
             "miniTaskCompletedDate",
