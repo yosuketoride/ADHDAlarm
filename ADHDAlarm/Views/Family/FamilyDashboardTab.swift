@@ -348,8 +348,16 @@ struct FamilyDashboardTab: View {
     private func statusColor(for event: RemoteEventRecord) -> Color {
         switch event.status {
         case "pending":
-            // fireDate を過ぎていれば未対応（赤）、それ以外は待機中（琥珀）
-            return Date() >= event.fireDate ? .statusDanger : .owlAmber
+            // statusLabel の3分岐に対応した色
+            let now = Date()
+            let notificationDate = event.fireDate.addingTimeInterval(-Double(event.preNotificationMinutes) * 60)
+            if now >= event.fireDate {
+                return .statusDanger    // 未対応（赤）
+            } else if now >= notificationDate {
+                return .statusWarning   // 反応待ち（オレンジ）
+            } else {
+                return .owlAmber        // 通知前（琥珀）
+            }
         case "alerting":
             return .owlAmber
         case "synced":
