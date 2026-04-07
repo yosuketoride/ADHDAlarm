@@ -240,6 +240,12 @@ struct FamilySendTab: View {
             Text("通知タイミング: \(viewModel.preNotificationMinutes == 0 ? "時間ちょうど" : "\(viewModel.preNotificationMinutes)分前")")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            // 通知時刻が過去になる組み合わせの場合に案内を表示
+            if viewModel.isNotificationInPast {
+                Text("⚠️ この組み合わせでは通知が間に合いません。予定時刻を先にするか、通知タイミングを短くしてください。")
+                    .font(.caption)
+                    .foregroundStyle(Color.statusDanger)
+            }
         }
         .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -431,8 +437,18 @@ private final class FamilySendTabViewModel {
         }
     }
 
+    /// 通知時刻（予定時刻 - 事前通知分）
+    var notificationDate: Date {
+        scheduledDate.addingTimeInterval(-Double(preNotificationMinutes) * 60)
+    }
+
+    /// 通知時刻が現在より過去になっていないか
+    var isNotificationInPast: Bool {
+        notificationDate < Date()
+    }
+
     var canSend: Bool {
-        !resolvedTitle.isEmpty && scheduledDate >= Date()
+        !resolvedTitle.isEmpty && scheduledDate >= Date() && !isNotificationInPast
     }
 
     var resolvedTitle: String {
