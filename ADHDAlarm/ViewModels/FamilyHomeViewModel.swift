@@ -10,6 +10,8 @@ final class FamilyHomeViewModel {
     var selectedTab = 0
     var isLoadingEvents = false
     var shouldShowFirstCompletionBanner = false
+    /// 取得失敗メッセージ（nil = 正常）
+    var fetchError: String? = nil
 
     // MARK: - ダッシュボードデータ
 
@@ -42,7 +44,9 @@ final class FamilyHomeViewModel {
 
     /// 送信済み予定を取得する
     func loadEvents(linkId: String) async {
+        print("🔍 [FamilyHomeViewModel/loadEvents] fetchSentEvents 開始 linkId=\(linkId)")
         isLoadingEvents = true
+        fetchError = nil
         defer { isLoadingEvents = false }
         do {
             _ = try await service.ensureDeviceRegistered()
@@ -62,11 +66,14 @@ final class FamilyHomeViewModel {
 
             // 無料版でも「今日の反応状況」は確認できるよう一覧を取得する
             sentEvents = try await service.fetchSentEvents(linkId: linkId)
+            print("✅ [FamilyHomeViewModel/loadEvents] fetchSentEvents 成功 件数=\(sentEvents.count) status一覧=\(sentEvents.map { $0.status })")
             updateFirstCompletionBannerIfNeeded(events: sentEvents)
             lastSeen = try? await service.fetchLastSeen(linkId: linkId)
         } catch {
-            // 接続エラーは静かに無視（ダッシュボードがゼロ件のまま表示される）
+            // 接続エラー: sentEventsは前回値を残す（消すより「古い可能性あり」と知らせる）
             lastSeen = nil
+            fetchError = "最新の反応を読み込めませんでした。しばらくしてから更新してください。"
+            print("⚠️ [FamilyHomeViewModel/loadEvents] fetchSentEvents 失敗 error=\(error)")
         }
     }
 

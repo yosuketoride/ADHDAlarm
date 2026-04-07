@@ -37,9 +37,12 @@ actor OfflineActionQueue {
 
     /// まずは即時送信を試し、失敗した場合だけキューへ積む
     func sendOrEnqueueStatusUpdate(eventID: String, status: String) async {
+        print("📤 [OfflineActionQueue/sendOrEnqueueStatusUpdate] 開始 eventID=\(eventID) status=\(status)")
         do {
             try await familyService.updateRemoteEventStatus(id: eventID, status: status)
+            print("✅ [OfflineActionQueue/sendOrEnqueueStatusUpdate] 即時送信 成功 eventID=\(eventID) status=\(status)")
         } catch {
+            print("⚠️ [OfflineActionQueue/sendOrEnqueueStatusUpdate] 即時送信 失敗→キュー積み eventID=\(eventID) status=\(status) error=\(error)")
             enqueueStatusUpdate(eventID: eventID, status: status, timestamp: Date())
         }
     }
@@ -65,6 +68,7 @@ actor OfflineActionQueue {
         guard !isFlushing else { return }
         guard !queuedActions.isEmpty else { return }
 
+        print("🔁 [OfflineActionQueue/flush] 開始 queue件数=\(queuedActions.count) 内容=\(queuedActions.map { "\($0.eventID):\($0.status)" })")
         isFlushing = true
         defer { isFlushing = false }
 
@@ -73,8 +77,10 @@ actor OfflineActionQueue {
                 try await familyService.updateRemoteEventStatus(id: action.eventID, status: action.status)
                 queuedActions.removeFirst()
                 persist()
+                print("✅ [OfflineActionQueue/flush] 送信 成功 eventID=\(action.eventID) status=\(action.status) 残り=\(queuedActions.count)件")
                 debugLogQueueSize()
             } catch {
+                print("⚠️ [OfflineActionQueue/flush] 送信 失敗→中断 eventID=\(action.eventID) status=\(action.status) error=\(error)")
                 break
             }
         }
@@ -95,8 +101,6 @@ actor OfflineActionQueue {
     }
 
     private func debugLogQueueSize() {
-        #if DEBUG
         print("[OfflineActionQueue] queue size: \(queuedActions.count)")
-        #endif
     }
 }

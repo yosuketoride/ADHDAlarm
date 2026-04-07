@@ -349,6 +349,7 @@ final class RingingViewModel: NSObject {
             playPraisePhrase()
             return
         }
+        print("✅ [RingingViewModel/dismiss] ローカル完了保存 alarmID=\(alarm.id) remoteEventId=\(alarm.remoteEventId ?? "nil")")
         // watchAlarmUpdatesの再検知を防ぐためにHandledAlarmStoreへ登録する
         let alarmKitIDs = !alarm.alarmKitIdentifiers.isEmpty
             ? alarm.alarmKitIdentifiers
@@ -356,6 +357,7 @@ final class RingingViewModel: NSObject {
         alarmKitIDs.forEach { HandledAlarmStore.shared.markHandled($0) }
         // completionStatus を .completed に更新して永続化
         recordCompletion(for: alarm, status: .completed)
+        print("🔄 [RingingViewModel/dismiss] remote へ completed 送信を開始 remoteEventId=\(alarm.remoteEventId ?? "nil")")
         syncReactionToRemote(alarm: alarm, status: "completed")
         appState?.addXP(10)
         stopAudioPlayback()
@@ -493,7 +495,11 @@ final class RingingViewModel: NSObject {
 
     /// 家族から届いた予定に対する反応を Supabase に反映する
     private func syncReactionToRemote(alarm: AlarmEvent, status: String) {
-        guard let remoteId = alarm.remoteEventId else { return }
+        guard let remoteId = alarm.remoteEventId else {
+            print("⚠️ [RingingViewModel/syncReactionToRemote] remoteEventId が nil のため送信スキップ alarmID=\(alarm.id)")
+            return
+        }
+        print("🔄 [RingingViewModel/syncReactionToRemote] 送信 status=\(status) eventID=\(remoteId)")
         Task {
             await OfflineActionQueue.shared.sendOrEnqueueStatusUpdate(eventID: remoteId, status: status)
         }

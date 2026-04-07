@@ -434,6 +434,7 @@ struct RootView: View {
 
     @MainActor
     private func completeAlarmFromNotification(_ alarm: AlarmEvent, router: AppRouter) async {
+        print("✅ [ADHDAlarmApp/completeAlarmFromNotification] 開始 alarmID=\(alarm.id) remoteEventId=\(alarm.remoteEventId ?? "nil")")
         let scheduler = AlarmKitScheduler()
         let calendarProvider = AppleCalendarProvider()
         let alarmKitIDs = !alarm.alarmKitIdentifiers.isEmpty
@@ -447,15 +448,19 @@ struct RootView: View {
         var completed = alarm
         completed.completionStatus = .completed
         AlarmEventStore.shared.save(completed)
+        print("✅ [ADHDAlarmApp/completeAlarmFromNotification] ローカル完了保存")
         appState.addXP(10)
 
         if let remoteEventId = alarm.remoteEventId {
+            print("🔄 [ADHDAlarmApp/completeAlarmFromNotification] remote へ completed 送信開始 eventID=\(remoteEventId)")
             Task {
                 await OfflineActionQueue.shared.sendOrEnqueueStatusUpdate(
                     eventID: remoteEventId,
                     status: "completed"
                 )
             }
+        } else {
+            print("⚠️ [ADHDAlarmApp/completeAlarmFromNotification] remoteEventId が nil のため送信スキップ")
         }
 
         if !alarmKitIDs.isEmpty {

@@ -369,11 +369,17 @@ final class FamilyRemoteService: FamilyScheduling {
     }
 
     func updateRemoteEventStatus(id: String, status: String) async throws {
+        // セッションが失効している場合に備えて認証を確認してから更新する
+        // ensureDeviceRegistered() を呼ばないと、セッション切れ時に auth エラーで update が失敗し
+        // OfflineActionQueue に積まれても永続的に失敗し続ける
+        _ = try await ensureDeviceRegistered()
+        print("🔄 [FamilyRemoteService/updateRemoteEventStatus] 送信 eventID=\(id) status=\(status)")
         try await client
             .from("remote_events")
             .update(["status": status])
             .eq("id", value: id)
             .execute()
+        print("✅ [FamilyRemoteService/updateRemoteEventStatus] 送信完了 eventID=\(id) status=\(status)")
     }
 
     func listenToNewEvents() -> AsyncStream<RemoteEventRecord> {

@@ -301,6 +301,7 @@ actor SyncEngine {
         let finalAlarm = alarm
         await MainActor.run { eventStore.save(finalAlarm) }
         print("[SyncEngine] ローカル保存完了")
+        print("📥 [SyncEngine/integrateRemoteEvent] 保存完了 record.id=\(record.id) local.id=\(finalAlarm.id) remoteEventId=\(finalAlarm.remoteEventId ?? "nil") alarmKitIdentifier=\(finalAlarm.alarmKitIdentifier?.uuidString ?? "nil")")
 
         // Supabaseのステータスを同期済みに更新
         do {
