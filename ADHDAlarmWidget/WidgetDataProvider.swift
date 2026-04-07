@@ -70,12 +70,13 @@ extension Date {
         return f.string(from: self)
     }
 
-    /// 残り時間を「あと X時間Y分」などに変換
+    /// 残り時間を「あとX日」「あとX時間Y分」などに変換
     var remainingString: String {
         let diff = Int(timeIntervalSinceNow)
         guard diff > 0 else { return "まもなく" }
         let h = diff / 3600
         let m = (diff % 3600) / 60
+        if h >= 24 { return "あと\(h / 24)日" }
         if h > 0 { return "あと\(h)時間\(m)分" }
         if m > 0 { return "あと\(m)分" }
         return "まもなく"

@@ -119,7 +119,7 @@ struct CalendarImportView: View {
             if let url = URL(string: "calshow://") {
                 Link("📅 Appleカレンダーを開く", destination: url)
                     .font(.callout)
-                    .foregroundStyle(Color.owlAmber)
+                    .foregroundStyle(.primary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

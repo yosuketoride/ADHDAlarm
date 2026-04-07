@@ -9,12 +9,23 @@ struct PersonHomeView: View {
     @State private var viewModel: PersonHomeViewModel
     @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
+    @Environment(PermissionsService.self) private var permissionsService
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @SceneStorage("isEventListExpanded") private var storedIsEventListExpanded = false
     private let loadsEventsOnTask: Bool
     private let previewHour: Int?
 
     // フクロウ首傾けアニメ用
     @State private var owlNeckTilt: Double = 0
+
+    private var eventListTransition: AnyTransition {
+        accessibilityReduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity)
+    }
+
+    private var expandCollapseAnimation: Animation {
+        accessibilityReduceMotion ? .easeOut(duration: 0.18) : .easeInOut(duration: 0.3)
+    }
     @State private var owlFloatOffset: CGFloat = -6
     // レビュー指摘: confirmationDialog は親に1つだけ配置する（EventRow側から移動）
     @State private var eventToDelete: AlarmEvent?
@@ -74,6 +85,11 @@ struct PersonHomeView: View {
                 toastBanner(msg)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .padding(.top, Spacing.md)
+            }
+        }
+        .overlay {
+            if permissionsService.hasDeniedPermissions {
+                permissionBlockedOverlay
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -174,9 +190,13 @@ struct PersonHomeView: View {
             }
         }
         .onAppear {
+            viewModel.isEventListExpanded = storedIsEventListExpanded
             withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) {
                 owlFloatOffset = 6
             }
+        }
+        .onChange(of: storedIsEventListExpanded) { _, newValue in
+            viewModel.isEventListExpanded = newValue
         }
         .task {
             viewModel.bindAppStateIfNeeded(appState)
@@ -214,7 +234,7 @@ struct PersonHomeView: View {
             titleVisibility: .visible
         ) {
             if let alarm = eventToActOn {
-                if alarm.completionStatus == nil {
+                if alarm.completionStatus == nil || alarm.completionStatus == .missed {
                     Button("完了にする") {
                         Task { await viewModel.completeEvent(alarm) }
                         eventToActOn = nil
@@ -449,13 +469,15 @@ struct PersonHomeView: View {
                         }
                     )
                     .padding(.horizontal, Spacing.md)
+                    .transition(eventListTransition)
                 }
 
                 // 折りたたみボタン
                 if viewModel.shouldShowExpandButton {
                     Button {
-                        withAnimation(.easeInOut(duration: 0.3)) {
+                        withAnimation(expandCollapseAnimation) {
                             viewModel.isEventListExpanded = true
+                            storedIsEventListExpanded = true
                         }
                     } label: {
                         HStack {
@@ -476,8 +498,9 @@ struct PersonHomeView: View {
 
                 if viewModel.shouldShowCollapseButton {
                     Button {
-                        withAnimation(.easeInOut(duration: 0.3)) {
+                        withAnimation(expandCollapseAnimation) {
                             viewModel.isEventListExpanded = false
+                            storedIsEventListExpanded = false
                         }
                     } label: {
                         HStack {
@@ -535,8 +558,9 @@ struct PersonHomeView: View {
                         showPaywall = true
                     }
                 }
+                .buttonStyle(.plain)
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(upperSecondaryTextColor)
                 .frame(minHeight: 44)
             }
 
@@ -582,12 +606,13 @@ struct PersonHomeView: View {
                         }
                     )
                     .padding(.horizontal, Spacing.md)
+                    .transition(eventListTransition)
                 }
 
                 // 明日以降の折りたたみ/展開ボタン
                 if viewModel.shouldShowUpcomingExpandButton {
                     Button {
-                        withAnimation(.easeInOut(duration: 0.3)) {
+                        withAnimation(expandCollapseAnimation) {
                             viewModel.isUpcomingListExpanded = true
                         }
                     } label: {
@@ -609,7 +634,7 @@ struct PersonHomeView: View {
 
                 if viewModel.shouldShowUpcomingCollapseButton {
                     Button {
-                        withAnimation(.easeInOut(duration: 0.3)) {
+                        withAnimation(expandCollapseAnimation) {
                             viewModel.isUpcomingListExpanded = false
                         }
                     } label: {
@@ -849,10 +874,37 @@ struct PersonHomeView: View {
 
     private var actionDialogTitle: String {
         guard let alarm = eventToActOn else { return "予定をどうしますか？" }
+        if alarm.completionStatus == .missed {
+            return "「\(alarm.title)」をどうしますか？"
+        }
         if alarm.completionStatus != nil {
             return "「\(alarm.title)」を削除しますか？"
         }
         return "「\(alarm.title)」をどうしますか？"
+    }
+
+    private var permissionBlockedOverlay: some View {
+        VStack(spacing: Spacing.lg) {
+            Image(systemName: "exclamationmark.shield.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(Color.owlAmber)
+            Text("設定の確認が必要です")
+                .font(.title3.weight(.bold))
+            Text("マイクやカレンダーの許可がオフになっています。設定アプリで許可すると、いつものように使えます。")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Spacing.xl)
+            Button("設定アプリを開く") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            .buttonStyle(.large(background: Color.owlAmber, foreground: .black))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.regularMaterial)
+        .ignoresSafeArea()
     }
 
     private var middleZoneBackground: some View {
