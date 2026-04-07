@@ -95,6 +95,10 @@ struct ADHDAlarmApp: App {
                 .task { await startupTasks() }
                 // AlarmKit発火監視: alerting状態になったらRingingViewを表示
                 .task { await watchAlarmUpdates() }
+                // 本人モードで前面表示中はRealtimeで家族予定の到着を監視する
+                .task(id: shouldListenToRemoteEvents) {
+                    await watchRemoteFamilyEvents()
+                }
                 // ウィジェットやURL Schemeからの起動ハンドラ
                 .onOpenURL { url in handleOpenURL(url) }
         }
@@ -138,6 +142,10 @@ struct ADHDAlarmApp: App {
 
     // MARK: - 起動時処理
 
+    private var shouldListenToRemoteEvents: Bool {
+        appState.appMode == .person && scenePhase == .active
+    }
+
     private func startupTasks() async {
         async let isPro = storeKit.checkEntitlement()
         async let _: Void = storeKit.loadProducts()
@@ -176,6 +184,26 @@ struct ADHDAlarmApp: App {
             options: [.customDismissAction]
         )
         UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
+
+    /// 本人モードで前面表示中はRealtimeのINSERTを購読し、家族予定を素早く取り込む
+    private func watchRemoteFamilyEvents() async {
+        guard shouldListenToRemoteEvents else { return }
+        do {
+            _ = try await FamilyRemoteService.shared.ensureDeviceRegistered()
+        } catch {
+            return
+        }
+
+        let stream = FamilyRemoteService.shared.listenToNewEvents()
+        for await _ in stream {
+            guard !Task.isCancelled else { return }
+            let newCount = await syncEngine.syncRemoteEvents()
+            guard newCount > 0 else { continue }
+            await MainActor.run {
+                appState.unreadFamilyEventCount += newCount
+            }
+        }
     }
 
     // MARK: - バッテリー残量チェック（P-9-3）

@@ -46,9 +46,9 @@ struct EventRow: View {
 
     private var normalLayout: some View {
         HStack(spacing: Spacing.sm) {
-            // 絵文字アイコン（左端・固定20pt・Dynamic Type非スケール）
+            // 絵文字アイコン（左端・Dynamic Type追従）
             Text(alarm.resolvedEmoji)
-                .font(.system(size: 20))
+                .font(.title2)
                 .opacity(iconOpacity)
                 .frame(width: 24, alignment: .center)
 
@@ -145,7 +145,7 @@ struct EventRow: View {
                 let isCarriedOver = Calendar.current.startOfDay(for: alarm.fireDate) < Calendar.current.startOfDay(for: Date())
                 Text(isCarriedOver ? "🔁 昨日から" : "ToDo")
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.black)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(isCarriedOver ? Color.secondary : Color.owlAmber)
@@ -157,13 +157,22 @@ struct EventRow: View {
     @ViewBuilder
     private var metadataRow: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            if !isPast && !alarm.isToDo {
-                let values = Array(alarm.alarmKitMinutesMap.values)
-                let minutes = values.isEmpty ? [alarm.preNotificationMinutes] : values.sorted(by: >)
-                let timingLabel = minutes.map { $0 == 0 ? "ちょうど" : "\($0)分前" }.joined(separator: "・")
-                Label(timingLabel, systemImage: "bell.fill")
-                    .font(.caption)
-                    .foregroundStyle(secondaryTextColor)
+            if !isPast && !alarm.isToDo && (alarm.preNotificationMinutes >= 0 || isReceivedFromFamily) {
+                HStack(alignment: .center, spacing: Spacing.sm) {
+                    if let notificationTimingLabel {
+                        Label(notificationTimingLabel, systemImage: "bell.fill")
+                            .font(.caption)
+                            .foregroundStyle(secondaryTextColor)
+                    }
+
+                    if isReceivedFromFamily {
+                        Label("家族から受信", systemImage: "person.2.fill")
+                            .font(.caption)
+                            .foregroundStyle(secondaryTextColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
+                }
             }
 
             if let rule = alarm.recurrenceRule {
@@ -224,10 +233,20 @@ struct EventRow: View {
     }
 
     private var iconOpacity: Double {
-        if isPast { return 0.6 }
+        if isPast { return 0.4 }
         return appearance == .upcoming ? 0.82 : 1.0
     }
 
+    private var notificationTimingLabel: String? {
+        guard !alarm.isToDo else { return nil }
+        let values = Array(alarm.alarmKitMinutesMap.values)
+        let minutes = values.isEmpty ? [alarm.preNotificationMinutes] : values.sorted(by: >)
+        return minutes.map { $0 == 0 ? "ちょうど" : "\($0)分前" }.joined(separator: "・")
+    }
+
+    private var isReceivedFromFamily: Bool {
+        alarm.remoteEventId != nil
+    }
 
     private var isPast: Bool {
         alarm.completionStatus != nil || (!alarm.isToDo && alarm.fireDate < Date())

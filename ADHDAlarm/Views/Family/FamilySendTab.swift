@@ -29,7 +29,7 @@ struct FamilySendTab: View {
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.lg)
         }
-        .background(.background)
+        .background(familyScreenBackground)
         .sheet(isPresented: $showConfirmation) {
             confirmationSheet
         }
@@ -56,7 +56,7 @@ struct FamilySendTab: View {
         }
         .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .background(familyCardBackground)
     }
 
     private var pairingRequiredCard: some View {
@@ -90,7 +90,7 @@ struct FamilySendTab: View {
         }
         .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .background(familyCardBackground)
     }
 
     private var templateSection: some View {
@@ -167,7 +167,11 @@ struct FamilySendTab: View {
                     }
                     .padding(.horizontal, Spacing.md)
                     .frame(minHeight: ComponentSize.settingRow)
-                    .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.md))
+                    .background(
+                        RoundedRectangle(cornerRadius: CornerRadius.md)
+                            .fill(.background)
+                            .shadow(color: .black.opacity(0.03), radius: 6, y: 2)
+                    )
                 }
                 .buttonStyle(.plain)
             }
@@ -181,7 +185,7 @@ struct FamilySendTab: View {
                 )
                 .datePickerStyle(.graphical)
                 .padding(Spacing.sm)
-                .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+                .background(familyCardBackground)
             }
         }
     }
@@ -200,7 +204,7 @@ struct FamilySendTab: View {
         }
         .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .background(familyCardBackground)
     }
 
     private var notificationTimingSection: some View {
@@ -309,6 +313,16 @@ struct FamilySendTab: View {
             .padding(.bottom, Spacing.lg)
         }
         .presentationDetents([.medium])
+    }
+
+    private var familyScreenBackground: Color {
+        Color(uiColor: .systemGroupedBackground)
+    }
+
+    private var familyCardBackground: some View {
+        RoundedRectangle(cornerRadius: CornerRadius.lg)
+            .fill(.background)
+            .shadow(color: .black.opacity(0.04), radius: 10, y: 4)
     }
 }
 

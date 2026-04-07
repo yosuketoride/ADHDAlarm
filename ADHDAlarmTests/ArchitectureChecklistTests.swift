@@ -341,6 +341,20 @@ final class ArchitectureChecklistTests: XCTestCase {
         XCTAssertLessThan(flushRange.lowerBound, syncRange.lowerBound)
     }
 
+    func testPersonMode_UsesRealtimeListenerForRemoteFamilyEventsWhileActive() throws {
+        let appSource = try sourceText(relativePath: "ADHDAlarm/ADHDAlarmApp.swift")
+        let protocolSource = try sourceText(relativePath: "ADHDAlarm/Protocols/FamilyScheduling.swift")
+        let serviceSource = try sourceText(relativePath: "ADHDAlarm/Services/FamilyRemoteService.swift")
+
+        XCTAssertTrue(appSource.contains(".task(id: shouldListenToRemoteEvents)"))
+        XCTAssertTrue(appSource.contains("appState.appMode == .person && scenePhase == .active"))
+        XCTAssertTrue(appSource.contains("await watchRemoteFamilyEvents()"))
+        XCTAssertTrue(appSource.contains("FamilyRemoteService.shared.listenToNewEvents()"))
+        XCTAssertTrue(appSource.contains("let newCount = await syncEngine.syncRemoteEvents()"))
+        XCTAssertTrue(protocolSource.contains("func listenToNewEvents() -> AsyncStream<RemoteEventRecord>"))
+        XCTAssertTrue(serviceSource.contains("let channel = client.realtimeV2.channel(\"public:remote_events:target=\\(deviceId)\")"))
+    }
+
     func testWidgetGuideView_HasImagePlaceholderFrameAndSingleInstructionText() throws {
         let source = try sourceText(relativePath: "ADHDAlarm/Views/Onboarding/WidgetGuideView.swift")
 
@@ -552,6 +566,19 @@ final class ArchitectureChecklistTests: XCTestCase {
         XCTAssertTrue(source.contains("let isCarriedOver = Calendar.current.startOfDay(for: alarm.fireDate) < Calendar.current.startOfDay(for: Date())"))
     }
 
+    func testDashboardEventRows_ShowFamilySourceAndNotificationTiming() throws {
+        let eventRowSource = try sourceText(relativePath: "ADHDAlarm/Views/Dashboard/EventRow.swift")
+        let personHomeSource = try sourceText(relativePath: "ADHDAlarm/Views/Dashboard/PersonHomeView.swift")
+
+        XCTAssertTrue(eventRowSource.contains("Label(\"家族から受信\", systemImage: \"person.2.fill\")"))
+        XCTAssertTrue(eventRowSource.contains("Label(notificationTimingLabel, systemImage: \"bell.fill\")"))
+        XCTAssertTrue(eventRowSource.contains("alarm.remoteEventId != nil"))
+
+        XCTAssertTrue(personHomeSource.contains("nextAlarmMetadataRow(alarm: alarm)"))
+        XCTAssertTrue(personHomeSource.contains("Label(timingLabel, systemImage: \"bell.fill\")"))
+        XCTAssertTrue(personHomeSource.contains("Label(\"家族から受信\", systemImage: \"person.2.fill\")"))
+    }
+
     func testFamilySendTab_DatePickerStartsCollapsed() throws {
         let source = try sourceText(relativePath: "ADHDAlarm/Views/Family/FamilySendTab.swift")
 
@@ -603,6 +630,7 @@ final class ArchitectureChecklistTests: XCTestCase {
 
         XCTAssertTrue(source.contains("todaySection"))
         XCTAssertTrue(source.contains("Text(\"今日の予定\")"))
+        XCTAssertTrue(source.contains("ここでは、あなたが送った予定だけをまとめて確認できます。相手が自分で追加した予定は表示されません。"))
         XCTAssertTrue(source.contains("if isPro {"))
         XCTAssertTrue(source.contains("lockedSOSBanner"))
         XCTAssertTrue(source.contains("lockedHistoryCard"))
@@ -646,8 +674,10 @@ final class ArchitectureChecklistTests: XCTestCase {
         XCTAssertTrue(familyPaywallSource.contains(".background(.regularMaterial, in: RoundedRectangle(cornerRadius: CornerRadius.lg))"))
         XCTAssertFalse(familyPaywallSource.contains(".background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: CornerRadius.lg))"))
 
-        XCTAssertTrue(familySettingsSource.contains(".background(.background)"))
-        XCTAssertTrue(familySendSource.contains(".background(.background)"))
+        XCTAssertTrue(familySettingsSource.contains("Color(uiColor: .systemGroupedBackground)"))
+        XCTAssertTrue(familySettingsSource.contains(".shadow(color: .black.opacity(0.04), radius: 10, y: 4)"))
+        XCTAssertTrue(familySendSource.contains("Color(uiColor: .systemGroupedBackground)"))
+        XCTAssertTrue(familySendSource.contains(".shadow(color: .black.opacity(0.04), radius: 10, y: 4)"))
 
         XCTAssertTrue(ringingSource.contains("Rectangle()"))
         XCTAssertTrue(ringingSource.contains(".fill(.ultraThickMaterial)"))

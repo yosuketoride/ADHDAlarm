@@ -377,7 +377,9 @@ struct PersonHomeView: View {
     @ViewBuilder
     private var countdownSection: some View {
         if let next = viewModel.nextAlarm {
-            let minutes = next.fireDate.timeIntervalSinceNow / 60
+            // 通知が鳴るまでの残り時間を基準にカウントダウンする（fireDate - preNotificationMinutes）
+            let notificationDate = next.fireDate.addingTimeInterval(-Double(next.preNotificationMinutes) * 60)
+            let minutes = notificationDate.timeIntervalSinceNow / 60
             nextAlarmCard(alarm: next, minutes: Int(minutes))
             .padding(.top, Spacing.lg)
             .padding(.horizontal, Spacing.lg)
@@ -397,6 +399,7 @@ struct PersonHomeView: View {
                         .font(.title2.weight(.bold))
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
+                    nextAlarmMetadataRow(alarm: alarm)
                 }
                 Spacer()
                 Button(role: .destructive) {
@@ -434,11 +437,37 @@ struct PersonHomeView: View {
         }
     }
 
+    @ViewBuilder
+    private func nextAlarmMetadataRow(alarm: AlarmEvent) -> some View {
+        HStack(alignment: .center, spacing: Spacing.sm) {
+            if let timingLabel = notificationTimingLabel(for: alarm) {
+                Label(timingLabel, systemImage: "bell.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if alarm.remoteEventId != nil {
+                Label("家族から受信", systemImage: "person.2.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+        }
+    }
+
     private func nextAlarmTimingText(minutes: Int, alarm: AlarmEvent) -> String {
         if minutes < 1 {
             return "まもなく \(alarm.fireDate.japaneseTimeString)"
         }
         return "あと約\(minutes)分 • \(alarm.fireDate.japaneseTimeString)"
+    }
+
+    private func notificationTimingLabel(for alarm: AlarmEvent) -> String? {
+        guard !alarm.isToDo else { return nil }
+        let values = Array(alarm.alarmKitMinutesMap.values)
+        let minutes = values.isEmpty ? [alarm.preNotificationMinutes] : values.sorted(by: >)
+        return minutes.map { $0 == 0 ? "ちょうど" : "\($0)分前" }.joined(separator: "・")
     }
 
     // MARK: - 予定リストセクション

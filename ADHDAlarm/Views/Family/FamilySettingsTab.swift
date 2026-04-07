@@ -20,7 +20,7 @@ struct FamilySettingsTab: View {
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.lg)
         }
-        .background(.background)
+        .background(familyScreenBackground)
         .alert("お知らせ", isPresented: Binding(
             get: { alertMessage != nil },
             set: { if !$0 { alertMessage = nil } }
@@ -51,7 +51,7 @@ struct FamilySettingsTab: View {
         }
         .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .background(familyCardBackground)
     }
 
     private var notificationCard: some View {
@@ -73,7 +73,7 @@ struct FamilySettingsTab: View {
         }
         .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .background(familyCardBackground)
     }
 
     private var pairingCard: some View {
@@ -116,7 +116,7 @@ struct FamilySettingsTab: View {
         }
         .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .background(familyCardBackground)
     }
 
     private func toggleRow(title: String, detail: String, isOn: Binding<Bool>) -> some View {
@@ -144,5 +144,15 @@ struct FamilySettingsTab: View {
                 alertMessage = "解除に失敗しました。時間をおいてもう一度お試しください。"
             }
         }
+    }
+
+    private var familyScreenBackground: Color {
+        Color(uiColor: .systemGroupedBackground)
+    }
+
+    private var familyCardBackground: some View {
+        RoundedRectangle(cornerRadius: CornerRadius.lg)
+            .fill(.background)
+            .shadow(color: .black.opacity(0.04), radius: 10, y: 4)
     }
 }

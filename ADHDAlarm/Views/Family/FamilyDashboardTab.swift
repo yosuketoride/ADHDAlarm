@@ -104,7 +104,7 @@ struct FamilyDashboardTab: View {
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    Text("送った予定が相手の端末に反映されたかを、ここでまとめて確認できます。")
+                    Text("ここでは、あなたが送った予定だけをまとめて確認できます。相手が自分で追加した予定は表示されません。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
