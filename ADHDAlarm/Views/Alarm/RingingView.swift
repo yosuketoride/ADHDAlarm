@@ -107,10 +107,14 @@ struct RingingView: View {
                 }
             }
         }
-        .onChange(of: viewModel.activeAlarm) { _, newValue in
+        .onChange(of: viewModel.activeAlarm) { oldAlarm, newValue in
             // VMがアラームをnilにした場合（外部からの停止など）も安全に閉じる
             if newValue == nil && !hasDismissed {
                 hasDismissed = true
+                // dismiss / skip / snooze 以外で閉じた場合のみ awaitingResponse を記録
+                if let alarm = oldAlarm {
+                    viewModel.recordAwaitingIfUntouched(alarm: alarm)
+                }
                 onDismissed()
             }
         }

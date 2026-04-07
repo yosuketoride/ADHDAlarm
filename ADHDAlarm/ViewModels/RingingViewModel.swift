@@ -20,6 +20,11 @@ final class RingingViewModel: NSObject {
     private var speechSynthesizer: SpeechSynthesizerControlling?
     private var repeatTimer: Timer?
     private var isPlaybackStarted = false  // 二重呼び出し防止
+
+    /// RingingView を閉じた理由（awaitingResponse 書き込みの要否判定に使う）
+    private enum CloseReason { case pending, acted }
+    /// ユーザーが明示的に操作した場合は .acted にセットし、awaitingResponse 書き込みを抑制する
+    private var closeReason: CloseReason = .pending
     /// 応答なしで SOS を送るタイマー
     var escalationTimer: Timer?
     private let scheduler: AlarmScheduling
@@ -113,6 +118,7 @@ final class RingingViewModel: NSObject {
 
     /// アラーム画面が表示されたとき音声を再生する
     func startAudioPlayback() {
+        closeReason = .pending  // 新しい鳴動セッション開始時にリセット
         guard !isPlaybackStarted else {
             print("【音声再生】startAudioPlayback() の二重呼び出しを防止した")
             return
@@ -336,6 +342,7 @@ final class RingingViewModel: NSObject {
     // MARK: - 停止
 
     func dismiss() {
+        closeReason = .acted  // ユーザーが明示的に停止 → awaitingResponse 書き込みを抑制
         guard let alarm = activeAlarm else {
             stopAudioPlayback()
             activeAlarm = nil
@@ -380,6 +387,7 @@ final class RingingViewModel: NSObject {
             return
         }
         guard Self.canSnooze(alarm.snoozeCount) else { return }
+        closeReason = .acted  // スヌーズ確定 → awaitingResponse 書き込みを抑制
         var updated = alarm
         updated.snoozeCount = alarm.snoozeCount + 1
         AlarmEventStore.shared.save(updated)
@@ -425,6 +433,7 @@ final class RingingViewModel: NSObject {
 
     /// スキップ（今日は休む）: completionStatus を .skipped にして XP +3
     func skip() {
+        closeReason = .acted  // ユーザーが明示的にスキップ → awaitingResponse 書き込みを抑制
         guard let alarm = activeAlarm else {
             stopAudioPlayback()
             activeAlarm = nil
@@ -473,6 +482,13 @@ final class RingingViewModel: NSObject {
         var updated = alarm
         updated.completionStatus = status
         AlarmEventStore.shared.save(updated)
+    }
+
+    /// 操作なしで RingingView が閉じた場合に awaitingResponse を記録する。
+    /// dismiss / skip / snooze のいずれかが呼ばれていた場合は何もしない。
+    func recordAwaitingIfUntouched(alarm: AlarmEvent) {
+        guard closeReason == .pending else { return }
+        recordCompletion(for: alarm, status: .awaitingResponse)
     }
 
     /// 家族から届いた予定に対する反応を Supabase に反映する

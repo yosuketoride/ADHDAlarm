@@ -423,6 +423,68 @@ final class RingingViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.escalationTimer, "SOS timer should NOT be scheduled when no pairing ID is configured")
     }
 
+    // MARK: - awaitingResponse 書き込みテスト
+
+    func testRecordAwaitingIfUntouched_WritesAwaitingResponse_WhenNoUserAction() throws {
+        // 操作なしで閉じた場合は awaitingResponse になること
+        let alarm = AlarmEvent.makeTest(title: "未対応テスト")
+        viewModel.activeAlarm = alarm
+        store.save(alarm)
+        viewModel.startAudioPlayback()
+
+        viewModel.recordAwaitingIfUntouched(alarm: alarm)
+
+        let saved = try XCTUnwrap(store.find(id: alarm.id))
+        XCTAssertEqual(saved.completionStatus, .awaitingResponse,
+                       "操作なしで閉じた場合は awaitingResponse が記録されること")
+    }
+
+    func testRecordAwaitingIfUntouched_DoesNotOverwrite_AfterDismiss() throws {
+        // dismiss() 後に呼ばれても awaitingResponse に上書きしないこと
+        let alarm = AlarmEvent.makeTest(title: "とめるテスト")
+        viewModel.activeAlarm = alarm
+        store.save(alarm)
+        viewModel.startAudioPlayback()
+
+        viewModel.dismiss()
+        viewModel.recordAwaitingIfUntouched(alarm: alarm)
+
+        let saved = try XCTUnwrap(store.find(id: alarm.id))
+        XCTAssertEqual(saved.completionStatus, .completed,
+                       "dismiss後は awaitingResponse に上書きされないこと")
+    }
+
+    func testRecordAwaitingIfUntouched_DoesNotOverwrite_AfterSkip() throws {
+        // skip() 後に呼ばれても awaitingResponse に上書きしないこと
+        let alarm = AlarmEvent.makeTest(title: "スキップテスト")
+        viewModel.activeAlarm = alarm
+        store.save(alarm)
+        viewModel.startAudioPlayback()
+
+        viewModel.skip()
+        viewModel.recordAwaitingIfUntouched(alarm: alarm)
+
+        let saved = try XCTUnwrap(store.find(id: alarm.id))
+        XCTAssertEqual(saved.completionStatus, .skipped,
+                       "skip後は awaitingResponse に上書きされないこと")
+    }
+
+    func testRecordAwaitingIfUntouched_DoesNotWrite_AfterSnooze() async throws {
+        // snooze() 後に呼ばれても awaitingResponse が書き込まれないこと
+        let alarm = AlarmEvent.makeTest(title: "スヌーズテスト")
+        viewModel.activeAlarm = alarm
+        store.save(alarm)
+        viewModel.startAudioPlayback()
+
+        viewModel.snooze()
+        try await Task.sleep(for: .milliseconds(100))
+        viewModel.recordAwaitingIfUntouched(alarm: alarm)
+
+        let saved = try XCTUnwrap(store.find(id: alarm.id))
+        XCTAssertNil(saved.completionStatus,
+                     "snooze後は awaitingResponse が書き込まれないこと")
+    }
+
     private func clearXPDefaults() {
         let keys = [
             Constants.Keys.owlXP,
