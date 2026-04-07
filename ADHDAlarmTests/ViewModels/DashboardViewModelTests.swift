@@ -398,6 +398,20 @@ final class DashboardViewModelTests: XCTestCase {
                      "awaitingResponse の予定が nextAlarm に誤って含まれている")
     }
 
+    func testPastNilEvent_RemainsInVisibleOrFeaturedEvents() async {
+        // 過去時刻 + nil の予定（旧データ後方互換）はホーム画面から消えない
+        let alarm = AlarmEvent.makeToday(hour: 1, title: "過去nil予定")
+        // completionStatus == nil のまま
+        store.save(alarm)
+
+        let viewModel = PersonHomeViewModel(eventStore: store)
+        await viewModel.loadEvents()
+
+        let allVisible = viewModel.visibleEvents + viewModel.featuredEvents
+        XCTAssertTrue(allVisible.contains { $0.id == alarm.id },
+                      "過去時刻 + nil の予定がホーム画面から消えている")
+    }
+
     private func clearDashboardDefaults() {
         let keys = [
             "miniTaskCompletedDate",

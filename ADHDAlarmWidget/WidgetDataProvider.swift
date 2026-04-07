@@ -31,21 +31,26 @@ enum WidgetDataProvider {
             .first
     }
 
-    /// 今日の未完了アラームをすべて返す（早い順）- Medium ウィジェット用
-    /// スケジュール済み（nil・未来）と反応待ち（awaitingResponse・今日中）を含む
+    /// 今日の未完了アラームをすべて返す（Medium ウィジェット用）
+    /// 表示順：スケジュール済み（nil・未来）を先頭、反応待ち（awaitingResponse・今日中）を後ろに配置
+    /// Medium widget は「次の予定」表示が主目的のため、未来の予定を優先する
     static func todayAlarms() -> [WidgetAlarmEvent] {
         let start = Calendar.current.startOfDay(for: Date())
         let end = start.addingTimeInterval(86400)
-        return loadAll()
-            .filter {
-                // スケジュール済み：未来かつ今日中
-                let isScheduled = $0.completionStatus == nil && $0.fireDate > Date() && $0.fireDate < end
-                // 反応待ち：今日中（過去時刻でも表示）
-                let isAwaiting = $0.completionStatus == .awaitingResponse
-                    && $0.fireDate >= start && $0.fireDate < end
-                return isScheduled || isAwaiting
-            }
+        let now = Date()
+        let all = loadAll()
+
+        // スケジュール済み：未来かつ今日中（fireDate 昇順）
+        let scheduled = all
+            .filter { $0.completionStatus == nil && $0.fireDate > now && $0.fireDate < end }
             .sorted { $0.fireDate < $1.fireDate }
+
+        // 反応待ち：今日中（過去時刻でも表示、fireDate 昇順）
+        let awaiting = all
+            .filter { $0.completionStatus == .awaitingResponse && $0.fireDate >= start && $0.fireDate < end }
+            .sorted { $0.fireDate < $1.fireDate }
+
+        return scheduled + awaiting
     }
 
     /// 今日の全アラームを返す（完了済みを含む）- Large ウィジェット用
