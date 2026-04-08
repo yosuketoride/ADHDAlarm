@@ -52,7 +52,7 @@ struct CalendarImportView: View {
             titleVisibility: .visible
         ) {
             ForEach([0, 5, 10, 15, 30, 60], id: \.self) { minutes in
-                let label = minutes == 0 ? "ジャスト（予定の時刻ちょうど）" : "\(minutes)分前"
+                let label = minutes == 0 ? "ジャスト（0分前）" : "\(minutes)分前"
                 Button(label) {
                     if let id = candidateForPerEventSetting?.id {
                         viewModel.perEventMinutes[id] = minutes
@@ -154,6 +154,7 @@ struct CalendarImportView: View {
                 selectAllRow
                 candidatesSection
                 detailSettingsSection
+                    .padding(.top, Spacing.sm)
                 infoNote
                 importButton
                 calshowLink
@@ -323,7 +324,7 @@ struct CalendarImportView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Picker("全体の通知タイミング", selection: $viewModel.bulkPreNotificationMinutes) {
-                        Text("ジャスト（予定の時刻ちょうど）").tag(0)
+                        Text("ジャスト（0分前）").tag(0)
                         Text("5分前").tag(5)
                         Text("10分前").tag(10)
                         Text("15分前").tag(15)
