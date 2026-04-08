@@ -307,6 +307,7 @@ final class RingingViewModel: NSObject {
     // MARK: - 音声出力ルート判定
 
     /// スピーカー強制が必要かを返す
+    /// 「自動」は現在の出力先をそのまま使う。Bluetooth接続中でもスピーカーへ上書きしない。
     private var shouldForceSpeakerOutput: Bool {
         audioOutputMode == .speaker
     }

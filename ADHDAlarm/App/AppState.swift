@@ -223,5 +223,6 @@ final class AppState {
         if sosPairingId != nil {
             sosPairingId = nil
         }
+        // 家族リンクIDは残しておき、再びPROになったときに再ペアリング不要で復帰できるようにする
     }
 }

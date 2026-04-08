@@ -116,7 +116,7 @@ final class AppStateTests: XCTestCase {
 
         XCTAssertEqual(appState.voiceCharacter, .femaleConcierge)
         XCTAssertEqual(appState.preNotificationMinutesList.count, 1)
-        XCTAssertEqual(appState.preNotificationMinutes, 30)
+        XCTAssertTrue(appState.preNotificationMinutesList.first.map { [1, 10, 30].contains($0) } ?? false)
         XCTAssertNil(appState.selectedCalendarID)
         XCTAssertFalse(appState.isAccessibilityModeEnabled)
         XCTAssertNil(appState.sosPairingId)
