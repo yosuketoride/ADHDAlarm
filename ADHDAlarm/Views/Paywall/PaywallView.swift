@@ -37,10 +37,10 @@ fileprivate struct PaywallVariant {
             detail: "孫や家族の声を録音して、お薬や通院のアラーム音に設定できます。"
         ),
         Benefit(
-            icon: "mic.badge.plus",
+            icon: "calendar.badge.plus",
             color: .blue,
-            title: "Hey Siriで完全ハンズフリー登録",
-            detail: "「Hey Siri、こえメモにお願い」と話しかけるだけ。操作の手間ゼロ。"
+            title: "Appleカレンダーから予定を取り込む",
+            detail: "既存のカレンダーにある予定を、ワンタップで忘れん坊アラームに取り込めます。"
         ),
         Benefit(
             icon: "bell.badge.fill",
@@ -272,7 +272,7 @@ struct PaywallView: View {
             comparisonRow("Appleカレンダーから取り込む",       free: false, pro: true)
             comparisonRow("家族の生声アラーム",                free: false, pro: true)
             comparisonRow("SOS自動通知（見守り）",             free: false, pro: true)
-            comparisonRow("Hey Siriでハンズフリー",           free: false, pro: true)
+            comparisonRow("Appleカレンダーから取り込む（重複なし）", free: false, pro: true)
         }
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
