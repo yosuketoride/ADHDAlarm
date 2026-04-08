@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import AudioToolbox
 import Observation
+import UIKit
 import WidgetKit
 
 /// アラーム鳴動中の状態管理
@@ -160,6 +161,13 @@ final class RingingViewModel: NSObject {
             // AlarmKitのシステム音は通常3〜5秒で終わる
             try? await Task.sleep(for: playbackStartDelay)
             guard self.activeAlarm != nil else { return }
+            // 【仮実装】前面時は AlarmKit がループを継続しているため AVAudioPlayer を起動しない
+            // → 音量が AlarmKit と同等になるか実機で確認するための試験的変更
+            // デメリット: AlarmKit が前面で止まる端末では以降無音になる可能性あり
+            guard UIApplication.shared.applicationState != .active else {
+                print("【音声再生】前面のため AVAudioPlayer スキップ（AlarmKit ループ継続を期待）")
+                return
+            }
             self.acquireAudioSessionAndStartLoop(alarm: alarm)
         }
     }
