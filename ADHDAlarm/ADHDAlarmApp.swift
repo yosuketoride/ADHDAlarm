@@ -4,6 +4,7 @@ import ActivityKit
 import AppIntents
 import UserNotifications
 import BackgroundTasks
+import EventKit
 import FirebaseCore
 import FirebaseCrashlytics
 
@@ -95,6 +96,8 @@ struct ADHDAlarmApp: App {
                 .task { await startupTasks() }
                 // AlarmKit発火監視: alerting状態になったらRingingViewを表示
                 .task { await watchAlarmUpdates() }
+                // EventKit変更通知監視: カレンダーアプリでの時刻変更を素早く取り込む
+                .task { await watchEventKitChanges() }
                 // 本人モードで前面表示中はRealtimeで家族予定の到着を監視する
                 .task(id: shouldListenToRemoteEvents) {
                     await watchRemoteFamilyEvents()
@@ -157,6 +160,23 @@ struct ADHDAlarmApp: App {
         await permissionsService.requestNotification()
         // アラームバナーに「止める / あとで / 今日は休む」ボタンを登録する
         registerAlarmNotificationCategory()
+    }
+
+    // MARK: - EventKit変更監視
+
+    /// EventKit変更通知を監視し、前面中は追加でフル同期する
+    private func watchEventKitChanges() async {
+        for await _ in NotificationCenter.default.notifications(named: .EKEventStoreChanged) {
+            guard !Task.isCancelled else { return }
+            guard scenePhase == .active else { continue }
+
+            // Calendar.app 側の編集直後は EventKit の値が揺れることがあるため、少しだけ待ってから読む
+            try? await Task.sleep(for: .milliseconds(700))
+            guard !Task.isCancelled else { return }
+
+            print("📆 [ADHDAlarmApp/watchEventKitChanges] EKEventStoreChanged を検知")
+            await syncEngine.performFullSync()
+        }
     }
 
     /// UNNotificationCategoryを登録してバナーにアクションボタンを追加する

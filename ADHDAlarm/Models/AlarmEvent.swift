@@ -22,6 +22,10 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
     var preNotificationMinutes: Int
     /// EventKitのEKEvent.eventIdentifier
     var eventKitIdentifier: String?
+    /// EventKit が返した最終更新日時（差分判定用）
+    var eventKitLastModifiedAt: Date?
+    /// EventKit 側で観測した保留中の fireDate（1回目の揺れを吸収するため）
+    var pendingEventKitFireDate: Date?
     /// AlarmKitのアラームID（後方互換。新規は alarmKitIdentifiers を使用）
     var alarmKitIdentifier: UUID?
     /// 複数の事前通知アラームID（複数選択時に複数登録）
@@ -54,6 +58,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
     /// Undo操作後の上書き保護期限（P-9-1）
     /// この時刻までは家族側からのcomplete上書きをブロックする
     var undoPendingUntil: Date?
+    /// アプリ自身が直近で EventKit に書き込んだ時刻（直後の巻き戻り防止用）
+    var lastLocalCalendarWriteAt: Date?
 
     nonisolated init(
         id: UUID = UUID(),
@@ -61,6 +67,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         fireDate: Date,
         preNotificationMinutes: Int = 15,
         eventKitIdentifier: String? = nil,
+        eventKitLastModifiedAt: Date? = nil,
+        pendingEventKitFireDate: Date? = nil,
         alarmKitIdentifier: UUID? = nil,
         alarmKitIdentifiers: [UUID] = [],
         alarmKitMinutesMap: [String: Int] = [:],
@@ -75,13 +83,16 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         completionStatus: CompletionStatus? = nil,
         snoozeCount: Int = 0,
         isToDo: Bool = false,
-        undoPendingUntil: Date? = nil
+        undoPendingUntil: Date? = nil,
+        lastLocalCalendarWriteAt: Date? = nil
     ) {
         self.id = id
         self.title = title
         self.fireDate = fireDate
         self.preNotificationMinutes = preNotificationMinutes
         self.eventKitIdentifier = eventKitIdentifier
+        self.eventKitLastModifiedAt = eventKitLastModifiedAt
+        self.pendingEventKitFireDate = pendingEventKitFireDate
         self.alarmKitIdentifier = alarmKitIdentifier
         self.alarmKitIdentifiers = alarmKitIdentifiers
         self.alarmKitMinutesMap = alarmKitMinutesMap
@@ -97,6 +108,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         self.snoozeCount = snoozeCount
         self.isToDo = isToDo
         self.undoPendingUntil = undoPendingUntil
+        self.lastLocalCalendarWriteAt = lastLocalCalendarWriteAt
     }
 
     // MARK: - Codable（後方互換）
@@ -104,7 +116,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id, title, fireDate, preNotificationMinutes
-        case eventKitIdentifier, alarmKitIdentifier
+        case eventKitIdentifier, eventKitLastModifiedAt, pendingEventKitFireDate, alarmKitIdentifier
         case alarmKitIdentifiers, alarmKitMinutesMap
         case voiceFileName, calendarIdentifier, voiceCharacter
         case createdAt, recurrenceRule, recurrenceGroupID, remoteEventId
@@ -113,6 +125,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         case snoozeCount
         case isToDo
         case undoPendingUntil
+        case lastLocalCalendarWriteAt
     }
 
     nonisolated init(from decoder: Decoder) throws {
@@ -122,6 +135,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         fireDate               = try c.decode(Date.self,   forKey: .fireDate)
         preNotificationMinutes = try c.decodeIfPresent(Int.self,          forKey: .preNotificationMinutes) ?? 15
         eventKitIdentifier     = try c.decodeIfPresent(String.self,       forKey: .eventKitIdentifier)
+        eventKitLastModifiedAt = try c.decodeIfPresent(Date.self,         forKey: .eventKitLastModifiedAt)
+        pendingEventKitFireDate = try c.decodeIfPresent(Date.self,        forKey: .pendingEventKitFireDate)
         alarmKitIdentifier     = try c.decodeIfPresent(UUID.self,         forKey: .alarmKitIdentifier)
         alarmKitIdentifiers    = try c.decodeIfPresent([UUID].self,       forKey: .alarmKitIdentifiers)    ?? []
         alarmKitMinutesMap     = try c.decodeIfPresent([String: Int].self, forKey: .alarmKitMinutesMap)   ?? [:]
@@ -137,6 +152,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         snoozeCount            = try c.decodeIfPresent(Int.self,                forKey: .snoozeCount) ?? 0
         isToDo                 = try c.decodeIfPresent(Bool.self,               forKey: .isToDo) ?? false
         undoPendingUntil       = try c.decodeIfPresent(Date.self,               forKey: .undoPendingUntil)
+        lastLocalCalendarWriteAt = try c.decodeIfPresent(Date.self,             forKey: .lastLocalCalendarWriteAt)
     }
 
     // encode(to:) を明示実装。init(from:) をカスタム定義した場合、将来のプロパティ追加時に
@@ -148,6 +164,8 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         try c.encode(fireDate,               forKey: .fireDate)
         try c.encode(preNotificationMinutes, forKey: .preNotificationMinutes)
         try c.encodeIfPresent(eventKitIdentifier,  forKey: .eventKitIdentifier)
+        try c.encodeIfPresent(eventKitLastModifiedAt, forKey: .eventKitLastModifiedAt)
+        try c.encodeIfPresent(pendingEventKitFireDate, forKey: .pendingEventKitFireDate)
         try c.encodeIfPresent(alarmKitIdentifier,  forKey: .alarmKitIdentifier)
         try c.encode(alarmKitIdentifiers,          forKey: .alarmKitIdentifiers)
         try c.encode(alarmKitMinutesMap,            forKey: .alarmKitMinutesMap)
@@ -163,6 +181,7 @@ struct AlarmEvent: Identifiable, Codable, Equatable {
         try c.encode(snoozeCount,                    forKey: .snoozeCount)
         try c.encode(isToDo,                         forKey: .isToDo)
         try c.encodeIfPresent(undoPendingUntil,      forKey: .undoPendingUntil)
+        try c.encodeIfPresent(lastLocalCalendarWriteAt, forKey: .lastLocalCalendarWriteAt)
     }
 
     /// 表示用タイトル。先頭に絵文字が付いている場合は先頭1個ぶんを取り除く

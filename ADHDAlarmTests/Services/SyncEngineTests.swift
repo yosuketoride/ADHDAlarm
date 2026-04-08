@@ -199,6 +199,63 @@ final class SyncEngineTests: XCTestCase {
         XCTAssertTrue(scheduler.scheduledAlarms.isEmpty)
     }
 
+    func testSync_Mismatch_WithNewerEventKitModifiedDate_AppliesImmediately() async {
+        let akID = UUID()
+        var localAlarm = AlarmEvent.makeTest(title: "外部編集で変更された予定", offsetFromNow: 3600)
+        localAlarm.alarmKitIdentifier = akID
+        localAlarm.eventKitLastModifiedAt = Date().addingTimeInterval(-120)
+        store.save(localAlarm)
+
+        var ekAlarm = localAlarm
+        ekAlarm.fireDate = localAlarm.fireDate.addingTimeInterval(1800)
+        ekAlarm.eventKitLastModifiedAt = Date()
+
+        let calProvider = MockCalendarProvider()
+        calProvider.appEvents = [ekAlarm]
+
+        let scheduler = MockAlarmScheduler()
+        let voiceGen = MockVoiceGenerator()
+        voiceGen.returnURL = URL(fileURLWithPath: "/tmp/\(localAlarm.id.uuidString).caf")
+        let engine = makeSyncEngine(
+            calendarProvider: calProvider,
+            alarmScheduler: scheduler,
+            voiceGenerator: voiceGen
+        )
+
+        await engine.performFullSync()
+
+        let saved = store.find(id: localAlarm.id)
+        XCTAssertEqual(saved?.fireDate, ekAlarm.fireDate, "外部編集らしい変更は初回で採用されること")
+        XCTAssertNil(saved?.pendingEventKitFireDate, "採用後は保留中の差分を残さないこと")
+        XCTAssertTrue(scheduler.cancelledIDs.contains(akID))
+        XCTAssertEqual(scheduler.scheduledAlarms.count, 1)
+    }
+
+    func testSync_Mismatch_WithoutModifiedDate_KeepsPendingUntilNextSync() async {
+        let akID = UUID()
+        var localAlarm = AlarmEvent.makeTest(title: "揺れるEventKit差分", offsetFromNow: 3600)
+        localAlarm.alarmKitIdentifier = akID
+        store.save(localAlarm)
+
+        var ekAlarm = localAlarm
+        ekAlarm.fireDate = localAlarm.fireDate.addingTimeInterval(1800)
+        ekAlarm.eventKitLastModifiedAt = nil
+
+        let calProvider = MockCalendarProvider()
+        calProvider.appEvents = [ekAlarm]
+
+        let scheduler = MockAlarmScheduler()
+        let engine = makeSyncEngine(calendarProvider: calProvider, alarmScheduler: scheduler)
+
+        await engine.performFullSync()
+
+        let saved = store.find(id: localAlarm.id)
+        XCTAssertEqual(saved?.fireDate, localAlarm.fireDate, "判断材料が弱い差分は初回では採用しないこと")
+        XCTAssertEqual(saved?.pendingEventKitFireDate, ekAlarm.fireDate, "次回確認用に保留値を持つこと")
+        XCTAssertTrue(scheduler.cancelledIDs.isEmpty)
+        XCTAssertTrue(scheduler.scheduledAlarms.isEmpty)
+    }
+
     // MARK: - エラーハンドリング
 
     func testSync_CalendarProviderThrows_DoesNotCrash() async {
@@ -374,6 +431,33 @@ final class SyncEngineTests: XCTestCase {
 
         // Assert: ローカルに何もなくてもrolled_backにマークされる（再ロールバック防止）
         XCTAssertEqual(mockFamily.rolledBackEventIds, [record.id])
+    }
+
+    func testSync_OrphanedAlarm_ReconnectsByMarkerWithoutDeleting() async {
+        let akID = UUID()
+        var localAlarm = AlarmEvent.makeTest(title: "再接続される予定", offsetFromNow: 3600)
+        localAlarm.alarmKitIdentifier = akID
+        localAlarm.eventKitIdentifier = "stale-ek-id"
+        store.save(localAlarm)
+
+        var rescued = localAlarm
+        rescued.eventKitIdentifier = "new-ek-id"
+        rescued.eventKitLastModifiedAt = Date()
+        rescued.fireDate = localAlarm.fireDate.addingTimeInterval(900)
+
+        let calProvider = MockCalendarProvider()
+        calProvider.appEvents = []
+        calProvider.foundAppEvent = rescued
+
+        let scheduler = MockAlarmScheduler()
+        let engine = makeSyncEngine(calendarProvider: calProvider, alarmScheduler: scheduler)
+
+        await engine.performFullSync()
+
+        let saved = store.find(id: localAlarm.id)
+        XCTAssertEqual(saved?.eventKitIdentifier, "new-ek-id", "marker再探索でEventKit IDを結び直すこと")
+        XCTAssertEqual(saved?.fireDate, rescued.fireDate, "再接続時にfireDateも更新すること")
+        XCTAssertTrue(scheduler.cancelledIDs.isEmpty, "再接続できた予定は削除扱いにしないこと")
     }
 
     func testSyncRemoteEvents_FamilyServiceNil_DoesNotCrash() async {

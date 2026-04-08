@@ -54,6 +54,7 @@ final class PersonHomeViewModel {
     var events: [AlarmEvent] = []          // 今日の予定（ソート済み）
     var upcomingEvents: [AlarmEvent] = []  // 明日以降（最大2件表示用）
     var isLoading = false
+    var isManualSyncing = false
     var pendingDelete: AlarmEvent?
     var pendingComplete: AlarmEvent?
     private var deleteTimer: Timer?
@@ -80,15 +81,18 @@ final class PersonHomeViewModel {
     // MARK: - 依存
     private let calendarProvider: CalendarProviding
     private let eventStore: AlarmEventStore
+    private let syncEngine: SyncEngine
     private var appState: AppState?
     private var screenHeight: CGFloat = 0
 
     init(
         calendarProvider: CalendarProviding? = nil,
-        eventStore: AlarmEventStore? = nil
+        eventStore: AlarmEventStore? = nil,
+        syncEngine: SyncEngine? = nil
     ) {
         self.calendarProvider = calendarProvider ?? AppleCalendarProvider()
         self.eventStore = eventStore ?? .shared
+        self.syncEngine = syncEngine ?? SyncEngine()
     }
 
     func bindAppStateIfNeeded(_ appState: AppState) {
@@ -434,6 +438,15 @@ final class PersonHomeViewModel {
     }
 
     func performManualSync() async {
+        guard !isManualSyncing else {
+            return
+        }
+        isManualSyncing = true
+        defer { isManualSyncing = false }
+
+        await OfflineActionQueue.shared.flush()
+        await syncEngine.performFullSync()
+        _ = await syncEngine.syncRemoteEvents()
         await loadEvents()
     }
 

@@ -11,6 +11,8 @@ import UserNotifications
 /// 同期対象: アプリ作成イベントのみ（notesマーカーで識別）
 /// 他カレンダーのイベントは一切触らない
 actor SyncEngine {
+    /// EventKit への直前書き込み直後は、同じ更新による古い読み戻しを短時間だけ無視する
+    private let localCalendarWriteEchoGraceInterval: TimeInterval = 5
 
     // MARK: - 依存サービス
 
@@ -90,11 +92,13 @@ actor SyncEngine {
             if let ekEvent = ekDict[local.id] {
                 // EventKit側にイベントが存在する
                 let delta = ekEvent.fireDate.timeIntervalSince(local.fireDate)
-                print("🔍 [SyncEngine/computeDiffs] local.id=\(local.id) local.fireDate=\(local.fireDate) ek.fireDate=\(ekEvent.fireDate) delta=\(Int(delta))s")
                 if abs(delta) > 60 {
                     // 1分以上のズレ → 時間が変更されている
-                    print("⚠️ [SyncEngine/computeDiffs] mismatch 検出 id=\(local.id) newFireDate=\(ekEvent.fireDate)")
-                    diffs.append(.mismatch(current: local, newFireDate: ekEvent.fireDate))
+                    diffs.append(.mismatch(
+                        current: local,
+                        newFireDate: ekEvent.fireDate,
+                        eventKitLastModifiedAt: ekEvent.eventKitLastModifiedAt
+                    ))
                 } else {
                     // 一致
                     diffs.append(.matched(local))
@@ -121,15 +125,55 @@ actor SyncEngine {
     private func reconcile(_ diff: SyncDiff) async {
         switch diff {
 
-        case .matched:
-            // 一致しているので何もしない
-            break
+        case .matched(let current):
+            // 一致しているので何もしない。保留中の差分だけ掃除する
+            if current.pendingEventKitFireDate != nil {
+                var cleared = current
+                cleared.pendingEventKitFireDate = nil
+                let finalCleared = cleared
+                await MainActor.run { eventStore.save(finalCleared) }
+            }
 
-        case .mismatch(let current, let newFireDate):
+        case .mismatch(let current, let newFireDate, let eventKitLastModifiedAt):
             // EventKitで時間が変更された → AlarmKit再登録 + 音声ファイル再生成
-            print("🔄 [SyncEngine/reconcile] mismatch 解消開始 id=\(current.id) old=\(current.fireDate) new=\(newFireDate)")
+            if let localWriteAt = current.lastLocalCalendarWriteAt,
+               let ekModifiedAt = eventKitLastModifiedAt {
+                let delta = ekModifiedAt.timeIntervalSince(localWriteAt)
+                if delta >= 0 && delta <= localCalendarWriteEchoGraceInterval {
+                    break
+                }
+            }
+
+            let hasNewerEventKitEdit: Bool = {
+                guard let ekModifiedAt = eventKitLastModifiedAt else { return false }
+                guard let currentModifiedAt = current.eventKitLastModifiedAt else { return true }
+                return ekModifiedAt.timeIntervalSince(currentModifiedAt) > 1
+            }()
+
+            if hasNewerEventKitEdit {
+            } else
+            if let pendingFireDate = current.pendingEventKitFireDate {
+                if abs(pendingFireDate.timeIntervalSince(newFireDate)) > 1 {
+                    var updatedPending = current
+                    updatedPending.pendingEventKitFireDate = newFireDate
+                    updatedPending.eventKitLastModifiedAt = eventKitLastModifiedAt
+                    let finalUpdatedPending = updatedPending
+                    await MainActor.run { eventStore.save(finalUpdatedPending) }
+                    break
+                }
+            } else if !hasNewerEventKitEdit {
+                var pending = current
+                pending.pendingEventKitFireDate = newFireDate
+                pending.eventKitLastModifiedAt = eventKitLastModifiedAt
+                let finalPending = pending
+                await MainActor.run { eventStore.save(finalPending) }
+                break
+            }
+
             var updated = current
             updated.fireDate = newFireDate
+            updated.eventKitLastModifiedAt = eventKitLastModifiedAt
+            updated.pendingEventKitFireDate = nil
 
             // 古いアラームをキャンセル
             if let oldAlarmKitID = current.alarmKitIdentifier {
@@ -155,9 +199,23 @@ actor SyncEngine {
             }
             let finalUpdated = updated
             await MainActor.run { eventStore.save(finalUpdated) }
-            print("✅ [SyncEngine/reconcile] mismatch 解消完了 id=\(finalUpdated.id) fireDate=\(finalUpdated.fireDate)")
 
         case .orphanedAlarm(let alarm):
+            // EventKitの eventIdentifier が死んでいても、notes内の wasure-bou UUID で同一予定を再特定できる場合がある
+            if let rescued = try? await calendarProvider.findAppEvent(id: alarm.id) {
+                var rebound = alarm
+                rebound.eventKitIdentifier = rescued.eventKitIdentifier
+                rebound.eventKitLastModifiedAt = rescued.eventKitLastModifiedAt
+
+                if abs(rescued.fireDate.timeIntervalSince(alarm.fireDate)) > 60 {
+                    rebound.fireDate = rescued.fireDate
+                }
+
+                let finalRebound = rebound
+                await MainActor.run { eventStore.save(finalRebound) }
+                break
+            }
+
             // EventKitから削除済み → 全アラームキャンセル + 音声ファイル削除 + ローカル削除
             // レビュー指摘 #2: alarmKitIdentifiers（配列）を優先し、単一IDと両方をキャンセルする
             let idsToCancel = alarm.alarmKitIdentifiers.isEmpty
@@ -297,6 +355,7 @@ actor SyncEngine {
         // EventKit書き込み
         if let ekIdentifier = try? await calendarProvider.writeEvent(alarm, to: nil) {
             alarm.eventKitIdentifier = ekIdentifier
+            alarm.lastLocalCalendarWriteAt = Date()
             print("[SyncEngine] EventKit書き込み完了")
         } else {
             print("[SyncEngine] EventKit書き込みスキップ（失敗 or 権限なし）")

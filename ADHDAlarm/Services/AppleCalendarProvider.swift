@@ -5,9 +5,10 @@ import EventKit
 /// アプリが作成したイベントのみを対象にすることで、他カレンダーのノイズを完全排除する
 final class AppleCalendarProvider: CalendarProviding {
 
-    private let eventStore = EKEventStore()
-
     nonisolated init() {}
+
+    /// EventKit の変更取りこぼしを避けるため、必要時に最新の EventStore を取り直す
+    private var eventStore: EKEventStore { EKEventStore() }
 
     // MARK: - CalendarProviding
 
@@ -21,6 +22,7 @@ final class AppleCalendarProvider: CalendarProviding {
 
     /// 指定期間のアプリ作成予定を取得する
     func fetchAppEvents(from: Date, to: Date) async throws -> [AlarmEvent] {
+        let eventStore = eventStore
         let predicate = eventStore.predicateForEvents(withStart: from, end: to, calendars: nil)
         let ekEvents  = eventStore.events(matching: predicate)
 
@@ -35,17 +37,42 @@ final class AppleCalendarProvider: CalendarProviding {
                 id: uuid,
                 title: ekEvent.title ?? "",
                 fireDate: ekEvent.startDate,
-                eventKitIdentifier: ekEvent.eventIdentifier
+                eventKitIdentifier: ekEvent.eventIdentifier,
+                eventKitLastModifiedAt: ekEvent.lastModifiedDate
             )
         }
         .sorted { $0.fireDate < $1.fireDate }
 
-        print("📅 [AppleCalendarProvider/fetchAppEvents] 取得件数=\(appEvents.count)")
-        for event in appEvents {
-            print("📅 [AppleCalendarProvider/fetchAppEvents] id=\(event.id) fireDate=\(event.fireDate) ekID=\(event.eventKitIdentifier ?? "nil")")
+        return appEvents
+    }
+
+    /// アプリ作成予定を alarmID（notesマーカー）で再探索する
+    func findAppEvent(id: UUID) async throws -> AlarmEvent? {
+        let eventStore = eventStore
+        // 通常同期より広めの範囲で再探索し、eventIdentifier の変化や取得揺れを吸収する
+        let from = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date.distantPast
+        let to = Calendar.current.date(byAdding: .year, value: 2, to: Date()) ?? Date.distantFuture
+        let predicate = eventStore.predicateForEvents(withStart: from, end: to, calendars: nil)
+        let ekEvents = eventStore.events(matching: predicate)
+
+        guard let matched = ekEvents.first(where: { ekEvent in
+            guard let notes = ekEvent.notes,
+                  notes.contains(Constants.eventMarkerPrefix),
+                  let extracted = extractUUID(from: notes) else {
+                return false
+            }
+            return extracted == id
+        }) else {
+            return nil
         }
 
-        return appEvents
+        return AlarmEvent(
+            id: id,
+            title: matched.title ?? "",
+            fireDate: matched.startDate,
+            eventKitIdentifier: matched.eventIdentifier,
+            eventKitLastModifiedAt: matched.lastModifiedDate
+        )
     }
 
     /// EventKitに予定を書き込む
@@ -55,7 +82,15 @@ final class AppleCalendarProvider: CalendarProviding {
     /// - Returns: EKEvent.eventIdentifier
     @discardableResult
     func writeEvent(_ alarm: AlarmEvent, to calendarID: String?) async throws -> String {
-        let ekEvent       = EKEvent(eventStore: eventStore)
+        let eventStore = eventStore
+        let ekEvent: EKEvent
+        if let existingID = alarm.eventKitIdentifier,
+           let existingEvent = eventStore.event(withIdentifier: existingID) {
+            ekEvent = existingEvent
+        } else {
+            ekEvent = EKEvent(eventStore: eventStore)
+        }
+
         ekEvent.title     = alarm.title
         ekEvent.startDate = alarm.fireDate
         ekEvent.endDate   = alarm.fireDate.addingTimeInterval(3600)  // 1時間後を終了時刻に設定
@@ -77,6 +112,7 @@ final class AppleCalendarProvider: CalendarProviding {
 
     /// EventKitから予定を削除する
     func deleteEvent(eventKitIdentifier: String) async throws {
+        let eventStore = eventStore
         guard let ekEvent = eventStore.event(withIdentifier: eventKitIdentifier) else {
             return  // すでに存在しない場合は正常扱い
         }
@@ -85,7 +121,8 @@ final class AppleCalendarProvider: CalendarProviding {
 
     /// 利用可能なカレンダー一覧（PRO版のカレンダー選択に使用）
     func availableCalendars() async throws -> [CalendarInfo] {
-        eventStore.calendars(for: .event)
+        let eventStore = eventStore
+        return eventStore.calendars(for: .event)
             .filter { $0.allowsContentModifications }  // 書き込み可能なものだけ
             .map { calendar in
                 CalendarInfo(
@@ -105,6 +142,7 @@ final class AppleCalendarProvider: CalendarProviding {
         excludingEKIdentifiers: Set<String>,
         calendarIdentifiers: Set<String>?
     ) async throws -> [ImportCandidate] {
+        let eventStore = eventStore
         // 書き込み可能カレンダーを列挙し、指定がある場合はフィルタリング
         var writableCalendars = eventStore.calendars(for: .event)
             .filter { $0.allowsContentModifications }
@@ -135,6 +173,7 @@ final class AppleCalendarProvider: CalendarProviding {
 
     /// 既存EKEventのnotesにマーカーを追記する（上書きしない・冪等）
     func appendMarker(to ekIdentifier: String, alarmID: UUID) async throws {
+        let eventStore = eventStore
         guard let ek = eventStore.event(withIdentifier: ekIdentifier) else {
             throw CalendarImportError.eventNotFound  // 成功扱いにしない
         }

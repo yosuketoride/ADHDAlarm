@@ -167,6 +167,7 @@ final class MockAlarmScheduler: AlarmScheduling {
 
 final class MockCalendarProvider: CalendarProviding {
     var appEvents: [AlarmEvent] = []
+    var foundAppEvent: AlarmEvent?
     var writtenEvents: [(alarm: AlarmEvent, calendarID: String?)] = []
     var deletedIDs: [String] = []
     var shouldThrow = false
@@ -179,6 +180,12 @@ final class MockCalendarProvider: CalendarProviding {
     func fetchAppEvents(from: Date, to: Date) async throws -> [AlarmEvent] {
         if shouldThrow { throw MockError.intentional }
         return appEvents.filter { $0.fireDate >= from && $0.fireDate <= to }
+    }
+
+    func findAppEvent(id: UUID) async throws -> AlarmEvent? {
+        if shouldThrow { throw MockError.intentional }
+        guard let foundAppEvent, foundAppEvent.id == id else { return nil }
+        return foundAppEvent
     }
 
     func writeEvent(_ alarm: AlarmEvent, to calendarID: String?) async throws -> String {

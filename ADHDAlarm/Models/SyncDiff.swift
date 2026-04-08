@@ -6,7 +6,7 @@ enum SyncDiff {
     case matched(AlarmEvent)
 
     /// EventKit側でfieDateが変更された → AlarmKit再スケジュール + 音声ファイル再生成
-    case mismatch(current: AlarmEvent, newFireDate: Date)
+    case mismatch(current: AlarmEvent, newFireDate: Date, eventKitLastModifiedAt: Date?)
 
     /// EventKitから予定が削除されたが、AlarmKitにアラームが残っている → アラームキャンセル
     /// AlarmEvent全体を渡すことで alarmKitIdentifiers（複数）を漏れなくキャンセルできる（レビュー指摘 #2）

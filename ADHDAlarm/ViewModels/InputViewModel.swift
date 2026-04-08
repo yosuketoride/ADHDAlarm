@@ -249,6 +249,7 @@ final class InputViewModel {
                     to: alarm.calendarIdentifier
                 ) {
                     alarm.eventKitIdentifier = eventKitID
+                    alarm.lastLocalCalendarWriteAt = Date()
                 }
             }
 

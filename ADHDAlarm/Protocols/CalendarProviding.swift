@@ -9,6 +9,9 @@ protocol CalendarProviding {
     /// 指定期間のアプリ作成予定を取得する
     func fetchAppEvents(from: Date, to: Date) async throws -> [AlarmEvent]
 
+    /// アプリ作成予定を alarmID（notes内マーカー）で再探索する
+    func findAppEvent(id: UUID) async throws -> AlarmEvent?
+
     /// EventKitに予定を書き込む。calendarIDがnilの場合はデフォルトカレンダーに保存（無料版）
     @discardableResult
     func writeEvent(_ alarm: AlarmEvent, to calendarID: String?) async throws -> String
