@@ -38,7 +38,9 @@ private final class AppDelegate: NSObject, UIApplicationDelegate {
             Task {
                 let tierRaw = UserDefaults.standard.string(forKey: Constants.Keys.subscriptionTier) ?? ""
                 let tier = SubscriptionTier(rawValue: tierRaw) ?? .free
-                let count = tier == .pro ? await SyncEngine().syncRemoteEvents() : 0
+                let modeRaw = UserDefaults.standard.string(forKey: Constants.Keys.appMode) ?? ""
+                let count = (tier == .pro && modeRaw == AppMode.person.rawValue)
+                    ? await SyncEngine().syncRemoteEvents() : 0
                 if count > 0 {
                     // フォアグラウンドに通知（AppStateへのアクセスはMainActor経由）
                     await MainActor.run {
@@ -137,7 +139,7 @@ struct ADHDAlarmApp: App {
                 Task {
                     await OfflineActionQueue.shared.flush()
                     await syncEngine.performFullSync()
-                    let newCount = appState.subscriptionTier == .pro
+                    let newCount = (appState.subscriptionTier == .pro && appState.appMode == .person)
                         ? await syncEngine.syncRemoteEvents()
                         : 0
                     if newCount > 0 {
