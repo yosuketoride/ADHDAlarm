@@ -107,6 +107,12 @@ final class VoiceFileGeneratorTests: XCTestCase {
         XCTAssertFalse(sanitized.contains("CT"))
     }
 
+    func testSanitizeForSpeech_KeepsPlainDigitsForMinuteAnnouncements() {
+        let sanitized = VoiceFileGenerator.sanitizeForSpeech("病院へ行くまで、あと1分です。")
+
+        XCTAssertTrue(sanitized.contains("1分"), "分数の数字が消えないこと")
+    }
+
     func testMakeUtterance_UsesSanitizedSpeechString() {
         let utterance = VoiceFileGenerator.makeUtterance(
             text: "MRI😀（検査）",

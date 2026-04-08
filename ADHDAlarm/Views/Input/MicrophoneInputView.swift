@@ -428,6 +428,6 @@ struct MicrophoneInputView: View {
     }
 
     private var permissionButtonTitle: String {
-        canRequestPermissionsInApp ? "マイクと音声認識を許可する" : "設定アプリを開く"
+        canRequestPermissionsInApp ? "続ける" : "設定アプリを開く"
     }
 }

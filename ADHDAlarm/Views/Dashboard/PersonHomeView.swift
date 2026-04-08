@@ -32,6 +32,7 @@ struct PersonHomeView: View {
     @State private var eventToActOn: AlarmEvent?
     // PRO機能ゲート用
     @State private var showPaywall = false
+    @State private var micInputViewModel: InputViewModel?
 
     @MainActor
     init(
@@ -120,15 +121,31 @@ struct PersonHomeView: View {
             router.isMicSheetOpen = false
             Task { await viewModel.loadEvents() }
         }) {
-            MicrophoneInputView(
-                viewModel: InputViewModel(appState: appState),
-                onSaved: {
-                    Task { await viewModel.loadEvents() }
-                    viewModel.showMicSheet = false
+            Group {
+                if let micInputViewModel {
+                    MicrophoneInputView(
+                        viewModel: micInputViewModel,
+                        onSaved: {
+                            Task { await viewModel.loadEvents() }
+                            viewModel.showMicSheet = false
+                        }
+                    )
+                } else {
+                    VStack(spacing: Spacing.md) {
+                        ProgressView()
+                        Text("マイクの準備をしています…")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(.systemBackground))
+                    .task {
+                        prepareMicInputViewModelIfNeeded()
+                    }
                 }
-            )
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         // 設定シート
         .sheet(isPresented: $viewModel.showSettings) {
@@ -200,6 +217,7 @@ struct PersonHomeView: View {
         }
         .task {
             viewModel.bindAppStateIfNeeded(appState)
+            prepareMicInputViewModelIfNeeded()
             if loadsEventsOnTask {
                 await viewModel.loadEvents()
             }
@@ -719,7 +737,9 @@ struct PersonHomeView: View {
 
     private var micFAB: some View {
         Button {
-            viewModel.showMicSheet = true; router.isMicSheetOpen = true
+            prepareMicInputViewModelIfNeeded()
+            viewModel.showMicSheet = true
+            router.isMicSheetOpen = true
         } label: {
             VStack(spacing: Spacing.xs) {
                 Image(systemName: "mic.fill")
@@ -766,7 +786,9 @@ struct PersonHomeView: View {
         if shouldStackShortcutButtons {
             VStack(spacing: Spacing.sm) {
                 shortcutButton(title: voiceLabel, font: font) {
-                    viewModel.showMicSheet = true; router.isMicSheetOpen = true
+                    prepareMicInputViewModelIfNeeded()
+                    viewModel.showMicSheet = true
+                    router.isMicSheetOpen = true
                 }
                 shortcutButton(title: textLabel, font: font) {
                     viewModel.showManualInput = true
@@ -775,7 +797,9 @@ struct PersonHomeView: View {
         } else {
             HStack(spacing: Spacing.md) {
                 shortcutButton(title: voiceLabel, font: font) {
-                    viewModel.showMicSheet = true; router.isMicSheetOpen = true
+                    prepareMicInputViewModelIfNeeded()
+                    viewModel.showMicSheet = true
+                    router.isMicSheetOpen = true
                 }
 
                 Text("｜")
@@ -786,6 +810,14 @@ struct PersonHomeView: View {
                     viewModel.showManualInput = true
                 }
             }
+        }
+    }
+
+    private func prepareMicInputViewModelIfNeeded() {
+        if micInputViewModel == nil {
+            micInputViewModel = InputViewModel(appState: appState)
+        } else {
+            micInputViewModel?.reset()
         }
     }
 

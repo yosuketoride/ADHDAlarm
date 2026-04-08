@@ -523,9 +523,20 @@ final class VoiceFileGenerator: VoiceSynthesizing {
 
 private extension Character {
     var isEmojiLike: Bool {
-        unicodeScalars.contains { scalar in
-            scalar.properties.isEmojiPresentation || scalar.properties.isEmoji
+        let scalars = unicodeScalars
+        guard scalars.contains(where: { $0.properties.isEmojiPresentation || $0.properties.isEmoji }) else {
+            return false
         }
+
+        // ASCII数字は Unicode 上 "emoji" 扱いされることがあるが、
+        // 読み上げ文では「あと1分」のように普通の数字として残したい。
+        if scalars.count == 1,
+           let scalar = scalars.first,
+           CharacterSet.decimalDigits.contains(scalar) {
+            return false
+        }
+
+        return scalars.contains { $0.properties.isEmojiPresentation } || scalars.count > 1
     }
 }
 

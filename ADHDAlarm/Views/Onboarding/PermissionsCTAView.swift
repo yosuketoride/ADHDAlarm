@@ -62,7 +62,7 @@ struct PermissionsCTAView: View {
                     if isRequesting {
                         ProgressView().tint(.black)
                     } else {
-                        Text("通知を許可する")
+                        Text("続ける")
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -128,7 +128,7 @@ struct PermissionsCTAView: View {
                     if isRequesting {
                         ProgressView().tint(.black)
                     } else {
-                        Text("カレンダーを連携する")
+                        Text("続ける")
                     }
                 }
                 .frame(maxWidth: .infinity)

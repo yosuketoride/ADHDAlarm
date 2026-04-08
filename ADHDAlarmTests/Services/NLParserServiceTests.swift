@@ -40,6 +40,18 @@ final class NLParserServiceTests: XCTestCase {
         XCTAssertEqual(result?.title, "大阪出張")
     }
 
+    func testTitleExtracted_KeepsParticleInsideTitle() {
+        let result = parser.parse(text: "明日の15時にセイくんと遊ぶ")
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.title, "セイくんと遊ぶ")
+    }
+
+    func testTitleExtracted_KeepsNiParticleInsideTitle() {
+        let result = parser.parse(text: "明日の10時に病院に電話する")
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.title, "病院に電話する")
+    }
+
     func testInferEmoji_MedicineTitleReturnsPill() {
         XCTAssertEqual(parser.inferEmoji(from: "薬を飲む"), "💊")
     }
@@ -313,6 +325,12 @@ final class NLParserServiceTests: XCTestCase {
         guard let parsed = result else { return }
         XCTAssertEqual(cal.component(.day, from: parsed.fireDate), targetDay)
         XCTAssertEqual(parsed.title, "本わらびを買う")
+    }
+
+    func testAbsoluteDate_DayOnly_RemovesRelativeDateWordsFromTitleToo() {
+        let result = parser.parse(text: "明後日の10日に病院です")
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.title, "病院")
     }
 
     func testAbsoluteDate_DayOnly_PastDayAdvancesToNextMonth() {

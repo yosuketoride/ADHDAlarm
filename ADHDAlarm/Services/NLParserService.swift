@@ -355,18 +355,84 @@ final class NLParserService: NLParsing {
     private func stripFillers(_ text: String) -> String {
         let fillers = [
             "起こして", "おこして", "アラームをセットして", "アラームを", "アラーム",
-            "お願いします", "お願い", "にセットして", "をセット", "セットして",
-            "に", "の", "で", "を", "は", "が", "と", "へ",
+            "お願いします", "お願い", "にセットして", "をセット", "セットして"
         ]
         var result = text
         for filler in fillers {
             result = result.replacingOccurrences(of: filler, with: "")
         }
-        // 連続する空白を1つにまとめる
-        while result.contains("  ") {
-            result = result.replacingOccurrences(of: "  ", with: " ")
+
+        result = stripTemporalPhrases(result)
+        result = stripTrailingPoliteSuffixes(result)
+        result = trimEdgeParticles(in: result)
+        result = collapseWhitespaces(in: result)
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func stripTemporalPhrases(_ text: String) -> String {
+        let patterns = [
+            #"明後日"#,
+            #"あさって"#,
+            #"明日"#,
+            #"今日"#,
+            #"来週"#,
+            #"毎日"#,
+            #"毎朝"#,
+            #"毎晩"#,
+            #"毎夜"#,
+            #"毎夕"#,
+            #"毎月\d{1,2}日"#,
+            #"毎週[月火水木金土日](曜)?"#,
+            #"\d{1,2}月\d{1,2}日"#,
+            #"\d{1,2}日"#,
+            #"[月火水木金土日](曜)"#
+        ]
+
+        var result = text
+        for pattern in patterns {
+            result = result.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
         }
-        return result.trimmingCharacters(in: .whitespaces)
+        return result
+    }
+
+    private func stripTrailingPoliteSuffixes(_ text: String) -> String {
+        var result = text
+        let suffixes = ["です。", "です", "ます。", "ます"]
+        for suffix in suffixes where result.hasSuffix(suffix) {
+            result.removeLast(suffix.count)
+            break
+        }
+        return result
+    }
+
+    private func trimEdgeParticles(in text: String) -> String {
+        let particles = ["に", "の", "で", "を", "は", "が", "と", "へ"]
+        var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var didTrim = true
+        while didTrim {
+            didTrim = false
+            for particle in particles {
+                if result.hasPrefix(particle) {
+                    result.removeFirst(particle.count)
+                    result = result.trimmingCharacters(in: .whitespacesAndNewlines)
+                    didTrim = true
+                }
+                if result.hasSuffix(particle) {
+                    result.removeLast(particle.count)
+                    result = result.trimmingCharacters(in: .whitespacesAndNewlines)
+                    didTrim = true
+                }
+            }
+        }
+        return result
+    }
+
+    private func collapseWhitespaces(in text: String) -> String {
+        text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 
     // MARK: - 日付ユーティリティ
