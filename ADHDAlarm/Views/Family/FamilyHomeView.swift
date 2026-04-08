@@ -86,8 +86,13 @@ struct FamilyHomeView: View {
             .tag(2)
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-            if networkMonitor.isOffline {
-                offlineBanner
+            VStack(spacing: 0) {
+                if networkMonitor.isOffline {
+                    offlineBanner
+                }
+                if let errorMessage = viewModel.fetchError {
+                    fetchErrorBanner(message: errorMessage)
+                }
             }
         }
         .task {
@@ -97,6 +102,22 @@ struct FamilyHomeView: View {
         .sheet(isPresented: $showFamilyPaywall) {
             FamilyPaywallView()
         }
+    }
+
+    private func fetchErrorBanner(message: String) -> some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.callout.weight(.semibold))
+            Text(message)
+                .font(.footnote.weight(.medium))
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Color.black.opacity(0.82))
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.85))
     }
 
     private var offlineBanner: some View {
