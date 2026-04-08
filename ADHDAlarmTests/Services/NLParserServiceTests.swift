@@ -299,6 +299,34 @@ final class NLParserServiceTests: XCTestCase {
         XCTAssertTrue(cal.isDateInTomorrow(parsed.fireDate))
     }
 
+    // MARK: - 絶対日付: 「X日」（日のみ）
+
+    func testAbsoluteDate_DayOnly_ParsesCorrectly() {
+        // 「10日に本わらびを買う」のような「日のみ」指定が認識されること
+        let cal = Calendar.current
+        let today = cal.component(.day, from: Date())
+        // 今月の末日より大きい日は除外してテスト対象日を決める
+        let targetDay = today < 28 ? today + 2 : today - 2
+        let text = "\(targetDay)日に本わらびを買う"
+        let result = parser.parse(text: text)
+        XCTAssertNotNil(result, "「\(targetDay)日」が日付として認識されなかった")
+        guard let parsed = result else { return }
+        XCTAssertEqual(cal.component(.day, from: parsed.fireDate), targetDay)
+        XCTAssertEqual(parsed.title, "本わらびを買う")
+    }
+
+    func testAbsoluteDate_DayOnly_PastDayAdvancesToNextMonth() {
+        // 1日指定 → 今日が1日より後なら翌月1日になること
+        let cal = Calendar.current
+        let currentDay = cal.component(.day, from: Date())
+        guard currentDay > 1 else { return }  // 今日が1日なら翌月判定が不定のためスキップ
+        let result = parser.parse(text: "1日に歯医者")
+        XCTAssertNotNil(result)
+        guard let parsed = result else { return }
+        XCTAssertEqual(cal.component(.day, from: parsed.fireDate), 1)
+        XCTAssertTrue(parsed.fireDate >= Date(), "過去の日付が返ってきた")
+    }
+
     // MARK: - 総合ケース
 
     func testComplex_TomorrowAfternoonMeetingWithFiller() {

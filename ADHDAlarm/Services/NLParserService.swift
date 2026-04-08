@@ -251,30 +251,56 @@ final class NLParserService: NLParsing {
     }
 
     /// 「3月20日」「10月5日」→ Date に変換
+    /// 「10日」「5日」のような「日のみ」パターンも対応（当月 → 過去なら翌月）
     private func matchAbsoluteDate(_ text: String) -> (Date, Range<String.Index>)? {
-        let pattern = #"(\d{1,2})月(\d{1,2})日"#
-        guard let match = text.range(of: pattern, options: .regularExpression) else { return nil }
-        let matchStr = String(text[match])
-        guard let mMatch = matchStr.firstMatch(of: /(\d{1,2})月(\d{1,2})日/),
-              let month = Int(mMatch.output.1),
-              let day   = Int(mMatch.output.2) else { return nil }
-
         let calendar = Calendar.current
-        var components = calendar.dateComponents([.year], from: Date())
-        components.month = month
-        components.day   = day
-        components.hour  = 9
-        components.minute = 0
-        components.second = 0
 
-        // 過去になる場合は翌年に設定
-        // レビュー指摘 #3: ハードコード2026を除去。現在の年から動的に計算する。
-        if let date = calendar.date(from: components), date < Date() {
-            let currentYear = Calendar.current.component(.year, from: Date())
-            components.year = currentYear + 1
+        // 「X月Y日」パターン（優先）
+        if let match = text.range(of: #"(\d{1,2})月(\d{1,2})日"#, options: .regularExpression) {
+            let matchStr = String(text[match])
+            if let mMatch = matchStr.firstMatch(of: /(\d{1,2})月(\d{1,2})日/),
+               let month = Int(mMatch.output.1),
+               let day   = Int(mMatch.output.2) {
+                var components = calendar.dateComponents([.year], from: Date())
+                components.month = month
+                components.day   = day
+                components.hour  = 9
+                components.minute = 0
+                components.second = 0
+                // 過去になる場合は翌年に設定
+                if let date = calendar.date(from: components), date < Date() {
+                    components.year = calendar.component(.year, from: Date()) + 1
+                }
+                let date = calendar.date(from: components) ?? Date()
+                return (date, match)
+            }
         }
-        let date = calendar.date(from: components) ?? Date()
-        return (date, match)
+
+        // 「X日」パターン（月の指定なし → 当月のX日。過去なら翌月）
+        if let match = text.range(of: #"(\d{1,2})日"#, options: .regularExpression) {
+            let matchStr = String(text[match])
+            if let mMatch = matchStr.firstMatch(of: /(\d{1,2})日/),
+               let day = Int(mMatch.output.1) {
+                var components = calendar.dateComponents([.year, .month], from: Date())
+                components.day    = day
+                components.hour   = 9
+                components.minute = 0
+                components.second = 0
+                // 過去になる場合は翌月に設定
+                if let date = calendar.date(from: components), date < Date() {
+                    components = calendar.dateComponents([.year, .month], from: Date())
+                    components.month = (components.month ?? 1) + 1
+                    components.day    = day
+                    components.hour   = 9
+                    components.minute = 0
+                    components.second = 0
+                }
+                let date = calendar.date(from: components) ?? Date()
+                return (date, match)
+            }
+        }
+
+        return nil
     }
 
     /// 「15時」「8時30分」「午後3時」→ (hour, minute) を返す
