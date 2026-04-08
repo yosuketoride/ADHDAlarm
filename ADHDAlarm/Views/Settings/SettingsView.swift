@@ -374,7 +374,7 @@ struct SettingsView: View {
             Button { showPaywall = true } label: {
                 listRow(
                     icon: "star",
-                    title: "ふくろう PRO",
+                    title: "忘れん坊アラーム PRO",
                     value: viewModel.isPro ? "PRO" : "無料"
                 )
             }
@@ -490,7 +490,7 @@ struct SettingsView: View {
             }
             let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
             let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-            Text("ふくろう v\(version) (\(build))")
+            Text("忘れん坊アラーム v\(version) (\(build))")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -634,7 +634,7 @@ struct SettingsView: View {
         let model = UIDevice.current.model
         let inquiryID = FamilyRemoteService.shared.currentDeviceId ?? "未ログイン"
 
-        let subject = "【ふくろう】お問い合わせ"
+        let subject = "【忘れん坊アラーム】お問い合わせ"
         let body = """
 
 

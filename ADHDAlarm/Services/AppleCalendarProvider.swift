@@ -181,7 +181,7 @@ final class AppleCalendarProvider: CalendarProviding {
         // 冪等チェック：すでに同じマーカーがあればスキップ
         if ek.notes?.contains(marker) == true { return }
         let existing = ek.notes ?? ""
-        let appended = "🦉 ふくろうアプリで管理中\n\(marker)"
+        let appended = "🦉 忘れん坊アラームで管理中\n\(marker)"
         ek.notes = existing.isEmpty ? appended : "\(existing)\n\n\(appended)"
         // .thisEvent で繰り返し予定の場合もこの1件のみ変更
         try eventStore.save(ek, span: .thisEvent)

@@ -72,10 +72,10 @@ enum Constants {
         /// プライバシーポリシーページのURL
         static let privacy = "https://yosuketoride.github.io/ADHDAlarm/privacy"
         /// よくある質問ページ（NotionページのURL。確定後に設定）
-        static let faqURL: URL? = nil
+        static let faqURL = URL(string: "https://good-hornet-9a7.notion.site/33cc0565e2ce801c8f5fe8c7d7af6f79?source=copy_link")
         /// お問い合わせメール（mailto:リンク）
         static var supportMailURL: URL? {
-            let subject = "【ふくろう】お問い合わせ"
+            let subject = "【忘れん坊アラーム】お問い合わせ"
             guard let encoded = subject.addingPercentEncoding(
                 withAllowedCharacters: .urlQueryAllowed
             ) else { return nil }
