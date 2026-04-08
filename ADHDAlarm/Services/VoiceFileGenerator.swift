@@ -207,7 +207,7 @@ final class VoiceFileGenerator: VoiceSynthesizing {
         /// TTS 後の無音（秒）。AlarmKit がループするときの前後余白
         static let tailSilence: Double  = 2.0
         /// ビープ音量（0.0〜1.0）。大きくすると目立つが TTS に被りやすくなる
-        static let volume: Float        = 0.45
+        static let volume: Float        = 1.0
     }
 
     // MARK: - ビープ合成
@@ -224,6 +224,11 @@ final class VoiceFileGenerator: VoiceSynthesizing {
             let ttsBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: ttsFrameCount),
             (try? ttsFile.read(into: ttsBuffer)) != nil
         else { return }
+
+        // TTS バッファを正規化する
+        // AVSpeechSynthesizer のファイルレンダリングはライブ再生より出力レベルが低いため、
+        // ピーク振幅を基準にスケールアップしてライブ TTS と同等の音量に揃える
+        normalizeBuffer(ttsBuffer)
 
         // 各バッファを生成（BeepConfig の定数で調整可能）
         guard
@@ -306,10 +311,41 @@ final class VoiceFileGenerator: VoiceSynthesizing {
                 } else {
                     fade = 1.0
                 }
-                channelData[i] = Float(sin(2.0 * Double.pi * frequency * t)) * BeepConfig.volume * fade
+                // 基音 + 3倍音 + 5倍音を重ねて体感音量を上げる（純粋なサイン波より明るく大きく聞こえる）
+                let base = sin(2.0 * Double.pi * frequency * t)
+                let h3   = sin(2.0 * Double.pi * frequency * 3 * t) * 0.3
+                let h5   = sin(2.0 * Double.pi * frequency * 5 * t) * 0.15
+                channelData[i] = Float((base + h3 + h5) / 1.45) * BeepConfig.volume * fade
             }
         }
         return buffer
+    }
+
+    /// PCM バッファの振幅をピーク基準で正規化する
+    /// ファイルレンダリングされた TTS がライブ再生より小さい問題を補正するために使う
+    /// ピークが極端に小さい（無音に近い）場合は何もしない
+    private nonisolated func normalizeBuffer(_ buffer: AVAudioPCMBuffer) {
+        let frameCount = Int(buffer.frameLength)
+        guard frameCount > 0 else { return }
+        // 全チャンネルのピーク振幅を求める
+        var peak: Float = 0.0
+        for ch in 0..<Int(buffer.format.channelCount) {
+            guard let data = buffer.floatChannelData?[ch] else { continue }
+            for i in 0..<frameCount {
+                let abs = abs(data[i])
+                if abs > peak { peak = abs }
+            }
+        }
+        // ピークが小さすぎる（≒無音）場合はスキップ
+        guard peak > 0.01 else { return }
+        // 目標ピーク 0.95 になるようスケール
+        let gain = 0.95 / peak
+        for ch in 0..<Int(buffer.format.channelCount) {
+            guard let data = buffer.floatChannelData?[ch] else { continue }
+            for i in 0..<frameCount {
+                data[i] *= gain
+            }
+        }
     }
 
     /// 無音 PCM バッファを生成する（バッファはゼロ初期化済み）
