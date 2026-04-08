@@ -66,6 +66,8 @@ final class VoiceFileGenerator: VoiceSynthesizing {
         }
 
         try await renderSpeech(text: text, character: character, to: outputURL)
+        // ビープ音を先頭に合成する（失敗時は読み上げ単体のファイルをそのまま残す）
+        prependBeep(to: outputURL)
         return outputURL
     }
 
@@ -188,6 +190,98 @@ final class VoiceFileGenerator: VoiceSynthesizing {
                 }
             }
         }
+    }
+
+    // MARK: - ビープ合成
+
+    /// TTS .caf の先頭に短いビープ＋無音を挿入して上書きする
+    /// 失敗した場合は元の読み上げ単体ファイルをそのまま残す（沈黙にしない）
+    private nonisolated func prependBeep(to url: URL) {
+        // TTS ファイルを読み込む
+        guard let ttsFile = try? AVAudioFile(forReading: url) else { return }
+        let format = ttsFile.processingFormat
+        let ttsFrameCount = AVAudioFrameCount(ttsFile.length)
+        guard
+            let ttsBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: ttsFrameCount),
+            (try? ttsFile.read(into: ttsBuffer)) != nil
+        else { return }
+
+        // ビープ音（880Hz / 0.15秒）と無音（0.10秒）のバッファを生成
+        guard
+            let beepBuffer    = makeBeepBuffer(format: format, frequency: 880.0, durationSeconds: 0.15),
+            let silenceBuffer = makeSilenceBuffer(format: format, durationSeconds: 0.10)
+        else { return }
+
+        // 一時ファイルに [ビープ + 無音 + TTS] を書き出す
+        let tmpURL = url.deletingLastPathComponent()
+            .appendingPathComponent("tmp_\(UUID().uuidString).caf")
+
+        guard let outFile = try? AVAudioFile(
+            forWriting: tmpURL,
+            settings: format.settings,
+            commonFormat: .pcmFormatFloat32,
+            interleaved: false
+        ) else { return }
+
+        do {
+            try outFile.write(from: beepBuffer)
+            try outFile.write(from: silenceBuffer)
+            try outFile.write(from: ttsBuffer)
+        } catch {
+            // 書き出し失敗 → 一時ファイルを削除して元の TTS ファイルを残す
+            try? FileManager.default.removeItem(at: tmpURL)
+            return
+        }
+
+        // 合成済みファイルで元ファイルを置き換える
+        do {
+            try FileManager.default.removeItem(at: url)
+            try FileManager.default.moveItem(at: tmpURL, to: url)
+        } catch {
+            try? FileManager.default.removeItem(at: tmpURL)
+        }
+    }
+
+    /// サイン波のビープ音 PCM バッファを生成する
+    /// フェードイン・フェードアウト（10ms）でクリックノイズを防ぐ
+    private nonisolated func makeBeepBuffer(
+        format: AVAudioFormat,
+        frequency: Double,
+        durationSeconds: Double
+    ) -> AVAudioPCMBuffer? {
+        let sampleRate  = format.sampleRate
+        let frameCount  = AVAudioFrameCount(sampleRate * durationSeconds)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return nil }
+        buffer.frameLength = frameCount
+
+        let fadeFrames = Int(sampleRate * 0.01)  // 10ms フェード
+        for ch in 0..<Int(format.channelCount) {
+            guard let channelData = buffer.floatChannelData?[ch] else { continue }
+            for i in 0..<Int(frameCount) {
+                let t: Double = Double(i) / sampleRate
+                let fade: Float
+                if i < fadeFrames {
+                    fade = Float(i) / Float(fadeFrames)
+                } else if i > Int(frameCount) - fadeFrames {
+                    fade = Float(Int(frameCount) - i) / Float(max(fadeFrames, 1))
+                } else {
+                    fade = 1.0
+                }
+                channelData[i] = Float(sin(2.0 * Double.pi * frequency * t)) * 0.55 * fade
+            }
+        }
+        return buffer
+    }
+
+    /// 無音 PCM バッファを生成する（バッファはゼロ初期化済み）
+    private nonisolated func makeSilenceBuffer(
+        format: AVAudioFormat,
+        durationSeconds: Double
+    ) -> AVAudioPCMBuffer? {
+        let frameCount = AVAudioFrameCount(format.sampleRate * durationSeconds)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return nil }
+        buffer.frameLength = frameCount
+        return buffer
     }
 
     /// キャラクターに対応するAVSpeechSynthesisVoiceを選択する（VoiceCharacterPickerの試聴でも使用）
