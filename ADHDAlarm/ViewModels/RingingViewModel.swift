@@ -355,10 +355,15 @@ final class RingingViewModel: NSObject {
         print("✅ [RingingViewModel/dismiss] ローカル完了保存 alarmID=\(alarm.id) remoteEventId=\(alarm.remoteEventId ?? "nil")")
         print("🔄 [RingingViewModel/dismiss] remote へ completed 送信を開始 remoteEventId=\(alarm.remoteEventId ?? "nil")")
         syncReactionToRemote(alarm: alarm, status: "completed")
-        appState?.addXP(10)
+        // 家族モードでは XP 付与・称賛音声を出さない（誤登録アラームの副作用を防ぐ）
+        if appState?.appMode == .person {
+            appState?.addXP(10)
+        }
         stopAudioPlayback()
         activeAlarm = nil
-        playPraisePhrase()
+        if appState?.appMode == .person {
+            playPraisePhrase()
+        }
 
         // P-9-13: EK/AlarmKit削除は30秒後（Undo猶予期間）
         undoTask?.cancel()

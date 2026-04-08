@@ -166,6 +166,35 @@ struct ADHDAlarmApp: App {
         await permissionsService.requestNotification()
         // アラームバナーに「止める / あとで / 今日は休む」ボタンを登録する
         registerAlarmNotificationCategory()
+        // 家族モードの端末に過去の不具合で誤登録されたアラームを削除する
+        if appState.appMode == .family {
+            await purgeMisregisteredAlarmsIfNeeded()
+        }
+    }
+
+    /// 家族モード端末に誤って登録された remoteEventId 付きのローカル予定を削除する
+    /// syncRemoteEvents() の appMode ガード漏れで取り込まれた予定の救済処理
+    private func purgeMisregisteredAlarmsIfNeeded() async {
+        let scheduler = AlarmKitScheduler()
+        let calendarProvider = AppleCalendarProvider()
+        let misregistered = await MainActor.run {
+            AlarmEventStore.shared.all.filter { $0.remoteEventId != nil }
+        }
+        guard !misregistered.isEmpty else { return }
+        print("🧹 [purgeMisregistered] 家族端末の誤登録アラームを削除: \(misregistered.count)件")
+        for alarm in misregistered {
+            let alarmKitIDs = !alarm.alarmKitIdentifiers.isEmpty
+                ? alarm.alarmKitIdentifiers
+                : [alarm.alarmKitIdentifier].compactMap { $0 }
+            if !alarmKitIDs.isEmpty {
+                try? await scheduler.cancelAll(alarmKitIDs: alarmKitIDs)
+            }
+            if let ekID = alarm.eventKitIdentifier {
+                try? await calendarProvider.deleteEvent(eventKitIdentifier: ekID)
+            }
+            await MainActor.run { AlarmEventStore.shared.delete(alarm.id) }
+        }
+        print("🧹 [purgeMisregistered] 削除完了")
     }
 
     @MainActor
@@ -491,7 +520,10 @@ struct RootView: View {
         completed.completionStatus = .completed
         AlarmEventStore.shared.save(completed)
         print("✅ [ADHDAlarmApp/completeAlarmFromNotification] ローカル完了保存")
-        appState.addXP(10)
+        // 家族モードでは XP を付与しない（誤登録アラームの副作用を防ぐ）
+        if appState.appMode == .person {
+            appState.addXP(10)
+        }
 
         if let remoteEventId = alarm.remoteEventId {
             print("🔄 [ADHDAlarmApp/completeAlarmFromNotification] remote へ completed 送信開始 eventID=\(remoteEventId)")
