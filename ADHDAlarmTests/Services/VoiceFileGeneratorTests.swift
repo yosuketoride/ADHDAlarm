@@ -128,6 +128,27 @@ final class VoiceFileGeneratorTests: XCTestCase {
         XCTAssertEqual(utterance.pitchMultiplier, 0.80, accuracy: 0.001)
     }
 
+    // MARK: - ビープ確認用（手動再生）
+
+    /// ビープ構成を手元で試聴するための確認テスト。
+    /// 実行後にコンソールに出るパスを afplay で再生できる。
+    /// 例: afplay /tmp/beep_preview_xxxx.caf
+    /// ※ このテストはファイルを削除しません。確認後に手動削除してください。
+    func testBeepPreview_SaveToTmpAndPrintPath() throws {
+        // 「無音 0.5秒」を TTS の代わりに使う（ビープ構成とタイミングの確認用）
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("beep_preview_\(UUID().uuidString).caf")
+        let silent = try makeSilentCaf(durationSeconds: 0.5)
+        defer { try? FileManager.default.removeItem(at: silent) }
+        try FileManager.default.copyItem(at: silent, to: url)
+
+        let generator = VoiceFileGenerator()
+        generator.prependBeep(to: url)
+
+        print("🔊 [BeepPreview] afplay \(url.path)")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+    }
+
     // MARK: - prependBeep
 
     /// 成功系: 有効な .caf を渡すと、ビープ合成後のファイルが元より大きくなること
