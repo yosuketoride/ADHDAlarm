@@ -206,13 +206,15 @@ final class VoiceFileGenerator: VoiceSynthesizing {
             (try? ttsFile.read(into: ttsBuffer)) != nil
         else { return }
 
-        // ビープ音（880Hz / 0.15秒）と無音（0.10秒）のバッファを生成
+        // ビープ音（880Hz / 0.12秒 × 3回）と間隔・前置無音のバッファを生成
+        // 音量0.45: TTS と競合しない程度に抑えつつ、ロック画面でも聞こえる強さ
         guard
-            let beepBuffer    = makeBeepBuffer(format: format, frequency: 880.0, durationSeconds: 0.15),
-            let silenceBuffer = makeSilenceBuffer(format: format, durationSeconds: 0.10)
+            let beepBuffer     = makeBeepBuffer(format: format, frequency: 880.0, durationSeconds: 0.12),
+            let gapBuffer      = makeSilenceBuffer(format: format, durationSeconds: 0.08),  // ビープ間の短い隙間
+            let leadinBuffer   = makeSilenceBuffer(format: format, durationSeconds: 0.15)   // TTS 前の余白
         else { return }
 
-        // 一時ファイルに [ビープ + 無音 + TTS] を書き出す
+        // 一時ファイルに [ビープ×3 + 余白 + TTS] を書き出す
         let tmpURL = url.deletingLastPathComponent()
             .appendingPathComponent("tmp_\(UUID().uuidString).caf")
 
@@ -224,8 +226,15 @@ final class VoiceFileGenerator: VoiceSynthesizing {
         ) else { return }
 
         do {
+            // ビビビ（3連ビープ）
             try outFile.write(from: beepBuffer)
-            try outFile.write(from: silenceBuffer)
+            try outFile.write(from: gapBuffer)
+            try outFile.write(from: beepBuffer)
+            try outFile.write(from: gapBuffer)
+            try outFile.write(from: beepBuffer)
+            // TTS 前の余白
+            try outFile.write(from: leadinBuffer)
+            // 読み上げ本文
             try outFile.write(from: ttsBuffer)
         } catch {
             // 書き出し失敗 → 一時ファイルを削除して元の TTS ファイルを残す
@@ -268,7 +277,7 @@ final class VoiceFileGenerator: VoiceSynthesizing {
                 } else {
                     fade = 1.0
                 }
-                channelData[i] = Float(sin(2.0 * Double.pi * frequency * t)) * 0.55 * fade
+                channelData[i] = Float(sin(2.0 * Double.pi * frequency * t)) * 0.45 * fade
             }
         }
         return buffer
