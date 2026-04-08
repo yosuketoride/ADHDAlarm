@@ -278,10 +278,12 @@ final class RingingViewModel: NSObject {
 
         let synthesizer = audioController.makeSpeechSynthesizer()
         synthesizer.delegate = self
-        let minutesText = alarm.preNotificationMinutes == 0
-            ? "になりました"
-            : "まであと\(alarm.preNotificationMinutes)分です"
-        let rawText = "お時間です。\(alarm.title)\(minutesText)。準備はよろしいですか？"
+        let rawText: String
+        if alarm.preNotificationMinutes == 0 {
+            rawText = "お時間です。\(alarm.title)の時間になりました。準備はよろしいですか？"
+        } else {
+            rawText = "お時間です。あと\(alarm.preNotificationMinutes)分で\(alarm.title)の時間です。準備はよろしいですか？"
+        }
         let utterance = VoiceFileGenerator.makeUtterance(
             text: rawText,
             character: alarm.voiceCharacter,

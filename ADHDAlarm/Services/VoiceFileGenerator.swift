@@ -85,10 +85,10 @@ final class VoiceFileGenerator: VoiceSynthesizing {
     /// アラームの読み上げテキストを生成する
     /// 例: 「お時間です。あと15分でカフェのご予定ですよ。」
     nonisolated static func speechText(for alarm: AlarmEvent) -> String {
-        let minutesText = alarm.preNotificationMinutes == 0
-            ? "になりました"
-            : "まであと\(alarm.preNotificationMinutes)分です"
-        return "お時間です。\(alarm.title)\(minutesText)。準備はよろしいですか？"
+        if alarm.preNotificationMinutes == 0 {
+            return "お時間です。\(alarm.title)の時間になりました。準備はよろしいですか？"
+        }
+        return "お時間です。あと\(alarm.preNotificationMinutes)分で\(alarm.title)の時間です。準備はよろしいですか？"
     }
 
     // MARK: - Private

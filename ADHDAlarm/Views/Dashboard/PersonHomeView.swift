@@ -458,9 +458,9 @@ struct PersonHomeView: View {
 
     private func nextAlarmTimingText(minutes: Int, alarm: AlarmEvent) -> String {
         if minutes < 1 {
-            return "まもなく \(alarm.fireDate.japaneseTimeString)"
+            return "まもなくお知らせ • 予定 \(alarm.fireDate.japaneseTimeString)"
         }
-        return "あと約\(minutes)分 • \(alarm.fireDate.japaneseTimeString)"
+        return "あと\(minutes)分でお知らせ • 予定 \(alarm.fireDate.japaneseTimeString)"
     }
 
     private func notificationTimingLabel(for alarm: AlarmEvent) -> String? {

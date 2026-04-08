@@ -24,7 +24,7 @@ final class AppleCalendarProvider: CalendarProviding {
         let predicate = eventStore.predicateForEvents(withStart: from, end: to, calendars: nil)
         let ekEvents  = eventStore.events(matching: predicate)
 
-        return ekEvents.compactMap { ekEvent -> AlarmEvent? in
+        let appEvents = ekEvents.compactMap { ekEvent -> AlarmEvent? in
             guard let notes = ekEvent.notes,
                   notes.contains(Constants.eventMarkerPrefix),
                   let uuid = extractUUID(from: notes) else {
@@ -39,6 +39,13 @@ final class AppleCalendarProvider: CalendarProviding {
             )
         }
         .sorted { $0.fireDate < $1.fireDate }
+
+        print("📅 [AppleCalendarProvider/fetchAppEvents] 取得件数=\(appEvents.count)")
+        for event in appEvents {
+            print("📅 [AppleCalendarProvider/fetchAppEvents] id=\(event.id) fireDate=\(event.fireDate) ekID=\(event.eventKitIdentifier ?? "nil")")
+        }
+
+        return appEvents
     }
 
     /// EventKitに予定を書き込む

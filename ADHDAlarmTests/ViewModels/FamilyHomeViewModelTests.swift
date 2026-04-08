@@ -44,6 +44,27 @@ final class FamilyHomeViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.shouldShowFirstCompletionBanner)
     }
 
+    func testLoadEvents_WhenFetchFails_SetsFetchErrorAndPreservesSentEvents() async throws {
+        // 1回目は成功してsentEventsを保持
+        let service = MockFamilyService()
+        service.stubFamilyLinks = [try makeFamilyLinkRecord(id: "link-1", status: "paired", isPremium: false)]
+        service.stubSentEvents = [try makeRemoteEventRecord(id: "event-1", status: "received")]
+
+        let viewModel = FamilyHomeViewModel(service: service, defaults: defaults)
+        viewModel.bindAppStateIfNeeded(AppState())
+
+        await viewModel.loadEvents(linkId: "link-1")
+        XCTAssertNil(viewModel.fetchError, "成功時はfetchErrorがnil")
+        XCTAssertEqual(viewModel.sentEvents.count, 1)
+
+        // 2回目は失敗 → fetchErrorがセットされ、sentEventsは前回値を保持する
+        service.shouldThrow = true
+        await viewModel.loadEvents(linkId: "link-1")
+
+        XCTAssertNotNil(viewModel.fetchError, "失敗時はfetchErrorがセットされる")
+        XCTAssertEqual(viewModel.sentEvents.count, 1, "失敗時もsentEventsは消えない（stale保持）")
+    }
+
     func testLoadEvents_ProTierDoesNotShowFirstCompletionBanner() async throws {
         let service = MockFamilyService()
         service.stubFamilyLinks = [try makeFamilyLinkRecord(id: "link-1", status: "paired", isPremium: false)]

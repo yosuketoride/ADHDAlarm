@@ -89,8 +89,11 @@ actor SyncEngine {
         for local in localInWindow {
             if let ekEvent = ekDict[local.id] {
                 // EventKit側にイベントが存在する
-                if abs(ekEvent.fireDate.timeIntervalSince(local.fireDate)) > 60 {
+                let delta = ekEvent.fireDate.timeIntervalSince(local.fireDate)
+                print("🔍 [SyncEngine/computeDiffs] local.id=\(local.id) local.fireDate=\(local.fireDate) ek.fireDate=\(ekEvent.fireDate) delta=\(Int(delta))s")
+                if abs(delta) > 60 {
                     // 1分以上のズレ → 時間が変更されている
+                    print("⚠️ [SyncEngine/computeDiffs] mismatch 検出 id=\(local.id) newFireDate=\(ekEvent.fireDate)")
                     diffs.append(.mismatch(current: local, newFireDate: ekEvent.fireDate))
                 } else {
                     // 一致
@@ -124,6 +127,7 @@ actor SyncEngine {
 
         case .mismatch(let current, let newFireDate):
             // EventKitで時間が変更された → AlarmKit再登録 + 音声ファイル再生成
+            print("🔄 [SyncEngine/reconcile] mismatch 解消開始 id=\(current.id) old=\(current.fireDate) new=\(newFireDate)")
             var updated = current
             updated.fireDate = newFireDate
 
@@ -151,6 +155,7 @@ actor SyncEngine {
             }
             let finalUpdated = updated
             await MainActor.run { eventStore.save(finalUpdated) }
+            print("✅ [SyncEngine/reconcile] mismatch 解消完了 id=\(finalUpdated.id) fireDate=\(finalUpdated.fireDate)")
 
         case .orphanedAlarm(let alarm):
             // EventKitから削除済み → 全アラームキャンセル + 音声ファイル削除 + ローカル削除
