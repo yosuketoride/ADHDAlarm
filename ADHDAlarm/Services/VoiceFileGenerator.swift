@@ -192,9 +192,28 @@ final class VoiceFileGenerator: VoiceSynthesizing {
         }
     }
 
+    // MARK: - ビープ調整定数
+    // ここの値を変えると聞こえ方が変わります
+
+    private enum BeepConfig {
+        /// ビープ音の周波数（Hz）。高くすると音が高くなる
+        static let frequency: Double    = 880.0
+        /// 1回のビープ長さ（秒）。長くするとビープが伸びる
+        static let beepDuration: Double = 0.12
+        /// ビープ間の隙間（秒）。「ピ・ピ・ピ」のテンポ感を調整
+        static let beepGap: Double      = 0.08
+        /// ビープ後の長い無音（秒）。「ピピピ → 間 → ピピピ → 間 → TTS」の"間"
+        static let longSilence: Double  = 2.0
+        /// TTS 後の無音（秒）。AlarmKit がループするときの前後余白
+        static let tailSilence: Double  = 2.0
+        /// ビープ音量（0.0〜1.0）。大きくすると目立つが TTS に被りやすくなる
+        static let volume: Float        = 0.45
+    }
+
     // MARK: - ビープ合成
 
-    /// TTS .caf の先頭に短いビープ＋無音を挿入して上書きする
+    /// TTS .caf を「ピピピ → 長い無音 → ピピピ → 長い無音 → TTS → 後置無音」に再構成して上書きする
+    /// AlarmKit がこの .caf をループ再生するため、1ファイルが1サイクルになる
     /// 失敗した場合は元の読み上げ単体ファイルをそのまま残す（沈黙にしない）
     nonisolated func prependBeep(to url: URL) {
         // TTS ファイルを読み込む
@@ -206,15 +225,15 @@ final class VoiceFileGenerator: VoiceSynthesizing {
             (try? ttsFile.read(into: ttsBuffer)) != nil
         else { return }
 
-        // ビープ音（880Hz / 0.12秒 × 3回）と間隔・前置無音のバッファを生成
-        // 音量0.45: TTS と競合しない程度に抑えつつ、ロック画面でも聞こえる強さ
+        // 各バッファを生成（BeepConfig の定数で調整可能）
         guard
-            let beepBuffer     = makeBeepBuffer(format: format, frequency: 880.0, durationSeconds: 0.12),
-            let gapBuffer      = makeSilenceBuffer(format: format, durationSeconds: 0.08),  // ビープ間の短い隙間
-            let leadinBuffer   = makeSilenceBuffer(format: format, durationSeconds: 0.15)   // TTS 前の余白
+            let beepBuffer  = makeBeepBuffer(format: format, frequency: BeepConfig.frequency, durationSeconds: BeepConfig.beepDuration),
+            let gapBuffer   = makeSilenceBuffer(format: format, durationSeconds: BeepConfig.beepGap),
+            let longSilence = makeSilenceBuffer(format: format, durationSeconds: BeepConfig.longSilence),
+            let tailSilence = makeSilenceBuffer(format: format, durationSeconds: BeepConfig.tailSilence)
         else { return }
 
-        // 一時ファイルに [ビープ×3 + 余白 + TTS] を書き出す
+        // 一時ファイルに [ピピピ → 長い無音 → ピピピ → 長い無音 → TTS → 後置無音] を書き出す
         let tmpURL = url.deletingLastPathComponent()
             .appendingPathComponent("tmp_\(UUID().uuidString).caf")
 
@@ -226,16 +245,26 @@ final class VoiceFileGenerator: VoiceSynthesizing {
         ) else { return }
 
         do {
-            // ビビビ（3連ビープ）
+            // 1回目のピピピ
             try outFile.write(from: beepBuffer)
             try outFile.write(from: gapBuffer)
             try outFile.write(from: beepBuffer)
             try outFile.write(from: gapBuffer)
             try outFile.write(from: beepBuffer)
-            // TTS 前の余白
-            try outFile.write(from: leadinBuffer)
+            // 長い無音
+            try outFile.write(from: longSilence)
+            // 2回目のピピピ
+            try outFile.write(from: beepBuffer)
+            try outFile.write(from: gapBuffer)
+            try outFile.write(from: beepBuffer)
+            try outFile.write(from: gapBuffer)
+            try outFile.write(from: beepBuffer)
+            // 長い無音
+            try outFile.write(from: longSilence)
             // 読み上げ本文
             try outFile.write(from: ttsBuffer)
+            // 後置無音（ループ時の前後余白）
+            try outFile.write(from: tailSilence)
         } catch {
             // 書き出し失敗 → 一時ファイルを削除して元の TTS ファイルを残す
             try? FileManager.default.removeItem(at: tmpURL)
@@ -277,7 +306,7 @@ final class VoiceFileGenerator: VoiceSynthesizing {
                 } else {
                     fade = 1.0
                 }
-                channelData[i] = Float(sin(2.0 * Double.pi * frequency * t)) * 0.45 * fade
+                channelData[i] = Float(sin(2.0 * Double.pi * frequency * t)) * BeepConfig.volume * fade
             }
         }
         return buffer
