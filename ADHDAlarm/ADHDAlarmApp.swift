@@ -36,7 +36,9 @@ private final class AppDelegate: NSObject, UIApplicationDelegate {
         ) { task in
             guard let refreshTask = task as? BGAppRefreshTask else { return }
             Task {
-                let count = await SyncEngine().syncRemoteEvents()
+                let tierRaw = UserDefaults.standard.string(forKey: Constants.Keys.subscriptionTier) ?? ""
+                let tier = SubscriptionTier(rawValue: tierRaw) ?? .free
+                let count = tier == .pro ? await SyncEngine().syncRemoteEvents() : 0
                 if count > 0 {
                     // フォアグラウンドに通知（AppStateへのアクセスはMainActor経由）
                     await MainActor.run {
@@ -113,8 +115,9 @@ struct ADHDAlarmApp: App {
             if newPhase == .active {
                 permissionsService.refreshStatuses()
                 checkBatteryLevel()
-                if appState.appMode == .person {
-                    Task {
+                Task {
+                    await syncSubscriptionTier()
+                    if appState.appMode == .person {
                         if let linkId = appState.familyLinkId {
                             let links = try? await FamilyRemoteService.shared.fetchMyFamilyLinks()
                             let isStillPaired = links?.contains { $0.id == linkId && $0.status == "paired" } ?? false
@@ -134,7 +137,9 @@ struct ADHDAlarmApp: App {
                 Task {
                     await OfflineActionQueue.shared.flush()
                     await syncEngine.performFullSync()
-                    let newCount = await syncEngine.syncRemoteEvents()
+                    let newCount = appState.subscriptionTier == .pro
+                        ? await syncEngine.syncRemoteEvents()
+                        : 0
                     if newCount > 0 {
                         appState.unreadFamilyEventCount += newCount
                     }
@@ -146,13 +151,12 @@ struct ADHDAlarmApp: App {
     // MARK: - 起動時処理
 
     private var shouldListenToRemoteEvents: Bool {
-        appState.appMode == .person && scenePhase == .active
+        appState.appMode == .person && scenePhase == .active && appState.subscriptionTier == .pro
     }
 
     private func startupTasks() async {
-        async let isPro = storeKit.checkEntitlement()
         async let _: Void = storeKit.loadProducts()
-        if await isPro { appState.subscriptionTier = .pro }
+        await syncSubscriptionTier()
         // App Shortcutsをシステムに登録する（これを呼ばないと毎回許可ダイアログが出る）
         VoiceMemoAlarmShortcuts.updateAppShortcutParameters()
         // 通知権限をリクエスト（家族機能のお知らせ・事前通知に使用）
@@ -160,6 +164,21 @@ struct ADHDAlarmApp: App {
         await permissionsService.requestNotification()
         // アラームバナーに「止める / あとで / 今日は休む」ボタンを登録する
         registerAlarmNotificationCategory()
+    }
+
+    @MainActor
+    private func syncSubscriptionTier() async {
+        if await storeKit.checkEntitlement() {
+            appState.subscriptionTier = .pro
+            return
+        }
+
+        do {
+            let links = try await FamilyRemoteService.shared.fetchMyFamilyLinks()
+            appState.subscriptionTier = links.contains(where: { $0.isPremium }) ? .pro : .free
+        } catch {
+            // 家族のPRO伝播は通信に依存するため、取得失敗時は現在値を維持して誤ロックを避ける
+        }
     }
 
     // MARK: - EventKit変更監視
@@ -218,6 +237,7 @@ struct ADHDAlarmApp: App {
         let stream = FamilyRemoteService.shared.listenToNewEvents()
         for await _ in stream {
             guard !Task.isCancelled else { return }
+            guard appState.subscriptionTier == .pro else { continue }
             let newCount = await syncEngine.syncRemoteEvents()
             guard newCount > 0 else { continue }
             await MainActor.run {

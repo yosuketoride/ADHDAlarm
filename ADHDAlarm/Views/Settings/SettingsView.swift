@@ -311,11 +311,11 @@ struct SettingsView: View {
 
             Divider().padding(.leading, 52)
 
-            // アラームの音の出力先
+            // 音声の出力先
             NavigationLink {
                 audioOutputPage
             } label: {
-                listRow(icon: "speaker.wave.2", title: "アラームの音の出力先",
+                listRow(icon: "speaker.wave.2", title: "音声の出力先",
                         value: viewModel.audioOutputMode.displayName)
             }
             .buttonStyle(.plain)
@@ -613,16 +613,18 @@ struct SettingsView: View {
     private var audioOutputPage: some View {
         List {
             Section {
-                Picker("音の出力先", selection: Binding(
+                Picker("音声の出力先", selection: Binding(
                     get: { viewModel.audioOutputMode },
                     set: { viewModel.audioOutputMode = $0 }
                 )) {
                     ForEach(AudioOutputMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
                 }
                 .pickerStyle(.inline)
+            } footer: {
+                Text("自動にすると、つないでいる機器に合わせて音声が流れます。イヤホンをしているときはイヤホン、本体だけのときはiPhoneから流れます。")
             }
         }
-        .navigationTitle("アラームの音の出力先")
+        .navigationTitle("音声の出力先")
         .navigationBarTitleDisplayMode(.inline)
     }
 

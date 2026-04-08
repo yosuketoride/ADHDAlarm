@@ -306,16 +306,9 @@ final class RingingViewModel: NSObject {
 
     // MARK: - 音声出力ルート判定
 
-    /// 現在BluetoothデバイスがアクティブなAudio出力かどうかを返す
-    private func isBluetoothOutputActive() -> Bool {
-        audioController.currentOutputPortTypes.contains {
-            [.bluetoothA2DP, .bluetoothLE, .bluetoothHFP].contains($0)
-        }
-    }
-
     /// スピーカー強制が必要かを返す
     private var shouldForceSpeakerOutput: Bool {
-        audioOutputMode == .speaker || isBluetoothOutputActive()
+        audioOutputMode == .speaker
     }
 
     // MARK: - イヤホン切断検知

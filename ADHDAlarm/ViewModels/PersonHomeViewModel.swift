@@ -446,7 +446,9 @@ final class PersonHomeViewModel {
 
         await OfflineActionQueue.shared.flush()
         await syncEngine.performFullSync()
-        _ = await syncEngine.syncRemoteEvents()
+        if appState?.subscriptionTier == .pro {
+            _ = await syncEngine.syncRemoteEvents()
+        }
         await loadEvents()
     }
 

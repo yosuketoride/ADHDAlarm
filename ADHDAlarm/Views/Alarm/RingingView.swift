@@ -91,7 +91,7 @@ struct RingingView: View {
             viewModel.bindAppStateIfNeeded(appState)
             viewModel.configure(
                 audioOutputMode: appState.audioOutputMode,
-                sosPairingId: appState.sosPairingId,
+                sosPairingId: appState.subscriptionTier == .pro ? appState.sosPairingId : nil,
                 sosEscalationMinutes: appState.sosEscalationMinutes
             )
             viewModel.startAudioPlayback()

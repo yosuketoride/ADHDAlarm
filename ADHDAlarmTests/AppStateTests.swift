@@ -69,6 +69,8 @@ final class AppStateTests: XCTestCase {
     }
 
     func testClearVoiceAndAccessibilityMode_AreIndependent() {
+        appState.isClearVoiceEnabled = false
+        appState.isAccessibilityModeEnabled = false
         XCTAssertFalse(appState.isClearVoiceEnabled)
         XCTAssertFalse(appState.isAccessibilityModeEnabled)
 
@@ -83,8 +85,52 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(appState.isAccessibilityModeEnabled)
     }
 
+    func testInit_FreeTierNormalizesProOnlySettings() {
+        UserDefaults.standard.set(SubscriptionTier.free.rawValue, forKey: Constants.Keys.subscriptionTier)
+        UserDefaults.standard.set(VoiceCharacter.customRecording.rawValue, forKey: Constants.Keys.voiceCharacter)
+        UserDefaults.standard.set([5, 15], forKey: Constants.Keys.preNotificationMinutesList)
+        UserDefaults.standard.set("calendar-1", forKey: Constants.Keys.selectedCalendarID)
+        UserDefaults.standard.set(true, forKey: Constants.Keys.accessibilityModeEnabled)
+        UserDefaults.standard.set("pairing-id", forKey: Constants.Keys.sosPairingId)
+
+        let reloaded = AppState()
+
+        XCTAssertEqual(reloaded.subscriptionTier, .free)
+        XCTAssertEqual(reloaded.voiceCharacter, .femaleConcierge)
+        XCTAssertEqual(reloaded.preNotificationMinutesList.count, 1)
+        XCTAssertEqual(reloaded.preNotificationMinutes, 15)
+        XCTAssertNil(reloaded.selectedCalendarID)
+        XCTAssertFalse(reloaded.isAccessibilityModeEnabled)
+        XCTAssertNil(reloaded.sosPairingId)
+    }
+
+    func testDowngradeToFree_NormalizesProOnlySettings() {
+        appState.subscriptionTier = .pro
+        appState.voiceCharacter = .customRecording
+        appState.preNotificationMinutesList = [1, 10, 30]
+        appState.selectedCalendarID = "calendar-1"
+        appState.isAccessibilityModeEnabled = true
+        appState.sosPairingId = "pairing-id"
+
+        appState.subscriptionTier = .free
+
+        XCTAssertEqual(appState.voiceCharacter, .femaleConcierge)
+        XCTAssertEqual(appState.preNotificationMinutesList.count, 1)
+        XCTAssertEqual(appState.preNotificationMinutes, 30)
+        XCTAssertNil(appState.selectedCalendarID)
+        XCTAssertFalse(appState.isAccessibilityModeEnabled)
+        XCTAssertNil(appState.sosPairingId)
+    }
+
     private func clearXPDefaults() {
         let keys = [
+            Constants.Keys.subscriptionTier,
+            Constants.Keys.voiceCharacter,
+            Constants.Keys.preNotificationMinutes,
+            Constants.Keys.preNotificationMinutesList,
+            Constants.Keys.selectedCalendarID,
+            Constants.Keys.accessibilityModeEnabled,
+            Constants.Keys.sosPairingId,
             Constants.Keys.owlXP,
             Constants.Keys.owlXPToday,
             Constants.Keys.owlXPLastDate,

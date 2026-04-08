@@ -53,6 +53,8 @@ final class AppState {
             UserDefaults.standard.set(subscriptionTier.rawValue, forKey: Constants.Keys.subscriptionTier)
             // Siriのプロセス（App Extension）からも読めるようApp Groupにも書く
             UserDefaults(suiteName: Constants.appGroupID)?.set(subscriptionTier.rawValue, forKey: Constants.Keys.subscriptionTier)
+            guard oldValue != subscriptionTier else { return }
+            applySubscriptionConstraints()
         }
     }
 
@@ -194,10 +196,32 @@ final class AppState {
         self.familyChildLinkIds = defaults.stringArray(forKey: Constants.Keys.familyChildLinkIds) ?? []
         self.unreadFamilyEventCount = defaults.integer(forKey: Constants.Keys.unreadFamilyEventCount)
 
+        applySubscriptionConstraints()
+
         // didSet は init 内では呼ばれないため、App Group に現在の XP を手動で同期する
         // これによりウィジェットが常に最新のステージを表示できる
         let appGroup = UserDefaults(suiteName: Constants.appGroupID)
         appGroup?.set(self.owlXP, forKey: Constants.Keys.owlXP)
         appGroup?.set(self.owlName, forKey: Constants.Keys.owlName)
+    }
+
+    private func applySubscriptionConstraints() {
+        guard subscriptionTier == .free else { return }
+
+        if voiceCharacter != .femaleConcierge {
+            voiceCharacter = .femaleConcierge
+        }
+        if preNotificationMinutesList.count > subscriptionTier.maxPreNotifications {
+            preNotificationMinutesList = [preNotificationMinutes]
+        }
+        if selectedCalendarID != nil {
+            selectedCalendarID = nil
+        }
+        if isAccessibilityModeEnabled {
+            isAccessibilityModeEnabled = false
+        }
+        if sosPairingId != nil {
+            sosPairingId = nil
+        }
     }
 }
