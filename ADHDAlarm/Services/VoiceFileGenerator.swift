@@ -196,7 +196,7 @@ final class VoiceFileGenerator: VoiceSynthesizing {
 
     /// TTS .caf の先頭に短いビープ＋無音を挿入して上書きする
     /// 失敗した場合は元の読み上げ単体ファイルをそのまま残す（沈黙にしない）
-    private nonisolated func prependBeep(to url: URL) {
+    nonisolated func prependBeep(to url: URL) {
         // TTS ファイルを読み込む
         guard let ttsFile = try? AVAudioFile(forReading: url) else { return }
         let format = ttsFile.processingFormat
@@ -233,11 +233,12 @@ final class VoiceFileGenerator: VoiceSynthesizing {
             return
         }
 
-        // 合成済みファイルで元ファイルを置き換える
+        // 合成済みファイルで元ファイルをアトミックに置き換える
+        // replaceItemAt を使うことで、置換失敗時も元ファイルが残ることを保証する
         do {
-            try FileManager.default.removeItem(at: url)
-            try FileManager.default.moveItem(at: tmpURL, to: url)
+            _ = try FileManager.default.replaceItemAt(url, withItemAt: tmpURL)
         } catch {
+            // 置換失敗 → 一時ファイルだけ消して元の TTS ファイルを残す
             try? FileManager.default.removeItem(at: tmpURL)
         }
     }

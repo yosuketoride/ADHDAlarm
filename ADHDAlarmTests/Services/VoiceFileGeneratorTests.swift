@@ -1,4 +1,5 @@
 import XCTest
+import AVFoundation
 @testable import ADHDAlarm
 
 final class VoiceFileGeneratorTests: XCTestCase {
@@ -125,5 +126,66 @@ final class VoiceFileGeneratorTests: XCTestCase {
 
         XCTAssertEqual(utterance.rate, 0.40, accuracy: 0.001)
         XCTAssertEqual(utterance.pitchMultiplier, 0.80, accuracy: 0.001)
+    }
+
+    // MARK: - prependBeep
+
+    /// 成功系: 有効な .caf を渡すと、ビープ合成後のファイルが元より大きくなること
+    func testPrependBeep_WithValidCaf_OutputIsLarger() throws {
+        let url = try makeSilentCaf(durationSeconds: 0.5)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let originalSize = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int ?? 0
+
+        let generator = VoiceFileGenerator()
+        generator.prependBeep(to: url)
+
+        let newSize = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int ?? 0
+        XCTAssertGreaterThan(newSize, originalSize, "ビープ合成後はファイルサイズが増えるはず")
+    }
+
+    /// 失敗系: 存在しないパスを渡してもクラッシュせず、一時ファイルが残らないこと
+    func testPrependBeep_WithNonExistentFile_DoesNotCrash() {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("nonexistent_\(UUID().uuidString).caf")
+        let generator = VoiceFileGenerator()
+        generator.prependBeep(to: url)  // クラッシュしないこと
+
+        // 一時ファイルが残っていないこと（tmp_ プレフィックス）
+        let tmp = url.deletingLastPathComponent()
+        let leftovers = (try? FileManager.default.contentsOfDirectory(atPath: tmp.path)) ?? []
+        let tmpFiles = leftovers.filter { $0.hasPrefix("tmp_") && $0.hasSuffix(".caf") }
+        XCTAssertTrue(tmpFiles.isEmpty, "一時ファイルが残っている: \(tmpFiles)")
+    }
+
+    /// フォールバック保証: 合成中にエラーが起きても元ファイルが残ること
+    /// 壊れたファイル（AVAudioFile が読めない）を渡すと prependBeep は即リターンし、元ファイルは削除されない
+    func testPrependBeep_WithCorruptFile_OriginalPreserved() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("corrupt_\(UUID().uuidString).caf")
+        // 読み込めない内容（ランダムバイト）を書き込む
+        try Data([0x00, 0x01, 0x02, 0x03]).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let generator = VoiceFileGenerator()
+        generator.prependBeep(to: url)
+
+        // 元ファイルが残っていること
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "元ファイルが消えている")
+        let size = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int ?? 0
+        XCTAssertEqual(size, 4, "元ファイルの内容が変わっている")
+    }
+
+    // MARK: - テスト用ヘルパー
+
+    /// 指定秒数の無音 .caf を tmp ディレクトリに生成して URL を返す
+    private func makeSilentCaf(durationSeconds: Double) throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("silent_\(UUID().uuidString).caf")
+        let sampleRate: Double = 22050
+        let frameCount = AVAudioFrameCount(sampleRate * durationSeconds)
+        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount)!
+        buffer.frameLength = frameCount
+        let file = try AVAudioFile(forWriting: url, settings: format.settings, commonFormat: .pcmFormatFloat32, interleaved: false)
+        try file.write(from: buffer)
+        return url
     }
 }
