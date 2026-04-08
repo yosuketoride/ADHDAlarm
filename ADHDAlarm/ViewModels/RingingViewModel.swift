@@ -168,7 +168,7 @@ final class RingingViewModel: NSObject {
     private func acquireAudioSessionAndStartLoop(alarm: AlarmEvent) {
         do {
             try audioController.configurePlaybackSession(
-                mode: .voicePrompt,
+                mode: .default,
                 options: [],
                 forceSpeaker: shouldForceSpeakerOutput
             )
@@ -212,7 +212,7 @@ final class RingingViewModel: NSObject {
            let player = try? audioController.makeAudioPlayer(url: url) {
             do {
                 try audioController.configurePlaybackSession(
-                    mode: .voicePrompt,
+                    mode: .default,
                     options: [],
                     forceSpeaker: shouldForceSpeakerOutput
                 )
