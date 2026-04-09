@@ -32,61 +32,67 @@ fileprivate struct PaywallVariant {
             icon: "bell.badge",
             color: .secondary,
             title: "大事な予定に、確実に気づける",
-            detail: "予定の前に、複数回のお知らせを出せます。"
+            detail: "何分前にアラームを鳴らすか、予定ごとに設定できます。複数の設定も可能です。"
+        ),
+        Benefit(
+            icon: "calendar.badge.plus",
+            color: .secondary,
+            title: "カレンダーを、そのままアラーム予定に",
+            detail: "カレンダー上の予定をワンタップでアラームに変換できます。"
         ),
         Benefit(
             icon: "calendar",
             color: .secondary,
-            title: "カレンダーの予定をそのままアラーム予定に",
-            detail: "いつものカレンダーを選んで、そのまま取り込めます。"
+            title: "仕事とプライベート、どちらのカレンダーにも",
+            detail: "任意のカレンダーに、このアプリで作るアラームの予定を書き込めます。"
         ),
         Benefit(
-            icon: "person.2",
+            icon: "waveform.badge.mic",
             color: .secondary,
-            title: "家族にサポートしてもらいやすくなる",
-            detail: "必要な予定を、家族から送ってもらえます。"
-        )
+            title: "家族の生声アラーム",
+            detail: "家族の声を録音して、アラームとして鳴らせます"
+        )     
     ]
 
     static let detailSections: [BenefitSection] = [
-        BenefitSection(title: "本人にうれしいこと", items: [
-            Benefit(
-                icon: "bell.badge.fill",
-                color: .secondary,
-                title: "事前にお知らせ",
-                detail: "大事な予定の前に、複数回のお知らせで気づきやすくなります。"
-            ),
-            Benefit(
-                icon: "calendar",
-                color: .secondary,
-                title: "カレンダーを選べる",
-                detail: "追加先のカレンダーを自由に選べるので、予定の整理がしやすくなります。"
-            ),
-            Benefit(
-                icon: "calendar.badge.plus",
-                color: .secondary,
-                title: "Appleカレンダーから取り込める",
-                detail: "iPhoneのカレンダーにある予定を、ワンタップでアラームに変換できます。"
-            ),
-            Benefit(
-                icon: "waveform.badge.mic",
-                color: .secondary,
-                title: "家族の生声アラーム",
-                detail: "大切な人の声を録音して、お薬や通院のアラーム音に設定できます。"
-            )
-        ]),
+        // BenefitSection(title: "本人にうれしいこと", items: [
+        //     Benefit(
+        //         icon: "alarm",
+        //         color: .secondary,
+        //         title: "大事な予定に、確実に気づける",
+        //         detail: "何分前にアラームを鳴らすか、予定ごとに設定できます。複数の設定も可能です。"
+        //     ),
+        //     Benefit(
+        //         icon: "calendar.badge.plus",
+        //         color: .secondary,
+        //         title: "カレンダーを、そのままアラーム予定に",
+        //         detail: "カレンダー上の予定をワンタップでアラームに変換できます。"
+        //     ),
+        //     Benefit(
+        //         icon: "calendar",
+        //         color: .secondary,
+        //         title: "仕事とプライベート、どちらのカレンダーにも",
+        //         detail: "任意のカレンダーに、このアプリで作るアラームの予定を書き込めます。"
+        //     )
+        // ]),
         BenefitSection(title: "家族にうれしいこと", items: [
             Benefit(
-                icon: "paperplane.fill",
+                icon: "paperplane",
                 color: .secondary,
-                title: "家族から予定を送ってもらえる",
-                detail: "お薬や通院の予定を、家族がワンタップで送れるようになります。"
+                title: "遠隔で予定を入れて見守れる",
+                detail: "家族が、お薬・病院などの予定をあなたのスマホへ送れるようになります。"
             ),
             Benefit(
-                icon: "phone.badge.waveform.fill",
+                icon: "phone.badge.waveform",
                 color: .secondary,
-                title: "異変を家族へ自動でお知らせ",
+                title: "異変をLINEでお知らせ",
                 detail: "アラームが5分止まらないとき、家族がすぐ気づきやすくなります。"
+            ),
+            Benefit(
+                icon: "list.bullet.rectangle",
+                color: .secondary,
+                title: "7日間の記録を見守れる",
+                detail: "予定の完了やお休みの記録を、家族がまとめて振り返れます。"
             )
         ])
     ]
@@ -96,7 +102,7 @@ fileprivate struct PaywallVariant {
         imageFallbackEmoji: "🦉",
         heroBackground: [Color.owlAmber.opacity(0.16), Color.owlBrown.opacity(0.08)],
         headline: "大事な予定に、\n確実に気づける",
-        subheadline: "カレンダーの予定をそのままアラーム予定に",
+        subheadline: "うっかり忘れる予定を、強烈なアラーム通知で支えます。",
         painHeader: "こんなこと、ありませんか？",
         painPoints: [
             "予定に気づくのが直前になりがち",
@@ -104,6 +110,12 @@ fileprivate struct PaywallVariant {
             "家族に頼りたいけど、毎回お願いするのは気が引ける"
         ]
     )
+}
+
+#Preview("本人向けPaywall") {
+    PaywallView(viewModel: PaywallViewModel())
+        .environment(StoreKitService())
+        .environment(AppState())
 }
 
 // MARK: - PaywallView
@@ -119,7 +131,7 @@ struct PaywallView: View {
     @State private var isDetailExpanded = false
 
     private enum Layout {
-        static let heroHeight: CGFloat = 220
+        static let heroHeight: CGFloat = 160
         static let heroEmojiSize: CGFloat = 96
     }
 
@@ -181,18 +193,18 @@ struct PaywallView: View {
 
     @ViewBuilder
     private var heroImage: some View {
-        if UIImage(named: variant.imageName) != nil {
-            Image(variant.imageName)
-                .resizable()
-                .scaledToFill()
-        } else {
-            // 画像未登録時: グラデーション + 絵文字
-            LinearGradient(
-                colors: variant.heroBackground,
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .overlay {
+        LinearGradient(
+            colors: variant.heroBackground,
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay {
+            if UIImage(named: variant.imageName) != nil {
+                Image(variant.imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 150, height: 150)
+            } else {
                 Text(variant.imageFallbackEmoji)
                     .font(.system(size: Layout.heroEmojiSize))
                     .padding(.top, Spacing.xl)
@@ -206,9 +218,10 @@ struct PaywallView: View {
         VStack(spacing: Spacing.lg) {
             headlineSection
             painSection
+            transitionHintSection
             benefitsSection
+            // supportMessageSection
             orRuleSection
-            supportMessageSection
             detailSection
             pricingSection
             legalSection
@@ -229,9 +242,11 @@ struct PaywallView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             Text(variant.subheadline)
-                .font(.callout)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.92)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -261,13 +276,23 @@ struct PaywallView: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
     }
 
+    private var transitionHintSection: some View {
+        HStack(spacing: Spacing.xs) {
+            Image(systemName: "arrow.down")
+            Text("PROで支えます")
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity)
+    }
+
     // 本人向けの価値3つ
     private var benefitsSection: some View {
         let benefits = PaywallVariant.personMainBenefits
         return VStack(alignment: .leading, spacing: Spacing.sm) {
             Label("PROでできること", systemImage: "star.fill")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
+                .font(.callout.weight(.bold))
+                .foregroundStyle(Color.owlBrown)
                 .symbolRenderingMode(.monochrome)
                 .padding(.bottom, Spacing.xs)
 
@@ -295,31 +320,37 @@ struct PaywallView: View {
             }
         }
         .padding(Spacing.md)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: CornerRadius.lg)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: CornerRadius.lg)
+                    .fill(Color.owlAmber.opacity(0.06))
+            }
+        )
         .overlay(
             RoundedRectangle(cornerRadius: CornerRadius.lg)
-                .stroke(Color.owlAmber.opacity(0.22), lineWidth: BorderWidth.thin)
+                .stroke(Color.owlAmber.opacity(0.42), lineWidth: BorderWidth.thick)
         )
     }
 
     private var orRuleSection: some View {
-        HStack(alignment: .top, spacing: Spacing.sm) {
+        HStack(alignment: .top, spacing: Spacing.xs) {
             Image(systemName: "link")
-                .font(.system(size: IconSize.sm, weight: .semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("本人か家族、どちらか1人がPROなら、連携機能が使えます。")
-                    .font(.callout.weight(.semibold))
-                Text("家族への予定送信や、アラームが止まらないときのお知らせも使えます。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(.caption.weight(.semibold))
+                // Text("家族への予定送信や、アラームが止まらないときのお知らせも使えます。")
+                //     .font(.caption2)
+                //     .foregroundStyle(.secondary)
+                //     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(Spacing.md)
+        .padding(.horizontal, Spacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
     }
 
     private var supportMessageSection: some View {
@@ -365,7 +396,7 @@ struct PaywallView: View {
             }
             .padding(.top, Spacing.md)
         } label: {
-            Text("くわしく見る")
+            Text("他にも嬉しいこと")
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.blue)
         }
@@ -387,12 +418,12 @@ struct PaywallView: View {
             .padding(.vertical, Spacing.sm)
             .background(.thinMaterial)
 
-            comparisonRow("本人向け: マナーモード貫通アラーム", free: true,  pro: true)
-            comparisonRow("本人向け: 予定の音声入力（マイク）", free: true,  pro: true)
-            comparisonRow("本人向け: 事前通知",               free: false, pro: true)
-            comparisonRow("本人向け: カレンダー自由選択",      free: false, pro: true)
-            comparisonRow("本人向け: Appleカレンダー取り込み", free: false, pro: true)
-            comparisonRow("本人向け: 家族の生声アラーム",      free: false, pro: true)
+            comparisonRow("あなた向け: マナーモード貫通アラーム", free: true,  pro: true)
+            comparisonRow("あなた向け: 予定の音声入力（マイク）", free: true,  pro: true)
+            comparisonRow("あなた向け: 複数の事前通知",               free: false, pro: true)
+            comparisonRow("あなた向け: カレンダー自由選択",      free: false, pro: true)
+            comparisonRow("あなた向け: カレンダー取り込み", free: false, pro: true)
+            comparisonRow("あなた向け: 家族の生声アラーム",      free: false, pro: true)
             comparisonRow("家族向け: SOS自動通知（見守り）",   free: false, pro: true)
             comparisonRow("連携: 家族から予定を送ってもらう",  free: false, pro: true)
         }
@@ -441,7 +472,7 @@ struct PaywallView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.seal.fill")
                             .foregroundStyle(.green)
-                        Text("7日間の無料体験。いつでもキャンセル可能。")
+                        Text("14日間の無料体験。いつでもキャンセル可能。")
                             .font(.callout.weight(.medium))
                     }
                     .padding(.top, 4)
@@ -642,7 +673,7 @@ struct PaywallView: View {
                     if viewModel.isPurchasing {
                         ProgressView().tint(.white)
                     } else {
-                        Text("0円で7日間試す")
+                        Text("14日間無料で試す")
                             .font(.title3.weight(.bold))
                     }
                 }
@@ -667,7 +698,7 @@ struct PaywallView: View {
                     }
                 }()
                 if let period {
-                    Text("7日間無料、その後 \(product.displayPrice)/\(period)。いつでもキャンセル可能。")
+                    Text("14日間無料、その後 \(product.displayPrice)/\(period)。いつでもキャンセル可能。")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
