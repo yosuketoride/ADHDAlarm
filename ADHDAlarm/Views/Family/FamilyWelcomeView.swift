@@ -29,7 +29,7 @@ struct FamilyWelcomeView: View {
             // 購入の有無に関わらずペアリング画面へ進む
             onProceed()
         }) {
-            FamilyPaywallView()
+            PaywallView()
         }
     }
 
@@ -75,8 +75,8 @@ struct FamilyWelcomeView: View {
             )
             featureRow(
                 emoji: "🆘",
-                title: "アラームが止まらないとき自動でお知らせ",
-                detail: "5分間反応がないと、あなたのスマホに通知が届きます。",
+                title: "アラームが止まらないとき LINEでお知らせ",
+                detail: "5分間反応がないと、LINEで気づきやすくお知らせします。",
                 isFree: false
             )
             featureRow(
