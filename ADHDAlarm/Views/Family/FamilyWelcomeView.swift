@@ -26,7 +26,6 @@ struct FamilyWelcomeView: View {
             ctaSection
         }
         .sheet(isPresented: $showPaywall, onDismiss: {
-            // 購入の有無に関わらずペアリング画面へ進む
             onProceed()
         }) {
             FamilyPaywallView()

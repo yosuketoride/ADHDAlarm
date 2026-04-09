@@ -198,12 +198,13 @@ final class AppState {
 
         // 移行: このコミット以前にオンボーディングを完了した既存ユーザーは
         // person_onboarding_complete が未設定のまま残る。
-        // isOnboardingComplete == true であれば（家族モード含め）本人への切り替え時に
+        // 既にオンボーディング完了済み、またはフクロウ名がデフォルト以外なら
+        // 一度は本人設定を触っている可能性が高いため、本人切り替え時に
         // 再オンボーディングを強制しないよう true に補完する。
-        // ※ 家族専用ユーザーが本人へ切り替える場合も同様に扱う（personWelcome 未経験でも許容）
         let personOnboardingKey = "person_onboarding_complete"
         if !defaults.bool(forKey: personOnboardingKey),
-           defaults.bool(forKey: Constants.Keys.onboardingComplete) {
+           (defaults.bool(forKey: Constants.Keys.onboardingComplete) ||
+            self.owlName != "ふくろう") {
             defaults.set(true, forKey: personOnboardingKey)
         }
 

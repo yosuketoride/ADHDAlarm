@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 家族モードのホーム画面
-/// ペアリング未完了・初回 → FamilyWelcomeView（機能紹介＋PRO課金導線）
+/// ペアリング未完了・初回 → FamilyPaywallView
 /// ペアリング未完了・2回目以降 → FamilyPairingView を直接表示
 /// ペアリング済み   → 3タブ（見守り / 送る / 設定）
 struct FamilyHomeView: View {
@@ -25,9 +25,9 @@ struct FamilyHomeView: View {
             } else if familyWelcomeShown {
                 FamilyPairingView()
             } else {
-                FamilyWelcomeView {
+                FamilyPaywallView(onContinueWithoutUpgrade: {
                     familyWelcomeShown = true
-                }
+                })
             }
         }
         .animation(.easeInOut(duration: 0.3), value: activeLinkId != nil)
