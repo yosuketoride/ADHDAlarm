@@ -32,13 +32,13 @@ final class FamilyPairingViewModel {
 
     // MARK: - 親側: コード生成
 
-    func generateCode() {
+    func generateCode(isPremium: Bool) {
         guard case .idle = state else { return }
         state = .generating
 
         Task {
             do {
-                let (linkId, code) = try await service.generateFamilyCode()
+                let (linkId, code) = try await service.generateFamilyCode(isPremium: isPremium)
                 secondsRemaining = 600  // 10分
                 state = .waitingForFamily(code: code, linkId: linkId, expiresIn: secondsRemaining)
                 startCountdown(linkId: linkId, code: code)
@@ -58,7 +58,7 @@ final class FamilyPairingViewModel {
 
     // MARK: - 子側: コード入力してペアリング
 
-    func joinWithCode() {
+    func joinWithCode(isPremium: Bool) {
         let code = inputCode.trimmingCharacters(in: .whitespaces)
         guard code.count == 6 else {
             state = .error("6桁のコードを入力してください。")
@@ -68,7 +68,7 @@ final class FamilyPairingViewModel {
 
         Task {
             do {
-                let linkId = try await service.joinFamily(code: code)
+                let linkId = try await service.joinFamily(code: code, isPremium: isPremium)
                 state = .linked(linkId: linkId)
             } catch FamilyError.invalidCode {
                 state = .error("コードが正しくないか、有効期限が切れています。")

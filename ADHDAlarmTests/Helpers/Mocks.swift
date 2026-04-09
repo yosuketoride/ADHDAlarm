@@ -52,7 +52,7 @@ final class MockFamilyService: FamilyScheduling {
         if shouldThrow { throw MockError.intentional }
     }
 
-    func generateFamilyCode() async throws -> (linkId: String, code: String) {
+    func generateFamilyCode(isPremium: Bool) async throws -> (linkId: String, code: String) {
         if shouldThrow { throw MockError.intentional }
         let result = (linkId: stubLinkId, code: stubCode)
         generatedCodes.append(result)
@@ -66,7 +66,7 @@ final class MockFamilyService: FamilyScheduling {
         unlinkedIds.append(linkId)
     }
 
-    func joinFamily(code: String) async throws -> String {
+    func joinFamily(code: String, isPremium: Bool) async throws -> String {
         if shouldThrow { throw FamilyError.invalidCode }
         joinedCodes.append(code)
         return stubLinkId

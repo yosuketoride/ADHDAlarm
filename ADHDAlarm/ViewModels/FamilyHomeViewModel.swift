@@ -57,6 +57,7 @@ final class FamilyHomeViewModel {
             let isStillPaired = links.contains { $0.id == linkId && $0.status == "paired" }
             if !isStillPaired {
                 appState?.familyChildLinkIds.removeAll { $0 == linkId }
+                defaults.set(false, forKey: "family_welcome_shown")
                 sentEvents = []
                 lastSeen = nil
                 sosMessage = nil

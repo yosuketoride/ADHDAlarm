@@ -96,7 +96,7 @@ final class FamilyRemoteService: FamilyScheduling {
 
     // MARK: - 家族ペアリング（親側）
 
-    func generateFamilyCode() async throws -> (linkId: String, code: String) {
+    func generateFamilyCode(isPremium: Bool) async throws -> (linkId: String, code: String) {
         let deviceId = try await ensureDeviceRegistered()
         // 6桁コード（SOS 4桁と区別）
         let code = String(format: "%06d", Int.random(in: 0...999999))
@@ -109,6 +109,7 @@ final class FamilyRemoteService: FamilyScheduling {
             let pairing_code: String
             let status: String
             let expires_at: String
+            let is_premium: Bool
         }
         try await client
             .from("family_links")
@@ -117,7 +118,8 @@ final class FamilyRemoteService: FamilyScheduling {
                 parent_device_id: deviceId,
                 pairing_code: code,
                 status: "waiting",
-                expires_at: ISO8601DateFormatter().string(from: expiresAt)
+                expires_at: ISO8601DateFormatter().string(from: expiresAt),
+                is_premium: isPremium
             ))
             .execute()
 
@@ -182,7 +184,7 @@ final class FamilyRemoteService: FamilyScheduling {
 
     // MARK: - 家族ペアリング（子側）
 
-    func joinFamily(code: String) async throws -> String {
+    func joinFamily(code: String, isPremium: Bool) async throws -> String {
         let deviceId = try await ensureDeviceRegistered()
 
         struct LinkRecord: Decodable { let id: String }
@@ -201,11 +203,29 @@ final class FamilyRemoteService: FamilyScheduling {
         }
 
         // child_device_idを自分のIDで更新してpaired状態にする
-        try await client
-            .from("family_links")
-            .update(["child_device_id": deviceId, "status": "paired"])
-            .eq("id", value: link.id)
-            .execute()
+        // isPremium == true の場合のみ is_premium を上書きする（false では既存値を保護して OR セマンティクスを維持する）
+        if isPremium {
+            struct PairedWithPremium: Encodable {
+                let child_device_id: String
+                let status: String
+                let is_premium: Bool
+            }
+            try await client
+                .from("family_links")
+                .update(PairedWithPremium(child_device_id: deviceId, status: "paired", is_premium: true))
+                .eq("id", value: link.id)
+                .execute()
+        } else {
+            struct Paired: Encodable {
+                let child_device_id: String
+                let status: String
+            }
+            try await client
+                .from("family_links")
+                .update(Paired(child_device_id: deviceId, status: "paired"))
+                .eq("id", value: link.id)
+                .execute()
+        }
 
         return link.id
     }

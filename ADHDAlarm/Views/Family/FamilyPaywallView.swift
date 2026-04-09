@@ -32,11 +32,11 @@ struct FamilyPaywallView: View {
             Text("👨‍👩‍👧")
                 .font(.system(size: 56))
 
-            Text("お母さんのことを、もっと近くに感じたい方へ")
+            Text("予定を送って、離れていても一緒にいられる")
                 .font(.title2.weight(.bold))
                 .multilineTextAlignment(.center)
 
-            Text("離れていても、気づける安心を見守り機能で届けます。")
+            Text("ワンタップで予定を届け、様子も確認できます。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -56,6 +56,11 @@ struct FamilyPaywallView: View {
     private var benefitsSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             benefitCard(
+                emoji: "📨",
+                title: "お薬・病院・ご飯をワンタップで送れる。相手のスマホにアラームとして届く",
+                accent: .owlAmber
+            )
+            benefitCard(
                 emoji: "🆘",
                 title: "「アラームが5分止まらない」→ あなたのスマホへ自動お知らせ",
                 accent: .statusDanger
@@ -63,7 +68,7 @@ struct FamilyPaywallView: View {
             benefitCard(
                 emoji: "📋",
                 title: "過去7日間の完了・スキップの記録をまとめて確認",
-                accent: .owlAmber
+                accent: .blue
             )
             benefitCard(
                 emoji: "🕐",

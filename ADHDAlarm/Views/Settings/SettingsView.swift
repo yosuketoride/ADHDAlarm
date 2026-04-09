@@ -106,6 +106,7 @@ struct SettingsView: View {
                         try await FamilyRemoteService.shared.deleteAccount()
                         appState.familyLinkId = nil
                         appState.familyChildLinkIds = []
+                        UserDefaults.standard.set(false, forKey: "family_welcome_shown")
                         appState.unreadFamilyEventCount = 0
                         appState.isOnboardingComplete = false
                         appState.appMode = nil

@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// 家族モードのホーム画面
-/// ペアリング未完了 → FamilyPairingView を全面表示
+/// ペアリング未完了・初回 → FamilyWelcomeView（機能紹介＋PRO課金導線）
+/// ペアリング未完了・2回目以降 → FamilyPairingView を直接表示
 /// ペアリング済み   → 3タブ（見守り / 送る / 設定）
 struct FamilyHomeView: View {
     @Environment(AppState.self) private var appState
@@ -9,6 +10,8 @@ struct FamilyHomeView: View {
     @State private var viewModel = FamilyHomeViewModel()
     @State private var showFamilyPaywall = false
     @AppStorage("family_paired_person_name") private var pairedPersonName = "お母さん"
+    /// 初回のみ WelcomeView を表示するフラグ。ペアリング解除時にリセットされる
+    @AppStorage("family_welcome_shown") private var familyWelcomeShown = false
 
     /// ペアリング済みか（linkIdが1件以上あるかで判定）
     private var activeLinkId: String? {
@@ -19,8 +22,12 @@ struct FamilyHomeView: View {
         Group {
             if let linkId = activeLinkId {
                 pairedView(linkId: linkId)
-            } else {
+            } else if familyWelcomeShown {
                 FamilyPairingView()
+            } else {
+                FamilyWelcomeView {
+                    familyWelcomeShown = true
+                }
             }
         }
         .animation(.easeInOut(duration: 0.3), value: activeLinkId != nil)

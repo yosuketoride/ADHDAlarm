@@ -6,6 +6,7 @@ struct FamilySettingsTab: View {
     @AppStorage("family_paired_person_name") private var pairedPersonName = "お母さん"
     @AppStorage("family_notify_completion") private var notifyCompletion = true
     @AppStorage("family_notify_inactivity") private var notifyInactivity = true
+    @AppStorage("family_welcome_shown") private var familyWelcomeShown = false
 
     @State private var isUnlinking = false
     @State private var alertMessage: String?
@@ -139,6 +140,7 @@ struct FamilySettingsTab: View {
             do {
                 try await FamilyRemoteService.shared.unlinkFamily(linkId: linkId)
                 appState.familyChildLinkIds.removeAll { $0 == linkId }
+                familyWelcomeShown = false
                 alertMessage = "ペアリングを解除しました。"
             } catch {
                 alertMessage = "解除に失敗しました。時間をおいてもう一度お試しください。"

@@ -87,7 +87,7 @@ struct FamilyPairingView: View {
                 .opacity(0.01)
 
             Button {
-                viewModel.joinWithCode()
+                viewModel.joinWithCode(isPremium: appState.subscriptionTier == .pro)
             } label: {
                 Label("コードを入力してペアリング", systemImage: "link")
             }

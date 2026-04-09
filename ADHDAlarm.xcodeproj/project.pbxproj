@@ -492,7 +492,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ADHDAlarm/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "ふくろう";
+				INFOPLIST_KEY_CFBundleDisplayName = "忘れん坊アラーム";
 				INFOPLIST_KEY_NSAlarmConfigurationUsageDescription = "アラームの高度な設定を行うために使用します。";
 				INFOPLIST_KEY_NSAlarmKitUsageDescription = "マナーモードを貫通するネイティブのアラームを設定するために使用します。";
 				INFOPLIST_KEY_NSAlarmUsageDescription = "アラームをスケジュールするために使用します。";
@@ -543,7 +543,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ADHDAlarm/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "ふくろう";
+				INFOPLIST_KEY_CFBundleDisplayName = "忘れん坊アラーム";
 				INFOPLIST_KEY_NSAlarmConfigurationUsageDescription = "アラームの高度な設定を行うために使用します。";
 				INFOPLIST_KEY_NSAlarmKitUsageDescription = "マナーモードを貫通するネイティブのアラームを設定するために使用します。";
 				INFOPLIST_KEY_NSAlarmUsageDescription = "アラームをスケジュールするために使用します。";

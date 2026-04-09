@@ -20,7 +20,8 @@ protocol FamilyScheduling: Sendable {
     // MARK: - 家族ペアリング（親側）
 
     /// ペアリングコードを生成して返す（親が最初に実行）
-    func generateFamilyCode() async throws -> (linkId: String, code: String)
+    /// isPremium: コード発行時点での自分の課金状態。is_premium の初期値として family_links に保存される
+    func generateFamilyCode(isPremium: Bool) async throws -> (linkId: String, code: String)
 
     /// ペアリング状態の変化を監視する（Realtimeストリーム）
     func listenToFamilyLinkStatus(linkId: String) -> AsyncStream<String>
@@ -31,7 +32,8 @@ protocol FamilyScheduling: Sendable {
     // MARK: - 家族ペアリング（子側）
 
     /// ペアリングコードでリンクに参加し、linkIdを返す
-    func joinFamily(code: String) async throws -> String
+    /// isPremium: 参加時点での自分の課金状態。true の場合のみ is_premium を true に上書きする（false で上書きしない）
+    func joinFamily(code: String, isPremium: Bool) async throws -> String
 
     // MARK: - リモート予定（子側）
 

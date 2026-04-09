@@ -32,7 +32,7 @@ final class FamilyPairingViewModelTests: XCTestCase {
         mockService.stubCode = "654321"
 
         // Act
-        viewModel.generateCode()
+        viewModel.generateCode(isPremium: false)
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1s
 
         // Assert: waitingForFamilyに遷移しているか
@@ -50,7 +50,7 @@ final class FamilyPairingViewModelTests: XCTestCase {
         mockService.shouldThrow = true
 
         // Act
-        viewModel.generateCode()
+        viewModel.generateCode(isPremium: false)
         try await Task.sleep(nanoseconds: 100_000_000)
 
         // Assert
@@ -66,7 +66,7 @@ final class FamilyPairingViewModelTests: XCTestCase {
         viewModel.state = .generating
 
         // Act
-        viewModel.generateCode()
+        viewModel.generateCode(isPremium: false)
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // Assert: コードは生成されていない
@@ -77,7 +77,7 @@ final class FamilyPairingViewModelTests: XCTestCase {
 
     func testCancelWaitingResetsToIdle() async throws {
         // Arrange: 先にコードを生成してwaitingForFamily状態にする
-        viewModel.generateCode()
+        viewModel.generateCode(isPremium: false)
         try await Task.sleep(nanoseconds: 100_000_000)
         guard case .waitingForFamily = viewModel.state else {
             XCTFail("Setup failed: expected .waitingForFamily")
@@ -99,7 +99,7 @@ final class FamilyPairingViewModelTests: XCTestCase {
         mockService.stubLinkId = "link-xyz"
 
         // Act
-        viewModel.joinWithCode()
+        viewModel.joinWithCode(isPremium: false)
         try await Task.sleep(nanoseconds: 100_000_000)
 
         // Assert
@@ -116,7 +116,7 @@ final class FamilyPairingViewModelTests: XCTestCase {
         viewModel.inputCode = "123"
 
         // Act
-        viewModel.joinWithCode()
+        viewModel.joinWithCode(isPremium: false)
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // Assert
@@ -134,7 +134,7 @@ final class FamilyPairingViewModelTests: XCTestCase {
         mockService.shouldThrow = true  // MockFamilyServiceはjoinFamilyでFamilyError.invalidCodeを投げる
 
         // Act
-        viewModel.joinWithCode()
+        viewModel.joinWithCode(isPremium: false)
         try await Task.sleep(nanoseconds: 100_000_000)
 
         // Assert
@@ -169,7 +169,7 @@ final class FamilyPairingViewModelTests: XCTestCase {
         mockService.stubLinkId = "link-realtime"
 
         // Act: generateCode()でリスナーも起動
-        viewModel.generateCode()
+        viewModel.generateCode(isPremium: false)
         try await Task.sleep(nanoseconds: 300_000_000) // Realtimeイベント受信まで少し待つ
 
         // Assert

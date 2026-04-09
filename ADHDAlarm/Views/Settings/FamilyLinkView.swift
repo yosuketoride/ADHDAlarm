@@ -145,7 +145,7 @@ struct FamilyLinkView: View {
             .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
 
             Button {
-                viewModel.generateCode()
+                viewModel.generateCode(isPremium: appState.subscriptionTier == .pro)
             } label: {
                 Label("コードを生成する", systemImage: "plus.circle.fill")
                     .frame(maxWidth: .infinity)
@@ -177,7 +177,7 @@ struct FamilyLinkView: View {
                 .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
 
             Button {
-                viewModel.joinWithCode()
+                viewModel.joinWithCode(isPremium: appState.subscriptionTier == .pro)
             } label: {
                 Label("つながる", systemImage: "link")
                     .frame(maxWidth: .infinity)

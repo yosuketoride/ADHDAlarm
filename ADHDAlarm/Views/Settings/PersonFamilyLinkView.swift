@@ -83,7 +83,7 @@ struct PersonFamilyLinkView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
             Button {
-                viewModel.generateCode()
+                viewModel.generateCode(isPremium: appState.subscriptionTier == .pro)
             } label: {
                 Label("コードを生成する", systemImage: "plus.circle.fill")
                     .frame(maxWidth: .infinity)

@@ -34,7 +34,7 @@ struct FamilySendTab: View {
             confirmationSheet
         }
         .sheet(isPresented: $showPaywall) {
-            PaywallView()
+            FamilyPaywallView()
         }
     }
 
