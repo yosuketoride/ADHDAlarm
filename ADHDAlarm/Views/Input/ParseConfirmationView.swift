@@ -180,6 +180,10 @@ struct ParseConfirmationView: View {
                             isPro: isPro,
                             onUpgradeTapped: onUpgradeTapped
                         )
+
+                        Text("PROなら複数選べます。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.top, Spacing.sm)
                 } label: {

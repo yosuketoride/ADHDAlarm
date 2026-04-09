@@ -45,8 +45,8 @@ fileprivate struct PaywallVariant {
         Benefit(
             icon: "bell.badge.fill",
             color: .orange,
-            title: "事前に最大3回お知らせ",
-            detail: "30分前・15分前・5分前と、段階的にリマインドします。"
+            title: "事前にお知らせ",
+            detail: "大事な予定の前に、早めに気づきやすくなります。"
         ),
         Benefit(
             icon: "calendar.badge.plus",
@@ -267,7 +267,7 @@ struct PaywallView: View {
 
             comparisonRow("マナーモード貫通アラーム",          free: true,  pro: true)
             comparisonRow("予定の音声入力（マイク）",          free: true,  pro: true)
-            comparisonRow("事前通知（最大3回）",               free: false, pro: true)
+            comparisonRow("事前通知",                         free: false, pro: true)
             comparisonRow("カレンダー自由選択",                free: false, pro: true)
             comparisonRow("Appleカレンダーから取り込む",       free: false, pro: true)
             comparisonRow("家族の生声アラーム",                free: false, pro: true)

@@ -566,7 +566,7 @@ struct SettingsView: View {
                 )
                 .padding(.vertical, Spacing.sm)
             } footer: {
-                Text("予定を追加するときに個別に変更することもできます。")
+                Text("予定を追加するときに個別に変更することもできます。PROなら複数選べます。")
             }
         }
         .navigationTitle("お知らせのタイミング")
