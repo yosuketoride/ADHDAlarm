@@ -13,6 +13,8 @@ fileprivate struct PaywallVariant {
     let painHeader: String
     let painPoints: [String]
 
+    // 本人向けPaywall専用の表示モデル。
+    // FamilyPaywallView とは訴求順と詳細構成が異なるため、あえて別定義にしている。
     struct Benefit {
         let icon: String
         let color: Color
@@ -35,8 +37,8 @@ fileprivate struct PaywallVariant {
         Benefit(
             icon: "calendar.badge.plus",
             color: .blue,
-            title: "いつものカレンダーからそのまま使える",
-            detail: "Appleカレンダーの予定を、そのままアラームに変換できます。"
+            title: "いつものカレンダーを、そのまま使いやすく",
+            detail: "カレンダーを選んで予定を取り込めるので、普段の流れのまま使えます。"
         ),
         Benefit(
             icon: "person.2.fill",

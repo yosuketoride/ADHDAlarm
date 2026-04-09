@@ -8,6 +8,8 @@ struct FamilyPaywallView: View {
     /// 外から上書き可能（省略時は PaywallView を自動的に開く）
     var onUpgradeTapped: (() -> Void)? = nil
 
+    // 家族向けPaywall専用の表示モデル。
+    // PaywallView とは訴求順と詳細構成が異なるため、共通化せず別定義にしている。
     private struct Benefit: Identifiable {
         let id = UUID()
         let emoji: String
