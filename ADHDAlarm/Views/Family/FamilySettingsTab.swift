@@ -83,7 +83,7 @@ struct FamilySettingsTab: View {
                 .font(.headline)
 
             Button {
-                appState.appMode = .person
+                appState.appMode = nil
             } label: {
                 Label("自分で使うモードに切り替える", systemImage: "person.fill.turn.right")
                     .frame(maxWidth: .infinity)

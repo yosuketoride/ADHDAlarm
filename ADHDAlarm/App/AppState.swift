@@ -196,6 +196,16 @@ final class AppState {
         self.familyChildLinkIds = defaults.stringArray(forKey: Constants.Keys.familyChildLinkIds) ?? []
         self.unreadFamilyEventCount = defaults.integer(forKey: Constants.Keys.unreadFamilyEventCount)
 
+        // 移行: このコミット以前に本人オンボーディングを完了した既存ユーザーは
+        // person_onboarding_complete が未設定のまま残る。
+        // isOnboardingComplete == true かつ appMode == .person であれば本人オンボーディング済みとみなして補完する。
+        let personOnboardingKey = "person_onboarding_complete"
+        if !defaults.bool(forKey: personOnboardingKey),
+           defaults.bool(forKey: Constants.Keys.onboardingComplete),
+           AppMode(rawValue: defaults.string(forKey: Constants.Keys.appMode) ?? "") == .person {
+            defaults.set(true, forKey: personOnboardingKey)
+        }
+
         applySubscriptionConstraints()
 
         // didSet は init 内では呼ばれないため、App Group に現在の XP を手動で同期する
