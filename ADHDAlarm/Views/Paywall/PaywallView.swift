@@ -2,14 +2,12 @@ import SwiftUI
 import StoreKit
 import UIKit
 
-// MARK: - バリエーション定義（開くたびにランダム切り替え）
+// MARK: - 本人向けPaywallコピー定義
 
-/// Paywallのバリエーション。ユーザー層・訴求軸ごとにイラスト・コピーを切り替える。
-/// PRO機能のベネフィットは両バリアントで共通。
 fileprivate struct PaywallVariant {
-    let imageName: String               // Assets.xcassets のアセット名
-    let imageFallbackEmoji: String      // 画像未登録時の絵文字フォールバック
-    let heroBackground: [Color]         // フォールバック時のグラデーション
+    let imageName: String
+    let imageFallbackEmoji: String
+    let heroBackground: [Color]
     let headline: String
     let subheadline: String
     let painHeader: String
@@ -22,52 +20,86 @@ fileprivate struct PaywallVariant {
         let detail: String
     }
 
-    /// PROで手に入る未来 — 両バリアント共通
-    static let sharedBenefits: [Benefit] = [
+    struct BenefitSection {
+        let title: String
+        let items: [Benefit]
+    }
+
+    static let personMainBenefits: [Benefit] = [
         Benefit(
-            icon: "phone.badge.waveform.fill",
-            color: .red,
-            title: "異変を家族へ自動でお知らせ（SOS）",
-            detail: "アラームが5分間止まらなかった場合、登録した家族へ自動でメッセージを送信します。"
-        ),
-        Benefit(
-            icon: "waveform.badge.mic",
-            color: .purple,
-            title: "大切な人の「生声」アラーム",
-            detail: "孫や家族の声を録音して、お薬や通院のアラーム音に設定できます。"
+            icon: "bell.badge.fill",
+            color: .orange,
+            title: "予定に、もっと早く気づける",
+            detail: "大事な予定の前に、複数回のお知らせで気づきやすくなります。"
         ),
         Benefit(
             icon: "calendar.badge.plus",
             color: .blue,
-            title: "Appleカレンダーから予定を取り込む",
-            detail: "既存のカレンダーにある予定を、ワンタップで忘れん坊アラームに取り込めます。"
+            title: "いつものカレンダーからそのまま使える",
+            detail: "Appleカレンダーの予定を、そのままアラームに変換できます。"
         ),
         Benefit(
-            icon: "bell.badge.fill",
-            color: .orange,
-            title: "事前にお知らせ",
-            detail: "大事な予定の前に、早めに気づきやすくなります。"
-        ),
-        Benefit(
-            icon: "calendar.badge.plus",
+            icon: "person.2.fill",
             color: .green,
-            title: "Appleカレンダーから予定を取り込む",
-            detail: "iPhoneのカレンダーに入力した予定をワンタップで取り込んで、アラームに変換できます。"
-        ),
+            title: "家族にサポートしてもらいやすくなる",
+            detail: "どちらか1人がPROなら、家族との連携機能を使えます。"
+        )
     ]
 
-    /// 高齢者家族向け: 「離れて暮らす親御さんの見守り」訴求
-    static let elderlyFamily = PaywallVariant(
+    static let detailSections: [BenefitSection] = [
+        BenefitSection(title: "本人にうれしいこと", items: [
+            Benefit(
+                icon: "bell.badge.fill",
+                color: .orange,
+                title: "事前にお知らせ",
+                detail: "大事な予定の前に、複数回のお知らせで気づきやすくなります。"
+            ),
+            Benefit(
+                icon: "calendar",
+                color: .blue,
+                title: "カレンダーを選べる",
+                detail: "追加先のカレンダーを自由に選べるので、予定の整理がしやすくなります。"
+            ),
+            Benefit(
+                icon: "calendar.badge.plus",
+                color: .blue,
+                title: "Appleカレンダーから取り込める",
+                detail: "iPhoneのカレンダーにある予定を、ワンタップでアラームに変換できます。"
+            ),
+            Benefit(
+                icon: "waveform.badge.mic",
+                color: .purple,
+                title: "家族の生声アラーム",
+                detail: "大切な人の声を録音して、お薬や通院のアラーム音に設定できます。"
+            )
+        ]),
+        BenefitSection(title: "家族にうれしいこと", items: [
+            Benefit(
+                icon: "paperplane.fill",
+                color: .green,
+                title: "家族から予定を送ってもらえる",
+                detail: "お薬や通院の予定を、家族がワンタップで送れるようになります。"
+            ),
+            Benefit(
+                icon: "phone.badge.waveform.fill",
+                color: .red,
+                title: "異変を家族へ自動でお知らせ",
+                detail: "アラームが5分止まらないとき、家族がすぐ気づきやすくなります。"
+            )
+        ])
+    ]
+
+    static let personSupport = PaywallVariant(
         imageName: "paywall_elderly_care",
-        imageFallbackEmoji: "👵💊",
+        imageFallbackEmoji: "🗓️🦉",
         heroBackground: [Color.orange.opacity(0.25), Color.yellow.opacity(0.15)],
-        headline: "離れて暮らす親御さんの\n「もしも」に、誰よりも早く\n気づけるお守りです。",
-        subheadline: "アラームが5分止まらない。その異変を、あなたのスマホへ自動でお知らせします。",
-        painHeader: "こんな経験ありませんか？",
+        headline: "大事な予定に、\nもっと早く気づける。",
+        subheadline: "予定の前に早めに気づけて、いつものカレンダーもそのまま使えます。家族にも頼りやすくなります。",
+        painHeader: "こんなこと、ありませんか？",
         painPoints: [
-            "親がお薬をちゃんと飲んでいるか、毎日心配になる",
-            "大事な通院の日、忘れていないか不安でそわそわする",
-            "何かあったとき、すぐに気づいてあげられないかもしれない"
+            "予定に気づくのが直前になりがち",
+            "通院やお薬をうっかり忘れてしまう",
+            "家族に頼りたいけど、毎回お願いするのは気が引ける"
         ]
     )
 }
@@ -80,8 +112,9 @@ struct PaywallView: View {
     @State var viewModel: PaywallViewModel
     @Environment(\.dismiss) private var dismiss
 
-    @State private var variant: PaywallVariant = .elderlyFamily
+    @State private var variant: PaywallVariant = .personSupport
     @State private var selectedProductID: String? = nil
+    @State private var isDetailExpanded = false
 
     @MainActor
     init(viewModel: PaywallViewModel? = nil) {
@@ -160,14 +193,16 @@ struct PaywallView: View {
         }
     }
 
-    // MARK: - コンテンツ（ヘッドライン → ペイン → ベネフィット → 比較表 → 価格）
+    // MARK: - コンテンツ（ヘッドライン → ペイン → 価値3つ → OR説明 → 詳細 → 価格）
 
     private var contentSection: some View {
         VStack(spacing: 28) {
             headlineSection
             painSection
             benefitsSection
-            comparisonSection
+            orRuleSection
+            supportMessageSection
+            detailSection
             pricingSection
             legalSection
             #if DEBUG
@@ -218,11 +253,11 @@ struct PaywallView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    // PROで手に入る未来
+    // 本人向けの価値3つ
     private var benefitsSection: some View {
-        let benefits = PaywallVariant.sharedBenefits
+        let benefits = PaywallVariant.personMainBenefits
         return VStack(alignment: .leading, spacing: 4) {
-            Label("PROで手に入る未来", systemImage: "star.fill")
+            Label("PROでできること", systemImage: "star.fill")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 6)
@@ -252,7 +287,80 @@ struct PaywallView: View {
         }
     }
 
-    // 無料 vs PRO 比較表（常時表示）
+    private var orRuleSection: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "link.circle.fill")
+                .font(.title3)
+                .foregroundStyle(.blue)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("本人か家族、どちらか1人がPROなら、連携機能が使えます。")
+                    .font(.callout.weight(.semibold))
+                Text("あなたがPROでも、家族は予定送信や見守りのメリットを受けられます。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.blue.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var supportMessageSection: some View {
+        Text("ひとりで抱えず、家族にサポートしてもらいやすくなります。")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+    }
+
+    private var detailSection: some View {
+        DisclosureGroup(isExpanded: $isDetailExpanded) {
+            VStack(alignment: .leading, spacing: 18) {
+                ForEach(PaywallVariant.detailSections.indices, id: \.self) { sectionIndex in
+                    let section = PaywallVariant.detailSections[sectionIndex]
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(section.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        ForEach(section.items.indices, id: \.self) { itemIndex in
+                            let item = section.items[itemIndex]
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: item.icon)
+                                    .font(.callout)
+                                    .foregroundStyle(item.color)
+                                    .frame(width: 22)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.title)
+                                        .font(.callout.weight(.semibold))
+                                    Text(item.detail)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+
+                comparisonSection
+            }
+            .padding(.top, 12)
+        } label: {
+            Text("くわしく見る")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.blue)
+        }
+        .padding(16)
+        .background(Color.secondary.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // 無料 vs PRO 比較表（詳細の中で表示）
     private var comparisonSection: some View {
         VStack(spacing: 0) {
             // ヘッダー
@@ -265,14 +373,14 @@ struct PaywallView: View {
             .padding(.horizontal, 14).padding(.vertical, 10)
             .background(Color.secondary.opacity(0.08))
 
-            comparisonRow("マナーモード貫通アラーム",          free: true,  pro: true)
-            comparisonRow("予定の音声入力（マイク）",          free: true,  pro: true)
-            comparisonRow("事前通知",                         free: false, pro: true)
-            comparisonRow("カレンダー自由選択",                free: false, pro: true)
-            comparisonRow("Appleカレンダーから取り込む",       free: false, pro: true)
-            comparisonRow("家族の生声アラーム",                free: false, pro: true)
-            comparisonRow("SOS自動通知（見守り）",             free: false, pro: true)
-            comparisonRow("Appleカレンダーから取り込む（重複なし）", free: false, pro: true)
+            comparisonRow("本人向け: マナーモード貫通アラーム", free: true,  pro: true)
+            comparisonRow("本人向け: 予定の音声入力（マイク）", free: true,  pro: true)
+            comparisonRow("本人向け: 事前通知",               free: false, pro: true)
+            comparisonRow("本人向け: カレンダー自由選択",      free: false, pro: true)
+            comparisonRow("本人向け: Appleカレンダー取り込み", free: false, pro: true)
+            comparisonRow("本人向け: 家族の生声アラーム",      free: false, pro: true)
+            comparisonRow("家族向け: SOS自動通知（見守り）",   free: false, pro: true)
+            comparisonRow("連携: 家族から予定を送ってもらう",  free: false, pro: true)
         }
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.secondary.opacity(0.2), lineWidth: 1))

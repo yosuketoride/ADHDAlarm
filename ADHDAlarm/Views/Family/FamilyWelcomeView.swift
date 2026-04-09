@@ -29,7 +29,7 @@ struct FamilyWelcomeView: View {
             // 購入の有無に関わらずペアリング画面へ進む
             onProceed()
         }) {
-            PaywallView()
+            FamilyPaywallView()
         }
     }
 
