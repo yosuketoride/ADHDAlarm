@@ -29,22 +29,22 @@ fileprivate struct PaywallVariant {
 
     static let personMainBenefits: [Benefit] = [
         Benefit(
-            icon: "bell.badge.fill",
-            color: .orange,
-            title: "予定に、もっと早く気づける",
-            detail: "大事な予定の前に、複数回のお知らせで気づきやすくなります。"
+            icon: "bell.badge",
+            color: .secondary,
+            title: "大事な予定に、確実に気づける",
+            detail: "予定の前に、複数回のお知らせを出せます。"
         ),
         Benefit(
-            icon: "calendar.badge.plus",
-            color: .blue,
-            title: "いつものカレンダーを、そのまま使いやすく",
-            detail: "カレンダーを選んで予定を取り込めるので、普段の流れのまま使えます。"
+            icon: "calendar",
+            color: .secondary,
+            title: "カレンダーの予定をそのままアラーム予定に",
+            detail: "いつものカレンダーを選んで、そのまま取り込めます。"
         ),
         Benefit(
-            icon: "person.2.fill",
-            color: .green,
+            icon: "person.2",
+            color: .secondary,
             title: "家族にサポートしてもらいやすくなる",
-            detail: "どちらか1人がPROなら、家族との連携機能を使えます。"
+            detail: "必要な予定を、家族から送ってもらえます。"
         )
     ]
 
@@ -52,25 +52,25 @@ fileprivate struct PaywallVariant {
         BenefitSection(title: "本人にうれしいこと", items: [
             Benefit(
                 icon: "bell.badge.fill",
-                color: .orange,
+                color: .secondary,
                 title: "事前にお知らせ",
                 detail: "大事な予定の前に、複数回のお知らせで気づきやすくなります。"
             ),
             Benefit(
                 icon: "calendar",
-                color: .blue,
+                color: .secondary,
                 title: "カレンダーを選べる",
                 detail: "追加先のカレンダーを自由に選べるので、予定の整理がしやすくなります。"
             ),
             Benefit(
                 icon: "calendar.badge.plus",
-                color: .blue,
+                color: .secondary,
                 title: "Appleカレンダーから取り込める",
                 detail: "iPhoneのカレンダーにある予定を、ワンタップでアラームに変換できます。"
             ),
             Benefit(
                 icon: "waveform.badge.mic",
-                color: .purple,
+                color: .secondary,
                 title: "家族の生声アラーム",
                 detail: "大切な人の声を録音して、お薬や通院のアラーム音に設定できます。"
             )
@@ -78,13 +78,13 @@ fileprivate struct PaywallVariant {
         BenefitSection(title: "家族にうれしいこと", items: [
             Benefit(
                 icon: "paperplane.fill",
-                color: .green,
+                color: .secondary,
                 title: "家族から予定を送ってもらえる",
                 detail: "お薬や通院の予定を、家族がワンタップで送れるようになります。"
             ),
             Benefit(
                 icon: "phone.badge.waveform.fill",
-                color: .red,
+                color: .secondary,
                 title: "異変を家族へ自動でお知らせ",
                 detail: "アラームが5分止まらないとき、家族がすぐ気づきやすくなります。"
             )
@@ -92,11 +92,11 @@ fileprivate struct PaywallVariant {
     ]
 
     static let personSupport = PaywallVariant(
-        imageName: "paywall_elderly_care",
-        imageFallbackEmoji: "🗓️🦉",
-        heroBackground: [Color.orange.opacity(0.25), Color.yellow.opacity(0.15)],
-        headline: "大事な予定に、\nもっと早く気づける。",
-        subheadline: "予定の前に早めに気づけて、いつものカレンダーもそのまま使えます。家族にも頼りやすくなります。",
+        imageName: "owl_stage0_normal",
+        imageFallbackEmoji: "🦉",
+        heroBackground: [Color.owlAmber.opacity(0.16), Color.owlBrown.opacity(0.08)],
+        headline: "大事な予定に、\n確実に気づける",
+        subheadline: "カレンダーの予定をそのままアラーム予定に",
         painHeader: "こんなこと、ありませんか？",
         painPoints: [
             "予定に気づくのが直前になりがち",
@@ -117,6 +117,11 @@ struct PaywallView: View {
     @State private var variant: PaywallVariant = .personSupport
     @State private var selectedProductID: String? = nil
     @State private var isDetailExpanded = false
+
+    private enum Layout {
+        static let heroHeight: CGFloat = 220
+        static let heroEmojiSize: CGFloat = 96
+    }
 
     @MainActor
     init(viewModel: PaywallViewModel? = nil) {
@@ -151,7 +156,7 @@ struct PaywallView: View {
         }
     }
 
-    // MARK: - ヒーローセクション（画面上部1/3）
+    // MARK: - ヒーローセクション
 
     private var heroSection: some View {
         GeometryReader { geo in
@@ -171,7 +176,7 @@ struct PaywallView: View {
                 .frame(maxWidth: .infinity, alignment: .bottom)
             }
         }
-        .frame(height: 280)
+        .frame(height: Layout.heroHeight)
     }
 
     @ViewBuilder
@@ -189,8 +194,8 @@ struct PaywallView: View {
             )
             .overlay {
                 Text(variant.imageFallbackEmoji)
-                    .font(.system(size: 110))
-                    .padding(.top, 50)
+                    .font(.system(size: Layout.heroEmojiSize))
+                    .padding(.top, Spacing.xl)
             }
         }
     }
@@ -198,7 +203,7 @@ struct PaywallView: View {
     // MARK: - コンテンツ（ヘッドライン → ペイン → 価値3つ → OR説明 → 詳細 → 価格）
 
     private var contentSection: some View {
-        VStack(spacing: 28) {
+        VStack(spacing: Spacing.lg) {
             headlineSection
             painSection
             benefitsSection
@@ -211,14 +216,14 @@ struct PaywallView: View {
             debugSection
             #endif
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 4)
-        .padding(.bottom, 24)
+        .padding(.horizontal, Spacing.md)
+        .padding(.top, Spacing.xs)
+        .padding(.bottom, Spacing.lg)
     }
 
     // ヘッドライン
     private var headlineSection: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Spacing.sm) {
             Text(variant.headline)
                 .font(.title2.weight(.bold))
                 .multilineTextAlignment(.center)
@@ -231,17 +236,19 @@ struct PaywallView: View {
         }
     }
 
-    // こんな経験ありませんか？（共感ゾーン）
+    // 共感ゾーン
     private var painSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             Label(variant.painHeader, systemImage: "questionmark.bubble.fill")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
                 ForEach(variant.painPoints, id: \.self) { point in
-                    HStack(alignment: .top, spacing: 10) {
-                        Text("😔").font(.body)
+                    HStack(alignment: .top, spacing: Spacing.sm) {
+                        Image(systemName: "exclamationmark.circle")
+                            .font(.system(size: IconSize.sm))
+                            .foregroundStyle(.secondary)
                         Text(point)
                             .font(.callout)
                             .fixedSize(horizontal: false, vertical: true)
@@ -249,29 +256,29 @@ struct PaywallView: View {
                 }
             }
         }
-        .padding(16)
+        .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.secondary.opacity(0.07))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
     }
 
     // 本人向けの価値3つ
     private var benefitsSection: some View {
         let benefits = PaywallVariant.personMainBenefits
-        return VStack(alignment: .leading, spacing: 4) {
+        return VStack(alignment: .leading, spacing: Spacing.sm) {
             Label("PROでできること", systemImage: "star.fill")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 6)
+                .foregroundStyle(.primary)
+                .symbolRenderingMode(.monochrome)
+                .padding(.bottom, Spacing.xs)
 
             ForEach(benefits.indices, id: \.self) { i in
                 let b = benefits[i]
-                HStack(alignment: .top, spacing: 14) {
+                HStack(alignment: .top, spacing: Spacing.sm) {
                     Image(systemName: b.icon)
-                        .font(.title3)
+                        .font(.system(size: IconSize.sm, weight: .semibold))
                         .foregroundStyle(b.color)
-                        .frame(width: 32)
-                    VStack(alignment: .leading, spacing: 3) {
+                        .frame(width: IconSize.md)
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
                         Text(b.title)
                             .font(.callout.weight(.semibold))
                         Text(b.detail)
@@ -280,38 +287,43 @@ struct PaywallView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, Spacing.sm)
 
                 if i < benefits.count - 1 {
-                    Divider().padding(.leading, 46)
+                    Divider().padding(.leading, IconSize.md + Spacing.sm)
                 }
             }
         }
+        .padding(Spacing.md)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.lg)
+                .stroke(Color.owlAmber.opacity(0.22), lineWidth: BorderWidth.thin)
+        )
     }
 
     private var orRuleSection: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "link.circle.fill")
-                .font(.title3)
-                .foregroundStyle(.blue)
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            Image(systemName: "link")
+                .font(.system(size: IconSize.sm, weight: .semibold))
+                .foregroundStyle(.secondary)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("本人か家族、どちらか1人がPROなら、連携機能が使えます。")
                     .font(.callout.weight(.semibold))
-                Text("あなたがPROでも、家族は予定送信や見守りのメリットを受けられます。")
+                Text("家族への予定送信や、アラームが止まらないときのお知らせも使えます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(16)
+        .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.blue.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
     }
 
     private var supportMessageSection: some View {
-        Text("ひとりで抱えず、家族にサポートしてもらいやすくなります。")
+        Text("ひとりで抱え込まず、必要なときは家族にも手伝ってもらえます。")
             .font(.callout)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
@@ -320,22 +332,22 @@ struct PaywallView: View {
 
     private var detailSection: some View {
         DisclosureGroup(isExpanded: $isDetailExpanded) {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
                 ForEach(PaywallVariant.detailSections.indices, id: \.self) { sectionIndex in
                     let section = PaywallVariant.detailSections[sectionIndex]
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
                         Text(section.title)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
 
                         ForEach(section.items.indices, id: \.self) { itemIndex in
                             let item = section.items[itemIndex]
-                            HStack(alignment: .top, spacing: 12) {
+                            HStack(alignment: .top, spacing: Spacing.sm) {
                                 Image(systemName: item.icon)
-                                    .font(.callout)
+                                    .font(.system(size: IconSize.sm, weight: .semibold))
                                     .foregroundStyle(item.color)
-                                    .frame(width: 22)
-                                VStack(alignment: .leading, spacing: 2) {
+                                    .frame(width: IconSize.md)
+                                VStack(alignment: .leading, spacing: Spacing.xs) {
                                     Text(item.title)
                                         .font(.callout.weight(.semibold))
                                     Text(item.detail)
@@ -344,22 +356,21 @@ struct PaywallView: View {
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
-                            .padding(.vertical, 4)
+                            .padding(.vertical, Spacing.xs)
                         }
                     }
                 }
 
                 comparisonSection
             }
-            .padding(.top, 12)
+            .padding(.top, Spacing.md)
         } label: {
             Text("くわしく見る")
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.blue)
         }
-        .padding(16)
-        .background(Color.secondary.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(Spacing.md)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
     }
 
     // 無料 vs PRO 比較表（詳細の中で表示）
@@ -372,8 +383,9 @@ struct PaywallView: View {
                 Text("無料").font(.caption.weight(.semibold)).foregroundStyle(.secondary).frame(width: 52)
                 Text("PRO").font(.caption.weight(.bold)).foregroundStyle(.blue).frame(width: 52)
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(Color.secondary.opacity(0.08))
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(.thinMaterial)
 
             comparisonRow("本人向け: マナーモード貫通アラーム", free: true,  pro: true)
             comparisonRow("本人向け: 予定の音声入力（マイク）", free: true,  pro: true)
@@ -384,8 +396,11 @@ struct PaywallView: View {
             comparisonRow("家族向け: SOS自動通知（見守り）",   free: false, pro: true)
             comparisonRow("連携: 家族から予定を送ってもらう",  free: false, pro: true)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.md)
+                .stroke(Color.secondary.opacity(0.2), lineWidth: BorderWidth.thin)
+        )
     }
 
     private func comparisonRow(_ name: String, free: Bool, pro: Bool) -> some View {
@@ -401,9 +416,10 @@ struct PaywallView: View {
                 .foregroundStyle(pro ? Color.blue : Color.secondary.opacity(0.3))
                 .frame(width: 52)
         }
-        .padding(.horizontal, 14).padding(.vertical, 10)
-        .background(Color(.systemBackground))
-        .overlay(alignment: .bottom) { Divider().padding(.leading, 14) }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(.background)
+        .overlay(alignment: .bottom) { Divider().padding(.leading, Spacing.md) }
     }
 
     // MARK: - 価格セクション
@@ -609,8 +625,8 @@ struct PaywallView: View {
                 .symbolRenderingMode(.palette)
                 .foregroundStyle(Color.white, Color.black.opacity(0.35))
         }
-        .padding(.top, 56)
-        .padding(.trailing, 20)
+        .padding(.top, Spacing.xl + Spacing.md)
+        .padding(.trailing, Spacing.md)
     }
 
     // MARK: - スティッキーCTAボタン（画面下部に固定）
