@@ -82,14 +82,22 @@ struct ModeSelectionView: View {
     private func confirmSelection() {
         appState.appMode = selectedMode
         if appState.isOnboardingComplete {
-            // 既存ユーザー: モード変更のみ。RootView が自動切替
             if selectedMode == .family {
                 // 家族モードに切り替えるたびに WelcomeView を再表示する
                 UserDefaults.standard.set(false, forKey: "family_welcome_shown")
+                return
             }
-            return
+            // 本人を選んだ場合: 本人オンボーディング完了済みかを確認する
+            // 家族フロー経由で isOnboardingComplete が立った場合は本人オンボーディングが未経験のため通す
+            let personOnboardingDone = UserDefaults.standard.bool(forKey: "person_onboarding_complete")
+            if personOnboardingDone {
+                // 既存の本人ユーザー: モード変更のみ
+                return
+            }
+            // 家族フロー経由の初回本人切り替え: isOnboardingComplete をリセットしてオンボーディングへ
+            appState.isOnboardingComplete = false
         }
-        // 初回: オンボーディングフローへ
+        // オンボーディングフローへ
         if selectedMode == .person {
             appState.onboardingPath.append(OnboardingDestination.personWelcome)
         } else {

@@ -85,6 +85,8 @@ struct WidgetGuideView: View {
 
     private func finishOnboarding() {
         appState.isOnboardingComplete = true
+        // 本人オンボーディングを完了したことを記録（家族フロー経由と区別するため）
+        UserDefaults.standard.set(true, forKey: "person_onboarding_complete")
         appState.onboardingPath = NavigationPath()
         onFinished?()
     }
