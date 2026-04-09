@@ -178,7 +178,7 @@ struct ADHDAlarmApp: App {
         let scheduler = AlarmKitScheduler()
         let calendarProvider = AppleCalendarProvider()
         let misregistered = await MainActor.run {
-            AlarmEventStore.shared.all.filter { $0.remoteEventId != nil }
+            AlarmEventStore.shared.loadAll().filter { $0.remoteEventId != nil }
         }
         guard !misregistered.isEmpty else { return }
         print("🧹 [purgeMisregistered] 家族端末の誤登録アラームを削除: \(misregistered.count)件")
@@ -192,7 +192,7 @@ struct ADHDAlarmApp: App {
             if let ekID = alarm.eventKitIdentifier {
                 try? await calendarProvider.deleteEvent(eventKitIdentifier: ekID)
             }
-            await MainActor.run { AlarmEventStore.shared.delete(alarm.id) }
+            await MainActor.run { AlarmEventStore.shared.delete(id: alarm.id) }
         }
         print("🧹 [purgeMisregistered] 削除完了")
     }
