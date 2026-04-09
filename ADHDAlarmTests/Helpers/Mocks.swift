@@ -14,7 +14,9 @@ final class MockFamilyService: FamilyScheduling {
     var updatedTokens: [String] = []
     var updatedLastSeen = false
     var generatedCodes: [(linkId: String, code: String)] = []
+    var generatedIsPremiums: [Bool] = []
     var joinedCodes: [String] = []
+    var joinedIsPremiums: [Bool] = []
     var unlinkedIds: [String] = []
     var createdEvents: [RemoteEventPayload] = []
     var cancelledEventIds: [String] = []
@@ -56,6 +58,7 @@ final class MockFamilyService: FamilyScheduling {
         if shouldThrow { throw MockError.intentional }
         let result = (linkId: stubLinkId, code: stubCode)
         generatedCodes.append(result)
+        generatedIsPremiums.append(isPremium)
         return result
     }
 
@@ -69,6 +72,7 @@ final class MockFamilyService: FamilyScheduling {
     func joinFamily(code: String, isPremium: Bool) async throws -> String {
         if shouldThrow { throw FamilyError.invalidCode }
         joinedCodes.append(code)
+        joinedIsPremiums.append(isPremium)
         return stubLinkId
     }
 

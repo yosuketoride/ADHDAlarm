@@ -33,9 +33,16 @@ struct FamilyPairingView: View {
             if case .linked(let linkId) = newState,
                !appState.familyChildLinkIds.contains(linkId) {
                 appState.familyChildLinkIds.append(linkId)
-                // ペアリング完了 → PRO未加入の場合は家族向けペイウォールを表示
-                if appState.subscriptionTier != .pro {
-                    showPaywall = true
+                // ペアリング完了直後はサーバーの is_premium を読んでから paywall 判定する
+                // （相手が既にPROのリンクへ参加した場合、ローカルがまだ .free のままだと誤って Paywall が出るため）
+                Task {
+                    let linkedIsPremium = await viewModel.fetchLinkedIsPremium(linkId: linkId)
+                    if linkedIsPremium {
+                        appState.subscriptionTier = .pro
+                    }
+                    if appState.subscriptionTier != .pro {
+                        showPaywall = true
+                    }
                 }
             }
         }

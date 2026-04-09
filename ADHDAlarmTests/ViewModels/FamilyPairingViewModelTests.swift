@@ -157,6 +157,42 @@ final class FamilyPairingViewModelTests: XCTestCase {
         XCTAssertEqual(mockService.unlinkedIds, ["link-to-remove"])
     }
 
+    // MARK: - OR セマンティクス: isPremium フラグの伝達
+
+    func testJoinWithCodePassesPremiumTrueWhenProUser() async throws {
+        // Arrange: PRO ユーザーが参加する
+        viewModel.inputCode = "123456"
+
+        // Act
+        viewModel.joinWithCode(isPremium: true)
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        // Assert: isPremium=true がサービスに渡っていること
+        XCTAssertEqual(mockService.joinedIsPremiums, [true])
+    }
+
+    func testJoinWithCodePassesPremiumFalseWhenFreeUser() async throws {
+        // Arrange: 無料ユーザーが参加する
+        viewModel.inputCode = "123456"
+
+        // Act
+        viewModel.joinWithCode(isPremium: false)
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        // Assert: isPremium=false がサービスに渡っていること（false で上書きするかどうかはサービス側の責務）
+        XCTAssertEqual(mockService.joinedIsPremiums, [false])
+    }
+
+    func testGenerateCodePassesPremiumTrueWhenProUser() async throws {
+        // Arrange: PRO ユーザーがコード発行
+        // Act
+        viewModel.generateCode(isPremium: true)
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        // Assert: isPremium=true がサービスに渡っていること
+        XCTAssertEqual(mockService.generatedIsPremiums, [true])
+    }
+
     // MARK: - Realtimeリスナー: pairedイベントでlinkedに遷移
 
     func testListeningTaskTransitionsToLinkedOnPaired() async throws {
