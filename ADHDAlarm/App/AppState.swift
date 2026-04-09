@@ -196,13 +196,14 @@ final class AppState {
         self.familyChildLinkIds = defaults.stringArray(forKey: Constants.Keys.familyChildLinkIds) ?? []
         self.unreadFamilyEventCount = defaults.integer(forKey: Constants.Keys.unreadFamilyEventCount)
 
-        // 移行: このコミット以前に本人オンボーディングを完了した既存ユーザーは
+        // 移行: このコミット以前にオンボーディングを完了した既存ユーザーは
         // person_onboarding_complete が未設定のまま残る。
-        // isOnboardingComplete == true かつ appMode == .person であれば本人オンボーディング済みとみなして補完する。
+        // isOnboardingComplete == true であれば（家族モード含め）本人への切り替え時に
+        // 再オンボーディングを強制しないよう true に補完する。
+        // ※ 家族専用ユーザーが本人へ切り替える場合も同様に扱う（personWelcome 未経験でも許容）
         let personOnboardingKey = "person_onboarding_complete"
         if !defaults.bool(forKey: personOnboardingKey),
-           defaults.bool(forKey: Constants.Keys.onboardingComplete),
-           AppMode(rawValue: defaults.string(forKey: Constants.Keys.appMode) ?? "") == .person {
+           defaults.bool(forKey: Constants.Keys.onboardingComplete) {
             defaults.set(true, forKey: personOnboardingKey)
         }
 
