@@ -37,13 +37,10 @@ struct FamilyWelcomeView: View {
 
     private var heroSection: some View {
         VStack(spacing: Spacing.md) {
-            ZStack {
-                Circle()
-                    .fill(Color.owlAmber.opacity(0.14))
-                    .frame(width: 88, height: 88)
-                Text("🦉")
-                    .font(.system(size: 40))
-            }
+            Image("owl_stage0_normal")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 100, height: 100)
 
             Text("離れていても、そばにいられる")
                 .font(.title2.weight(.bold))
@@ -148,7 +145,10 @@ struct FamilyWelcomeView: View {
             .buttonStyle(.plain)
 
             Button {
-                appState.appMode = .person
+                // appMode を nil にして ModeSelectionView に戻す
+                // （家族モード選択時に isOnboardingComplete = true になるため、
+                //   .person を直接セットすると本人オンボーディングがスキップされてしまう）
+                appState.appMode = nil
             } label: {
                 Text("やっぱり自分で使う")
                     .font(.caption)

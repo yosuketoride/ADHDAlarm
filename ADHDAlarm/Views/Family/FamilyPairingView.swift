@@ -147,7 +147,7 @@ struct FamilyPairingView: View {
 
     private var switchModeButton: some View {
         Button {
-            appState.appMode = .person
+            appState.appMode = nil
         } label: {
             Text("やっぱり自分で使う")
                 .font(.callout)

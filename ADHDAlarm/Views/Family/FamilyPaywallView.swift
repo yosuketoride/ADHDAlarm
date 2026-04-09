@@ -29,8 +29,10 @@ struct FamilyPaywallView: View {
 
     private var heroSection: some View {
         VStack(spacing: Spacing.md) {
-            Text("👨‍👩‍👧")
-                .font(.system(size: 56))
+            Image("owl_stage0_normal")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 100, height: 100)
 
             Text("予定を送って、離れていても一緒にいられる")
                 .font(.title2.weight(.bold))

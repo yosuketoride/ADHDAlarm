@@ -83,13 +83,18 @@ struct ModeSelectionView: View {
         appState.appMode = selectedMode
         if appState.isOnboardingComplete {
             // 既存ユーザー: モード変更のみ。RootView が自動切替
+            if selectedMode == .family {
+                // 家族モードに切り替えるたびに WelcomeView を再表示する
+                UserDefaults.standard.set(false, forKey: "family_welcome_shown")
+            }
             return
         }
         // 初回: オンボーディングフローへ
         if selectedMode == .person {
             appState.onboardingPath.append(OnboardingDestination.personWelcome)
         } else {
-            // 家族フロー（Phase 5 で本実装）: 暫定で直接ホームへ
+            // 家族フロー: WelcomeView でオンボーディングを行うため直接ホームへ
+            UserDefaults.standard.set(false, forKey: "family_welcome_shown")
             appState.isOnboardingComplete = true
         }
     }
