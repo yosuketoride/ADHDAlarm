@@ -356,7 +356,7 @@ struct SettingsView: View {
                     title: "家族から予定を受け取る",
                     subtitle: appState.familyLinkId != nil
                         ? "連携済み ✓"
-                        : "6桁コードを作って、ご家族のスマホで入力します"
+                        : "コードを発行してご家族と連携"
                 )
             }
             .buttonStyle(.plain)
