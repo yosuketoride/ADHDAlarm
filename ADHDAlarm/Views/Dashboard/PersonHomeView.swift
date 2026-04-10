@@ -221,6 +221,7 @@ struct PersonHomeView: View {
             if loadsEventsOnTask {
                 await viewModel.loadEvents()
             }
+            await refreshFamilyPremiumIfNeeded()
         }
         .confirmationDialog(
             deleteDialogTitle,
@@ -931,6 +932,20 @@ struct PersonHomeView: View {
             return "「\(alarm.title)」は繰り返し予定です。今回だけ削除するか、繰り返しを全部削除するか選んでください。"
         }
         return "「\(alarm.title)」を削除しますか？（iPhoneのカレンダーからも消えます）"
+    }
+
+    private func refreshFamilyPremiumIfNeeded() async {
+        guard appState.subscriptionTier == .free else { return }
+        guard appState.familyLinkId != nil || !appState.familyChildLinkIds.isEmpty else { return }
+
+        do {
+            let links = try await FamilyRemoteService.shared.fetchMyFamilyLinks()
+            if links.contains(where: { $0.isPremium }) {
+                appState.subscriptionTier = .pro
+            }
+        } catch {
+            // 取得失敗時は現在値を維持し、次回の前面復帰や設定再表示で再判定する
+        }
     }
 
     private var actionDialogTitle: String {

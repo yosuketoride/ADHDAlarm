@@ -133,6 +133,7 @@ struct SettingsView: View {
         .disabled(isDeletingAccount)
         .task {
             await viewModel.loadCalendars()
+            await refreshFamilyPremiumIfNeeded()
         }
     }
 
@@ -150,6 +151,20 @@ struct SettingsView: View {
             .padding(Spacing.xl)
             .background(.regularMaterial)
             .clipShape(RoundedRectangle(cornerRadius: CornerRadius.lg))
+        }
+    }
+
+    private func refreshFamilyPremiumIfNeeded() async {
+        guard appState.subscriptionTier == .free else { return }
+        guard appState.familyLinkId != nil || !appState.familyChildLinkIds.isEmpty else { return }
+
+        do {
+            let links = try await FamilyRemoteService.shared.fetchMyFamilyLinks()
+            if links.contains(where: { $0.isPremium }) {
+                appState.subscriptionTier = .pro
+            }
+        } catch {
+            // 取得失敗時は現在値を維持し、次回の前面復帰や再表示で再判定する
         }
     }
 
