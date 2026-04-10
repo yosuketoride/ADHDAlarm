@@ -90,6 +90,12 @@ struct FamilyLinkView: View {
             if case .linked(let linkId) = newState {
                 if selectedRole == .parent {
                     appState.familyLinkId = linkId
+                    Task {
+                        let linkedIsPremium = await viewModel.fetchLinkedIsPremium(linkId: linkId)
+                        if linkedIsPremium {
+                            appState.subscriptionTier = .pro
+                        }
+                    }
                 } else {
                     if !appState.familyChildLinkIds.contains(linkId) {
                         appState.familyChildLinkIds.append(linkId)

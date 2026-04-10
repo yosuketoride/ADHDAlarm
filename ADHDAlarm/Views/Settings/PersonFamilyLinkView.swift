@@ -40,9 +40,16 @@ struct PersonFamilyLinkView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .onChange(of: viewModel.state) { _, newState in
-            // ペアリング完了時は受け取り用 linkId のみ保存する
+            // ペアリング完了時は受け取り用 linkId を保存し、
+            // 相手側のPRO状態も取り直して本人側へ即反映する。
             if case .linked(let linkId) = newState {
                 appState.familyLinkId = linkId
+                Task {
+                    let linkedIsPremium = await viewModel.fetchLinkedIsPremium(linkId: linkId)
+                    if linkedIsPremium {
+                        appState.subscriptionTier = .pro
+                    }
+                }
             }
         }
     }
