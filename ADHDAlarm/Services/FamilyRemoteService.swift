@@ -77,18 +77,33 @@ final class FamilyRemoteService: FamilyScheduling {
     }
 
     func deleteAccount() async throws {
-        let session = try await client.auth.session
+        guard let session = try? await client.auth.session else {
+            try? await client.auth.signOut()
+            currentDeviceId = nil
+            return
+        }
+
+        guard !session.isExpired else {
+            try? await client.auth.signOut()
+            currentDeviceId = nil
+            return
+        }
 
         struct DeleteResponse: Decodable {
             let success: Bool
         }
 
-        let _: DeleteResponse = try await client.functions.invoke(
-            "delete-account",
-            options: FunctionInvokeOptions(
-                headers: ["Authorization": "Bearer \(session.accessToken)"]
+        do {
+            let _: DeleteResponse = try await client.functions.invoke(
+                "delete-account",
+                options: FunctionInvokeOptions(
+                    headers: ["Authorization": "Bearer \(session.accessToken)"]
+                )
             )
-        )
+        } catch {
+            // 未連携や期限切れ直後など、サーバー側に削除対象がなくても
+            // ユーザー体験としてはローカル状態の整理を優先する。
+        }
 
         try await client.auth.signOut()
         currentDeviceId = nil
