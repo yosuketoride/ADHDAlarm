@@ -45,7 +45,7 @@ struct FamilyWelcomeView: View {
                 .font(.title2.weight(.bold))
                 .multilineTextAlignment(.center)
 
-            Text("予定を送ったり、様子を確認したり。\n家族として本人をさりげなく支えられます。")
+            Text("予定を送ったり、様子を確認したり。\nあなたからご家族をさりげなく支えられます。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

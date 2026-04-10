@@ -114,11 +114,11 @@ struct FamilyLinkView: View {
                 .foregroundStyle(.blue)
             Text("家族と予定を共有する")
                 .font(.title3.weight(.bold))
-            Text("離れて住む家族が、あなたのスマホにアラーム予定を直接送ることができます。")
+            Text("あなたのスマホと、ご家族のスマホで予定をやり取りできるようになります。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Text("この画面では、この端末で予定を受け取る設定と、別の端末へ予定を送る設定の両方ができます。")
+            Text("この画面では、この端末で予定を受け取る設定と、ご家族へ予定を送る設定の両方ができます。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -139,9 +139,9 @@ struct FamilyLinkView: View {
     private var parentStartSection: some View {
         VStack(spacing: Spacing.md) {
             VStack(alignment: .leading, spacing: 6) {
-                Label("コードを相手に伝える", systemImage: "number.square.fill")
+                Label("6桁のコードを作る", systemImage: "number.square.fill")
                     .font(.headline)
-                Text("この端末でコードを生成して、予定を送りたい相手に伝えてください。相手が入力すると連携できます。")
+                Text("コードを作ったら、ご家族のスマホでアプリを開き、連携画面で入力してもらってください。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -165,7 +165,7 @@ struct FamilyLinkView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label("受け取ったコードを入力", systemImage: "keyboard")
                     .font(.headline)
-                Text("相手の端末に表示された6桁のコードを入力してください。")
+                Text("予定を受け取る側のスマホに表示された6桁のコードを入力してください。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -195,7 +195,7 @@ struct FamilyLinkView: View {
 
     private func waitingSection(code: String, seconds: Int) -> some View {
         VStack(spacing: Spacing.lg) {
-            Text("このコードを家族に伝えてください")
+            Text("このコードをご家族のスマホで入力してください")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -235,9 +235,9 @@ struct FamilyLinkView: View {
                     .font(.title2)
                     .foregroundStyle(.green)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("家族と連携済み")
+                    Text("ご家族と連携済み")
                         .font(.headline)
-                    Text("相手から予定が届くと、アラームが自動でセットされます。")
+                    Text("ご家族から予定が届くと、アラームが自動でセットされます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

@@ -63,11 +63,11 @@ struct PersonFamilyLinkView: View {
                 .foregroundStyle(.blue)
             Text("家族と予定を共有する")
                 .font(.title3.weight(.bold))
-            Text("離れて住む家族が、あなたのスマホにアラーム予定を直接送ることができます。")
+            Text("ご家族が、あなたのスマホにアラーム予定を直接送れるようになります。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Text("家族が代わりに予定を登録できるよう、連携コードを発行します。")
+            Text("まずは6桁のコードを作って、ご家族のスマホで入力してもらいます。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -78,9 +78,9 @@ struct PersonFamilyLinkView: View {
     private var parentStartSection: some View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                Label("コードを家族に伝える", systemImage: "number.square.fill")
+                Label("6桁のコードを作る", systemImage: "number.square.fill")
                     .font(.headline)
-                Text("この端末でコードを生成して、予定を登録してくれる家族に伝えてください。コードを入力すると連携できます。")
+                Text("コードを作ったら、ご家族のスマホでアプリを開き、画面の案内に沿って入力してもらってください。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -102,9 +102,14 @@ struct PersonFamilyLinkView: View {
 
     private func waitingSection(code: String, seconds: Int) -> some View {
         VStack(spacing: 20) {
-            Text("このコードを家族に伝えてください")
+            Text("このコードをご家族のスマホで入力してください")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+
+            Text("ご家族のスマホでアプリを開き、右上の設定ボタンから連携画面へ進むと入力できます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
 
             // 大きな数字コード表示
             Text(code)
@@ -143,9 +148,9 @@ struct PersonFamilyLinkView: View {
                     .font(.title2)
                     .foregroundStyle(.green)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("家族と連携済み")
+                    Text("ご家族と連携済み")
                         .font(.headline)
-                    Text("家族から予定が届くと、アラームが自動でセットされます。")
+                    Text("ご家族から予定が届くと、アラームが自動でセットされます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

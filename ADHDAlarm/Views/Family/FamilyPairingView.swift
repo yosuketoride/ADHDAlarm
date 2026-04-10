@@ -64,7 +64,7 @@ struct FamilyPairingView: View {
             VStack(spacing: Spacing.sm) {
                 Text("ペアリングしよう")
                     .font(.title.weight(.bold))
-                Text("「自分で使う」側の6桁コードを入力してね")
+                Text("ご家族のスマホで\n設定 → 家族から予定を受け取る → 6桁のコードを生成\nの順に開いて、表示されたコードを入力してください。")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -110,7 +110,7 @@ struct FamilyPairingView: View {
     private var statusSection: some View {
         switch viewModel.state {
         case .idle:
-            ConciergeText(message: "コードを入力すると、家族から予定を送れるようになります。")
+            ConciergeText(message: "6桁のコードを入力すると、あなたのスマホからご家族へ予定を送れるようになります。")
 
         case .joining:
             ProgressView("つないでいます…")
