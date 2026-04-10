@@ -83,8 +83,20 @@ final class FamilyPairingViewModel {
     /// ペアリング完了直後に呼び、サーバーの is_premium を読んで返す
     /// （ローカルの appState がまだ .free のまま残っている場合の誤 Paywall 表示を防ぐ）
     func fetchLinkedIsPremium(linkId: String) async -> Bool {
-        let links = try? await service.fetchMyFamilyLinks()
-        return links?.contains(where: { $0.id == linkId && $0.isPremium }) ?? false
+        let maxAttempts = 3
+
+        for attempt in 1...maxAttempts {
+            if let links = try? await service.fetchMyFamilyLinks(),
+               links.contains(where: { $0.id == linkId && $0.isPremium }) {
+                return true
+            }
+
+            if attempt < maxAttempts {
+                try? await Task.sleep(for: .milliseconds(400))
+            }
+        }
+
+        return false
     }
 
     // MARK: - ペアリング解除
