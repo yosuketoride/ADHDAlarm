@@ -346,25 +346,20 @@ struct SettingsView: View {
             Divider().padding(.leading, 52)
 
             // 家族から予定を受け取る
-            if viewModel.isPro {
-                NavigationLink {
-                    PersonFamilyLinkView()
-                } label: {
-                    listRow(
-                        icon: "person.2",
-                        title: "家族から予定を受け取る",
-                        subtitle: appState.familyLinkId != nil
-                            ? "連携済み ✓"
-                            : "家族が代わりに予定を登録できます"
-                    )
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button { showPaywall = true } label: {
-                    listRow(icon: "person.2", title: "家族から予定を受け取る", proLocked: true)
-                }
-                .buttonStyle(.plain)
+            // 片側課金の OR モデルでは、まずコード発行してペアリングできることが重要。
+            // ペアリング後に相手側の PRO 状態が反映されるため、ここは課金でロックしない。
+            NavigationLink {
+                PersonFamilyLinkView()
+            } label: {
+                listRow(
+                    icon: "person.2",
+                    title: "家族から予定を受け取る",
+                    subtitle: appState.familyLinkId != nil
+                        ? "連携済み ✓"
+                        : "ご家族がPROなら、そのまま使えます"
+                )
             }
+            .buttonStyle(.plain)
         }
     }
 
