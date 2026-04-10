@@ -9,6 +9,10 @@ struct FamilyPaywallView: View {
     @State private var selectedProductID: String? = nil
     @State private var isDetailExpanded = false
 
+    private var isCurrentPro: Bool {
+        appState.subscriptionTier == .pro
+    }
+
     /// 初回フローでは無料ペアリングへ進む。通常のシート表示では nil のままで閉じる。
     var onContinueWithoutUpgrade: (() -> Void)? = nil
 
@@ -67,9 +71,10 @@ struct FamilyPaywallView: View {
                 ),
                 Benefit(
                     icon: "waveform.badge.mic",
-                    title: "お孫さんの生声アラーム",
-                    detail: "お孫さんの声を録音して、アラームとして鳴らせます",
+                    title: "安心できる生声アラーム",
+                    detail: "お孫さんや家族の声を録音して、アラームとして鳴らせます",
                     accent: .secondary
+
                 ),
             ]
         )
@@ -85,13 +90,18 @@ struct FamilyPaywallView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 heroSection
+                if isCurrentPro {
+                    currentPlanBanner
+                }
                 painSection
                 transitionHintSection
                 benefitsSection
                 orRuleSection
                 detailSection
-                pricingSection
-                legalSection
+                if !isCurrentPro {
+                    pricingSection
+                    legalSection
+                }
             }
             .padding(.horizontal, Spacing.md)
             .padding(.top, Spacing.lg)
@@ -157,6 +167,30 @@ struct FamilyPaywallView: View {
         }
         .padding(Spacing.md)
         // .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+    }
+
+    private var currentPlanBanner: some View {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.green)
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("現在PROをご利用中です")
+                    .font(.callout.weight(.semibold))
+                Text("この端末では、すでに連携機能と見守り機能が使えます。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(Spacing.md)
+        .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.lg)
+                .stroke(Color.green.opacity(0.2), lineWidth: BorderWidth.thin)
+        )
     }
 
     private var transitionHintSection: some View {
@@ -341,27 +375,41 @@ struct FamilyPaywallView: View {
 
     private var ctaSection: some View {
         VStack(spacing: Spacing.sm) {
-            Button {
-                guard let id = selectedProductID,
-                      let product = viewModel.products.first(where: { $0.id == id }) else { return }
-                Task { await viewModel.purchase(product) }
-            } label: {
-                Group {
-                    if viewModel.isPurchasing {
-                        ProgressView().tint(.black)
-                    } else {
-                        Text(ctaTitle)
-                            .font(.headline)
-                            .multilineTextAlignment(.center)
-                    }
+            if isCurrentPro {
+                Button {
+                    dismiss()
+                } label: {
+                    Text("閉じる")
+                        .font(.headline)
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: ComponentSize.primary)
+                        .background(Color.owlAmber, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
                 }
-                .foregroundStyle(.black)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: ComponentSize.primary)
-                .background(Color.owlAmber, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    guard let id = selectedProductID,
+                          let product = viewModel.products.first(where: { $0.id == id }) else { return }
+                    Task { await viewModel.purchase(product) }
+                } label: {
+                    Group {
+                        if viewModel.isPurchasing {
+                            ProgressView().tint(.black)
+                        } else {
+                            Text(ctaTitle)
+                                .font(.headline)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: ComponentSize.primary)
+                    .background(Color.owlAmber, in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isPurchasing || viewModel.products.isEmpty)
             }
-            .buttonStyle(.plain)
-            .disabled(viewModel.isPurchasing || viewModel.products.isEmpty)
 
             Button(onContinueWithoutUpgrade == nil ? "あとで" : "無料でペアリングだけする") {
                 if let onContinueWithoutUpgrade {
@@ -375,7 +423,8 @@ struct FamilyPaywallView: View {
             .frame(minHeight: ComponentSize.small)
             .buttonStyle(.plain)
 
-            if let id = selectedProductID,
+            if !isCurrentPro,
+               let id = selectedProductID,
                let product = viewModel.products.first(where: { $0.id == id }) {
                 let period: String? = {
                     switch product.subscription?.subscriptionPeriod.unit {
@@ -595,7 +644,7 @@ struct FamilyPaywallView: View {
 
     private var legalSection: some View {
         VStack(spacing: Spacing.sm) {
-            Button("購入を復元する") {
+            Button("前の購入を反映する") {
                 Task { await viewModel.restorePurchases() }
             }
             .font(.footnote)

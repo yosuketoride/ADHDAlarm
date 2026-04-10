@@ -130,6 +130,10 @@ struct PaywallView: View {
     @State private var selectedProductID: String? = nil
     @State private var isDetailExpanded = false
 
+    private var isCurrentPro: Bool {
+        appState.subscriptionTier == .pro
+    }
+
     private enum Layout {
         static let heroHeight: CGFloat = 160
         static let heroEmojiSize: CGFloat = 96
@@ -217,14 +221,19 @@ struct PaywallView: View {
     private var contentSection: some View {
         VStack(spacing: Spacing.lg) {
             headlineSection
+            if isCurrentPro {
+                currentPlanBanner
+            }
             painSection
             transitionHintSection
             benefitsSection
             // supportMessageSection
             orRuleSection
             detailSection
-            pricingSection
-            legalSection
+            if !isCurrentPro {
+                pricingSection
+                legalSection
+            }
             #if DEBUG
             debugSection
             #endif
@@ -249,6 +258,30 @@ struct PaywallView: View {
                 .minimumScaleFactor(0.92)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var currentPlanBanner: some View {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.green)
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("現在PROをご利用中です")
+                    .font(.callout.weight(.semibold))
+                Text("この端末では、すでにPRO機能が使えます。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(Spacing.md)
+        .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: CornerRadius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.lg)
+                .stroke(Color.green.opacity(0.2), lineWidth: BorderWidth.thin)
+        )
     }
 
     // 共感ゾーン
@@ -620,7 +653,7 @@ struct PaywallView: View {
 
     private var legalSection: some View {
         VStack(spacing: 10) {
-            Button("購入を復元する") {
+            Button("前の購入を反映する") {
                 Task { await viewModel.restorePurchases() }
             }
             .font(.footnote)
@@ -664,51 +697,67 @@ struct PaywallView: View {
 
     private var ctaSection: some View {
         VStack(spacing: 6) {
-            Button {
-                guard let id = selectedProductID,
-                      let product = viewModel.products.first(where: { $0.id == id }) else { return }
-                Task { await viewModel.purchase(product) }
-            } label: {
-                Group {
-                    if viewModel.isPurchasing {
-                        ProgressView().tint(.white)
-                    } else {
-                        Text("14日間無料で試す")
-                            .font(.title3.weight(.bold))
-                    }
+            if isCurrentPro {
+                Button {
+                    dismiss()
+                } label: {
+                    Text("閉じる")
+                        .font(.title3.weight(.bold))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 58)
+                        .background(Color.blue)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 58)
-                .background(Color.blue)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-            }
-            .disabled(viewModel.isPurchasing || viewModel.products.isEmpty)
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-
-            // Apple審査要件: ボタン直下に価格・自動更新を明記
-            if let id = selectedProductID,
-               let product = viewModel.products.first(where: { $0.id == id }) {
-                let period: String? = {
-                    switch product.subscription?.subscriptionPeriod.unit {
-                    case .year:  return "年"
-                    case .month: return "月"
-                    default:     return nil
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+            } else {
+                Button {
+                    guard let id = selectedProductID,
+                          let product = viewModel.products.first(where: { $0.id == id }) else { return }
+                    Task { await viewModel.purchase(product) }
+                } label: {
+                    Group {
+                        if viewModel.isPurchasing {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("14日間無料で試す")
+                                .font(.title3.weight(.bold))
+                        }
                     }
-                }()
-                if let period {
-                    Text("14日間無料、その後 \(product.displayPrice)/\(period)。いつでもキャンセル可能。")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 20)
-                } else {
-                    Text("一度の購入で永久にご利用いただけます（\(product.displayPrice)）。")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 20)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 58)
+                    .background(Color.blue)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
+                .disabled(viewModel.isPurchasing || viewModel.products.isEmpty)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+
+                // Apple審査要件: ボタン直下に価格・自動更新を明記
+                if let id = selectedProductID,
+                   let product = viewModel.products.first(where: { $0.id == id }) {
+                    let period: String? = {
+                        switch product.subscription?.subscriptionPeriod.unit {
+                        case .year:  return "年"
+                        case .month: return "月"
+                        default:     return nil
+                        }
+                    }()
+                    if let period {
+                        Text("14日間無料、その後 \(product.displayPrice)/\(period)。いつでもキャンセル可能。")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 20)
+                    } else {
+                        Text("一度の購入で永久にご利用いただけます（\(product.displayPrice)）。")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 20)
+                    }
                 }
             }
         }
