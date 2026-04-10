@@ -1,4 +1,5 @@
 import Foundation
+import EventKit
 import Observation
 
 // MARK: - CalendarImportViewModel
@@ -95,7 +96,13 @@ final class CalendarImportViewModel {
     func load() async {
         loadState = .loading
 
-        // 権限チェック
+        // 権限チェック（未確認の場合はリクエストダイアログを表示してから再判定）
+        if !permissionsService.isCalendarAuthorized {
+            let status = EKEventStore.authorizationStatus(for: .event)
+            if status == .notDetermined {
+                await permissionsService.requestCalendar()
+            }
+        }
         guard permissionsService.isCalendarAuthorized else {
             loadState = .noPermission
             return
